@@ -1,0 +1,57 @@
+第一部分：C#
+1、请简述值类型与引用类型的区别，有哪些值类型，哪些引用类型？
+
+2、C#中所有引用类型的基类是什么？
+
+3、C# String类型比stringBuilder类型的优势是什么?
+
+4、C# 函数Func(string a, string b)用Lambda表达式怎么写?
+Func<string, string, string> concatenateStrings = (a, b) => a + b;
+
+5、数列1,1,2,3,5,8,13...第n位数是多少?用C#递归算法实现？
+
+6、请简述GC（垃圾回收）产生的原因，并描述如何避免？
+
+7、请描述Interface与抽象类之间的不同？
+
+8、下列代码在运行中会产生几个临时对象？
+1.	string a = new string("abc");  
+2.	a = (a.ToUpper()+"123").Substring(0,2);  
+
+9、请简述关键字Sealed用在类声明和函数声明时的作用？
+
+10、请简述private，public，protected，internal的区别？
+
+11、反射的实现原理？
+
+12、.Net与Mono的关系？
+
+13、委托的原理？
+委托是一个类型，它定义了方法的签名（返回类型和参数列表），但并不包含方法体。
+创建委托类型的实例时，实际上是创建了一个指向某个方法的引用（指向函数方法的指针）
+
+14、委托与事件的区别？
+
+15、输入一串字符怎样去掉多余的空格？
+除字符串两端的空格，可以使用 .Trim()
+正则表达式：
+	
+
+16、C++和C#的区别？
+
+17、ref和out的用法和区别？
+
+18、简述重载与覆盖的区别？
+
+19、byte是什么类型 内存大小 它是有符号还是无符号的？
+byte类型，它是一种8位有符号整数，可以存储在单个字节中。。（1字节）
+
+20、输出结果：
+class MyClass
+{
+Public MyClass(){v1++;v2++;}
+Public static int v1;
+Public int v2;
+}
+MyClass mc1 = new MyClass(),mc2 = new MyClass();
+Console.WriteLine(“{0}{1}{2}”,MyClass.v1,mc1.v2,mc2.v2);
