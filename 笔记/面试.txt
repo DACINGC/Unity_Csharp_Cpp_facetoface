@@ -1,0 +1,1050 @@
+Unity3D面试题整合
+第一部分：
+
+1、请简述值类型与引用类型的区别？
+2、C#中所有引用类型的基类是什么？
+3、请简述ArrayList和List的主要区别？
+4、请简述GC（垃圾回收）产生的原因，并描述如何避免？
+5、请描述Interface与抽象类之间的不同？
+6、下列代码在运行中会产生几个临时对象？
+7、下列代码在运行中会发生什么问题？如何避免？
+8、请简述关键字Sealed用在类声明和函数声明时的作用？
+9、请简述private，public，protected，internal的区别？
+10、反射的实现原理？
+11、.Net与Mono的关系？
+12、简述Unity3D支持的作为脚本的语言的名称？
+13、Unity3D是否支持写成多线程程序？如果支持的话需要注意什么？
+14、Unity3D的协程和C#线程之间的区别是什么？
+15、U3D中用于记录节点空间几何信息的组件名称，及其父类名称？
+16、简述四元数的作用，四元数对欧拉角的优点？
+17、向量的点乘、叉乘以及归一化的意义？
+18、矩阵相乘的意义及注意点？
+19、为何大家都在移动设备上寻求U3D原生GUI的替代方案？
+20、请简述如何在不同分辨率下保持UI的一致性？
+21、为什么dynamic font在unicode环境下优于static font？
+22、Render的作用？描述MeshRender和SkinnedMeshRender的关系与不同？
+23、简述SkinnedMesh的实现原理？
+24、在场景中放置多个Camera并同时处于活动状态会发生什么？
+25、Prefab的作用？如何在移动环境的设备下恰当地使用它？
+26、如何销毁一个UnityEngine.Object及其子类？
+27、为什么Unity3D中会发生在组件上出现数据丢失的情况？
+28、如何安全的在不同工程间安全地迁移asset数据？三种方法？
+29、MeshCollider和其他Collider的一个主要不同点？
+30、当一个细小的高速物体撞向另一个较大的物体时，会出现什么情况？如何避免？
+31、OnEnable、Awake、Start运行时的发生顺序？哪些可能在同一个对象周期中反复的发生？
+32、请简述OnBecameVisible及OnBecameInvisible的发生时机，以及这一对回调函数的意义？
+33、Unity3D如何获知场景中需要加载的数据？
+34、MeshRender中material和sharedmaterial的区别？
+
+第二部分：
+
+1、请描述游戏动画有哪几种，以及其原理？
+2、alpha blend 工作原理？
+3、写光照计算中的diffuse的计算公式？
+4、lod是什么，优缺点是什么？
+5、两种阴影判断的方法工作原理？
+6、MipMap是什么？作用？
+7、用u3d实现2d游戏，有几种方式？
+8、u3d中碰撞器和触发器的区别？
+9、物体发生碰撞的必要条件？
+10、CharacterController和Rigidbody的区别？
+11、物体发生碰撞时，有几个阶段，分别对应的函数？
+12、u3d中，几种施加力的方式，描述出来？
+13、什么叫做链条关节？
+14、物体自旋转使用的函数叫什么？
+15、物体绕某点旋转使用函数叫什么？
+16、u3d提供了一个用于保存读取数据的类，（playerPrefs），请列出保存读取整形数据的函数？
+17、unity3d提供了几种光源，分别是什么？
+18、unity3d从唤醒到销毁有一段生命周期，请列出系统自己调用的几个重要方法？
+19、物理更新一般在哪个系统函数里？
+20、移动相机动作在哪个函数里，为什么在这个函数里？
+21、当游戏中需要频繁创建一个物体对象时，我们需要怎么做来节省内存？
+22、一个场景放置多个camera并同时处于活动状态，会发生什么？
+23、简述prefab的用处和环境？
+24、如何销毁一个UnityEngine.Object以及其子类？
+25、为什么u3d会出现组件上数据丢失的情况？
+26、u3d下如何安全的在不同工程迁移asset数据？
+
+第三部分：
+
+1、什么是渲染管道？
+2、如何优化内存？
+3、动态加载资源的方式？
+4、什么是协同程序？
+5、你用过哪些插件？
+
+第四部分：
+
+1、反向旋转动画的方法是什么？
+2、碰撞检测需要物体具备什么属性？
+3、用代码实现第三角色控制器？
+4、实现吊机吊物体的功能？
+5、获取、增加、删除组件的命令分别是什么？
+6、Animation.CrossFade命令作用是？
+7、Application.loadLevel命令为？
+8、调试记录到控制台的命令是什么？
+9、编辑器类存放路径是什么？
+10、使用原生GUI创建一个可以拖动的窗口命令是什么？
+11、localPosition与Position的使用区别？
+12、意义连线？
+13、写一个计时器工具，从整点开始计时，格式为：00:00:00？
+14、写出Animation的五个方法？
+15、怎么拿到一个对象上脚本的方法？
+16、上机题？
+17、请简述向量的点乘，向量的叉乘以及向量归一化的几何意义？
+
+第五部分：
+
+1、在类的构造函数前加上static会报什么错?为什么?
+2、C# String类型比stringBuilder类型的优势是什么?
+3、C# 函数Func(string a, string b)用Lambda表达式怎么写?
+4、数列1,1,2,3,5,8,13…第n位数是多少?用C#递归算法实现？
+5、UML图示？
+
+答案区：
+第一部分：
+
+1、请简述值类型与引用类型的区别？
+答：区别：
+1.值类型存储在内存栈中，引用类型数据存储在内存堆中，而内存单元中存放的是堆中存放的地址。
+2.值类型存取快，引用类型存取慢。
+3.值类型表示实际数据，引用类型表示指向存储在内存堆中的数据的指针和引用。
+4.栈的内存是自动释放的，堆内存是.NET中会由GC来自动释放。
+5.值类型继承自System.ValueType,引用类型继承自System.Object。
+可参考http://www.cnblogs.com/JimmyZhang/archive/2008/01/31/1059383.html
+
+2、C#中所有引用类型的基类是什么？
+答：引用类型的基类是System.Object 值类型的基类是System.ValueType
+同时，值类型也隐式继承自System.Object
+
+3、请简述ArrayList和List的主要区别？
+答：ArrayList存在不安全类型‘（ArrayList会把所有插入其中的数据都当做Object来处理）
+装箱拆箱的操作（费时）
+List是接口，ArrayList是一个实现了该接口的类，可以被实例化。
+
+4、请简述GC（垃圾回收）产生的原因，并描述如何避免？
+答：GC回收堆上的内存
+避免：
+
+1）减少new产生对象的次数
+2）使用公用的对象（静态成员）
+3）将String换为StringBuilder
+
+5、请描述Interface与抽象类之间的不同？
+答：抽象类表示该类中可能已经有一些方法的具体定义，但接口就是公公只能定义各个方法的界面 ，不能具体的实现代码在成员方法中。
+类是子类用来继承的，当父类已经有实际功能的方法时该方法在子类中可以不必实现，直接引用父类的方法，子类也可以重写该父类的方法。
+实现接口的时候必须要实现接口中所有的方法，不能遗漏任何一个。
+
+参考http://www.cnblogs.com/seapub/archive/2012/08/08/2628433.html
+
+6、下列代码在运行中会产生几个临时对象？
+
+string a = new string(“abc”);
+a = (a.ToUpper()+“123”).Substring(0,2);
+
+答：其实在C#中第一行是会出错的（Java中倒是可行）。应该这样初始化：
+
+string b = new string(new char[]{‘a’,‘b’,‘c’});
+
+7、下列代码在运行中会发生什么问题？如何避免？
+
+List ls = new List(new int[]{1,2,3,4,5});
+foreach(int item in ls)
+{
+Console.WriteLine(item*item);
+ls.Remove(item);
+}
+
+答：会产生运行时错误，因为foreach是只读的。不能一边遍历一边修改。
+
+8、请简述关键字Sealed用在类声明和函数声明时的作用？
+答：类声明时可防止其他类继承此类，在方法中声明则可防止派生类重写此方法。
+
+9、请简述private，public，protected，internal的区别
+答：
+public：对任何类和成员都公开，无限制访问
+private：仅对该类公开
+protected：对该类和其派生类公开
+internal：只能在包含该类的程序集中访问该类
+protected internal：protected + internal
+
+10、反射的实现原理？
+答：审查元数据并收集关于它的类型信息的能力。
+参考http://blog.163.com/xuanmingzhiyou@yeah/blog/static/1424776762011612115124188/
+反射个人认为，就是得到程序集中的属性和方法。
+实现步骤：
+1.导入using System.Reflection;
+2.Assembly.Load(“程序集”)加载程序集,返回类型是一个Assembly
+3.foreach (Type type in assembly.GetTypes())
+{
+string t = type.Name;
+}
+得到程序集中所有类的名称
+4.Type type = assembly.GetType(“程序集.类名”);获取当前类的类型
+5.Activator.CreateInstance(type); 创建此类型实例
+6.MethodInfo mInfo = type.GetMethod(“方法名”);获取当前方法
+7.mInfo.Invoke(null,方法参数);
+
+11、.Net与Mono的关系？
+答：Mono官网主页
+Mono is a software platform designed to allow developers to easily create
+cross platform applications. Sponsored by Xamarin, Mono is an open source
+implementation of Microsoft’s .NET Framework based on the ECMA standards for C# and the Common Language Runtime.
+mono是.net的一个开源跨平台工具，就类似java虚拟机，java本身不是跨平台语言，但运行在虚拟机上就能够实现了跨平台。.net只能在windows下运行，mono可以实现跨平台跑，
+可以运行于linux，Unix，Mac OS等。
+
+12、简述Unity3D支持的作为脚本的语言的名称？
+答：Unity的脚本语言基于Mono的.Net平台上运行，可以使用.NET库，这也为XML、数据库、正则表达式等问题提供了很好的解决方案。
+Unity里的脚本都会经过编译，他们的运行速度也很快。这三种语言实际上的功能和运行速度是一样的，区别主要体现在语言特性上。
+JavaScript：和网页中常用的JavaScript不一样，它编译后的运行速度很快，语法方面也会有不少区别。
+C#
+Boo：可以看做是Python语言的变种，又糅合了Ruby和C#的特性，它是静态类型语言。
+
+13、Unity3D是否支持写成多线程程序？如果支持的话需要注意什么？
+答：参考http://www.unitymanual.com/3821.html
+仅能从主线程中访问Unity3D的组件，对象和Unity3D系统调用
+支持：如果同时你要处理很多事情或者与Unity的对象互动小可以用thread,否则使用coroutine。
+注意：C#中有lock这个关键字,以确保只有一个线程可以在特定时间内访问特定的对象
+
+14、Unity3D的协程和C#线程之间的区别是什么？
+答：http://blog.csdn.net/kongbu0622/article/details/8775037
+多线程程序同时运行多个线程 ，而在任一指定时刻只有一个协程在运行，并且这个正在运行的协同程序只在必要时才被挂起。除主线程之外的线程无法访问Unity3D的对象、组件、方法。
+Unity3d没有多线程的概念，不过unity也给我们提供了StartCoroutine（协同程序）和LoadLevelAsync（异步加载关卡）后台加载场景的方法。 StartCoroutine为什么叫协同程序呢，所谓协同，就是当你在StartCoroutine的函数体里处理一段代码时，利用yield语句等待执行结果，这期间不影响主程序的继续执行，可以协同工作。而LoadLevelAsync则允许你在后台加载新资源和场景，所以再利用协同，你就可以前台用loading条或动画提示玩家游戏未卡死，同时后台协同处理加载的事宜asynchronous[e ɪˈ s ɪŋ kr ə n ə s] .synchronous同步。
+
+15、U3D中用于记录节点空间几何信息的组件名称，及其父类名称？
+答：Transform 父类是 Component
+
+16、简述四元数的作用，四元数对欧拉角的优点？
+答：四元数用于表示旋转
+相对欧拉角的优点：
+1）能进行增量旋转
+2）避免万向锁
+3）给定方位的表达方式有两种，互为负（欧拉角有无数种表达方式）
+
+17、向量的点乘、叉乘以及归一化的意义？
+1）点乘描述了两个向量的相似程度，结果越大两向量越相似，还可表示投影
+2）叉乘得到的向量垂直于原来的两个向量
+3）标准化向量：用在只关系方向，不关心大小的时候
+
+18、矩阵相乘的意义及注意点？
+用于表示线性变换：旋转、缩放、投影、平移、仿射
+注意矩阵的蠕变：误差的积累
+
+19、为何大家都在移动设备上寻求U3D原生GUI的替代方案？
+不美观，OnGUI很耗费时间，使用不方便 ，DrawCall
+
+20、请简述如何在不同分辨率下保持UI的一致性？
+NGUI很好的解决了这一点，屏幕分辨率的自适应性，原理就是计算出屏幕的宽高比跟原来的预设的屏幕分辨率求出一个对比值，然后修改摄像机的size。
+原生GUI http://unity3d.9ria.com/?p=2587
+NGUI http://blog.csdn.net/mfc11/article/details/17681429
+
+21、为什么dynamic font在unicode环境下优于static font？
+
+Unicode是国际组织制定的可以容纳世界上所有文字和符号的字符编码方案。
+使用动态字体时，Unity将不会预先生成一个与所有字体的字符纹理。当需要支持亚洲语言或者较大的字体的时候，若使用正常纹理，则字体的纹理将非常大。
+
+22、Render的作用？描述MeshRender和SkinnedMeshRender的关系与不同？
+A renderer is what makes an object appear on the screen。
+Mesh就是指模型的网格（同名组件是用于调整网格属性的），MeshFilter一般是用于获得模型网格的组件，而MeshRender是用于把网格渲染出来的组件
+
+23、简述SkinnedMesh的实现原理？
+http://blog.csdn.net/n5/article/details/3105872
+
+24、在场景中放置多个Camera并同时处于活动状态会发生什么？
+答：游戏界面可以看到很多摄像机的混合
+
+25、Prefab的作用？如何在移动环境的设备下恰当地使用它？
+答：Prefab在实例化的时候用到，主要用于经常会用到的物体，属性方便修改
+http://www.cnblogs.com/88999660/archive/2013/03/15/2961663.html
+
+26、如何销毁一个UnityEngine.Object及其子类？
+答：Destory
+
+27、为什么Unity3D中会发生在组件上出现数据丢失的情况？
+答：组件上绑定的对象被删除了
+
+28、如何安全的在不同工程间安全地迁移asset数据？三种方法？
+
+答：
+将Assets目录和Library目录一起迁移
+导出包
+用unity自带的assets Server功能
+
+29、MeshCollider和其他Collider的一个主要不同点？
+答：Meshcollider再快也是基于V3顶点~~ 建议还是用boxcollider，boxcollider本身是基于算法，没有面的概念。
+
+30、当一个细小的高速物体撞向另一个较大的物体时，会出现什么情况？如何避免？
+穿透（碰撞检测失败）
+http://forum.unity3d.com/threads/3353-collision-detection-at-high-speed
+(碰撞体变大，FixedUpdate, 代码限制)
+
+31、OnEnable、Awake、Start运行时的发生顺序？哪些可能在同一个对象周期中反复的发生？
+答：Awake -》OnEnable-》Start
+OnEnable在同一周期中可以反复地发生
+http://answers.unity3d.com/questions/217941/onenable-awake-start-order.html
+
+32、请简述OnBecameVisible及OnBecameInvisible的发生时机，以及这一对回调函数的意义？
+答：当物体是否可见切换之时。可以用于只需要在物体可见时才进行的计算。
+
+33、Unity3D如何获知场景中需要加载的数据？
+答：题目是获取的意思？
+Resource.Load
+AssetBundle
+
+34、MeshRender中material和sharedmaterial的区别？
+修改sharedMaterial将改变所有物体使用这个材质的外观，并且也改变储存在工程里的材质设置。
+不推荐修改由sharedMaterial返回的材质。如果你想修改渲染器的材质，使用material替代。
+
+第二部分
+1、请描述游戏动画有哪几种，以及其原理？
+主要有关节动画、单一网格模型动画(关键帧动画)、骨骼动画。
+关节动画把角色分成若干独立部分，一个部分对应一个网格模型，部分的动画连接成一个整体的动画，角色比较灵活Quake2中使用了这种动画。
+单一网络模型动画由一个完整的网格模型构成，在动画序列的关键帧里记录各个顶点的原位置及其改变量，然后插值运算实现动画效果，角色动画较真实。
+骨骼动画，广泛应用的动画方式，集成了以上两个方式的优点，骨骼按角色特点组成一定的层次结构，由关节相连，可做相对运动，皮肤作为单一网格蒙在骨骼之外，决定角色的外观。皮肤网格每一个顶点都会受到骨骼的影响，从而实现完美的动画。（骨骼动画是由关节动画发展而来的，如今基本都使用骨骼动画来实现角色动画）
+
+2、alpha blend 工作原理？
+实际显示颜色 = 前景颜色Alpha/255 + 背景颜色(255-Alpha)/255
+
+3、写光照计算中的diffuse的计算公式？
+实际光照强度 I= 环境光(Iambient) + 漫反射光(Idiffuse) + 镜面高光(Ispecular);
+环境光：Iambient= Aintensity* Acolor; (Aintensity表示环境光强度，Acolor表示环境光颜色)
+漫反射光：Idiffuse = DintensityDcolorN.L;
+(Dintensity表示漫反射强度，Dcolor表示漫反射光颜色，N为该点的法向量，L为光源向量)
+镜面反射光：Ispecular = SintensityScolor(R.V)^n;
+(Sintensity表示镜面光照强度，Scolor表示镜面光颜色，R为光的反射向量，V为观察者向量，n称为镜面光指数)
+
+4、lod是什么，优缺点是什么？
+LOD技术即Levels of Detail的简称，意为多细节层次。LOD技术指根据物体模型的节点在显示环境中所处的位置和重要度，决定物体渲染的资源分配，降低非重要物体的面数和细节度，从而获得高效率的渲染运算。
+优点：可根据距离动态地选择渲染不同细节的模型
+缺点：加重美工的负担，要准备不同细节的同一模型，同样的会稍微增加游戏的容量。
+
+5、两种阴影判断的方法工作原理？
+阴影由两部分组成：本影与半影
+本影：景物表面上那些没有被光源直接照射的区域（全黑的轮廓分明的区域）
+半影：景物表面上那些被某些特定光源直接照射但并非被所有特定光源直接照射的区域（半明半暗区域）
+求阴影区域的方法：做两次消隐过程
+一次对每个光源进行消隐，求出对于光源而言不可见的区域L；
+一次对视点的位置进行消隐，求出对于视点而言可见的面S；
+shadow area= L ∩ S
+阴影分为两种：自身阴影和投射阴影
+自身阴影：因物体自身的遮挡而使光线照射不到它上面的某些可见面
+工作原理：利用背面剔除的方法求出，即假设视点在点光源的位置。
+投射阴影：因不透明物体遮挡光线使得场景中位于该物体后面的物体或区域受不到光照照射而形成的阴影
+工作原理：从光源处向物体的所有可见面投射光线，将这些面投影到场景中得到投影面，再将这些投影面与场景中的其他平面求交得出阴影多边形，保存这些阴影多边形信息，然后再按视点位置对场景进行相应处理得到所要求的视图（利用空间换时间，每次只需依据视点位置进行一次阴影计算即可，省去了一次消隐过程）
+若是动态光源此方法就无效了。
+
+5、Vertex Shader是什么？怎么计算？
+顶点着色器是一段执行在GPU上的程序，用来取代fixed pipeline中的transformation和lighting，Vertex Shader主要操作顶点。
+Vertex Shader对输入顶点完成了从local space到homogeneous space（齐次空间）的变换过程，homogeneous space即projection space的下一个space。在这其间共有world transformation, view transformation和projection transformation及lighting几个过程。
+
+6、MipMap是什么？作用？
+在三维计算机图形的贴图渲染中有一个常用的技术被称为Mipmapping。为了加快渲染速度和减少图像锯齿，贴图被处理成由一系列被预先计算和优化过的图片组成的文件,这样的贴图被称为 MIP map 或者 mipmap。
+
+7、用u3d实现2d游戏，有几种方式？
+1.利用引擎自带的GUI
+2.把摄像机设为Orthographic，用面片作为2d元素
+3.利用第三方插件：NGUI、2dToolkit
+
+8、u3d中碰撞器和触发器的区别？
+collider碰撞器会有碰撞的效果，IsTrigger = false,可以调用OnCollisionEnter/Stay/Exit函数
+trigger触发器没有碰撞效果，isTrigger = true,可以调用OnTriggerEnter/stay/exit函数
+
+9、物体发生碰撞的必要条件？
+物体A必须带有（collider+rigidbody）或者CharacterController，另一个物体也必须至少带有collider
+
+10、CharacterController和Rigidbody的区别？
+Rigidbody具有完全真实物理的特性，而CharacterController可以说是受限的Rigidbody，具有一定的物理效果但不是完全真实的。
+
+11、物体发生碰撞时，有几个阶段，分别对应的函数？
+三个阶段，OnCollisionEnter/Stay/Exit函数
+
+12、u3d中，几种施加力的方式，描述出来？
+rigidbody.AddForce/AddForceAtPosition，都是rigidbody的成员函数
+
+13、什么叫做链条关节？
+Hinge Joint ，他可以模拟两个物体间用一根链条连接在一起的情况，能保持两个物体在一个固定距离内部相互移动而不产生作用力，但是达到固定距离后就会产生拉力。（简单说就是弹簧）
+
+14、物体自旋转使用的函数叫什么？
+transform.Rotate
+
+15、物体绕某点旋转使用函数叫什么？
+transform.RotateAround
+
+16、u3d提供了一个用于保存读取数据的类，（playerPrefs），请列出保存读取整形数据的函数？
+PlayerPrefs.SetInt 与 PlayerPrefs.GetInt
+
+17、unity3d提供了几种光源，分别是什么？
+平行光：Directional Light
+聚光灯：Spot Light
+点光源：Point Light
+区域光源：Area Light（只用于烘培）
+
+18、unity3d从唤醒到销毁有一段生命周期，请列出系统自己调用的几个重要方法？
+Awake –>OnEnable –> Start –> Update –> FixedUpdate –> LateUpdate –> OnGUI –> Reset –> OnDisable –> OnDestroy
+
+19、物理更新一般在哪个系统函数里？
+FixedUpdate，每固定帧绘制时执行一次，和update不同的是FixedUpdate是渲染帧执行，如果你的渲染效率低下的时候FixedUpdate调用次数就会跟着下降。FixedUpdate比较适用于物理引擎的计算，因为是跟每帧渲染有关。Update就比较适合做控制。
+
+20、移动相机动作在哪个函数里，为什么在这个函数里？
+LateUpdate,，是在所有update结束后才调，比较适合用于命令脚本的执行。官网上例子是摄像机的跟随，都是在所有update操作完才跟进摄像机，不然就有可能出现摄像机已经推进了，但是视角里还未有角色的空帧出现。
+
+21、当游戏中需要频繁创建一个物体对象时，我们需要怎么做来节省内存？
+做一个pool，游戏开始时预先实例化足够的数量，然后用的时候取不用的时候收回
+
+22、一个场景放置多个camera并同时处于活动状态，会发生什么？
+实际看到的画面由多个camera的画面组成，由depth、Clear Flag、Culling Mask都会影响最终合成效果。
+
+23、简述prefab的用处和环境？
+在游戏运行时实例化，prefab相当于一个模版，对你已有的素材、脚本、参数做一个默认配置，以便于以后修改，同时prefab打包的内容简化了导出的操作，便于团队的交流。
+
+24、如何销毁一个UnityEngine.Object以及其子类？
+Destroy
+
+25、为什么u3d会出现组件上数据丢失的情况？
+一般是组件上绑定的物体对象被删除了
+
+26、u3d下如何安全的在不同工程迁移asset数据？
+方法1，可以把assets目录和Library目录一起迁移，
+方法2，导出包
+方法3，用unity带的assets server功能
+
+第三部分
+1、什么是渲染管道？
+是指在显示器上为了显示出图像而经过的一系列必要操作。 渲染管道中的很多步骤，都要将几何物体从一个坐标系中变换到另一个坐标系中去。
+主要步骤有：
+本地坐标->视图坐标->背面裁剪->光照->裁剪->投影->视图变换->光栅化。
+
+2、如何优化内存？
+有很多种方式，例如
+1.压缩自带类库；
+2.将暂时不用的以后还需要使用的物体隐藏起来而不是直接Destroy掉；
+3.释放AssetBundle占用的资源；
+4.降低模型的片面数，降低模型的骨骼数量，降低贴图的大小；
+5.使用光照贴图，使用多层次细节(LOD)，使用着色器(Shader)，使用预设(Prefab)。
+
+3、动态加载资源的方式？(有时候也问区别，具体请百度)
+1.Resources.Load();
+2.AssetBundle
+
+4、什么是协同程序？
+在主线程运行时同时开启另一段逻辑处理，来协助当前程序的执行。换句话说，开启协程就是开启一个线程。可以用来控制运动、序列以及对象的行为。
+
+5、你用过哪些插件？
+(最好多熟悉几个插件，问的时候好回答)
+
+第四部分
+1、反向旋转动画的方法是什么？
+2、碰撞检测需要物体具备什么属性？
+3、用代码实现第三角色控制器
+4、实现吊机吊物体的功能
+5、获取、增加、删除组件的命令分别是什么？
+获取：GetComponent
+增加：AddComponent
+删除：Destroy
+
+6、Animation.CrossFade命令作用是：©
+A.动画放大 B.动画转换 C.动画的淡入为其他动画
+
+7、Application.loadLevel命令为：(A)
+A.加载关卡 B.异步加载关卡 C.加载动作
+
+8、调试记录到控制台的命令是什么？
+Debug.Log();
+
+9、编辑器类存放路径是什么？
+工程目录下的Assets/Editor文件夹下。
+
+10、使用原生GUI创建一个可以拖动的窗口命令是什么？
+GUI.DragWindow();
+
+11、localPosition与Position的使用区别？
+localPosition：自身位置，相对于父级的变换的位置。 Position：在世界坐标transform的位置
+
+12、意义连线？
+Mathf.Round 四舍五入
+Mathf.Clamp 限制
+Mathf.Lerp 插值
+
+13、写一个计时器工具，从整点开始计时，格式为：00:00:00？
+14、写出Animation的五个方法？
+15、怎么拿到一个对象上脚本的方法？
+GameObject.GetComponent<>();
+
+16、上机题：用鼠标实现在场景中拖动物体，用鼠标滚轮实现缩放(用一个Cube即可)？
+17、请简述向量的点乘，向量的叉乘以及向量归一化的几何意义？
+点乘的几何意义是：计算两个向量之间的夹角，以及在某一方向上的投影；
+叉乘的几何意义是：创建垂直于平面，三角形，或者多边形的向量；参考：http://blog.sina.com.cn/s/blog_9283b6f601017hfw.html
+
+第五部分
+1、在类的构造函数前加上static会报什么错?为什么?
+构造函数格式为 public+类名如果加上static会报错（静态构造函数不能有访问修饰符）
+原因：静态构造函数不允许访问修饰符，也不接受任何参数；
+无论创建多少类型的对象，静态构造函数只执行一次；
+运行库创建类实例或者首次访问静态成员之前，运行库调用静态构造函数；
+静态构造函数执行先于任何实例级别的构造函数；
+显然也就无法使用this和base来调用构造函数。
+
+2、C# String类型比stringBuilder类型的优势是什么?
+如果是处理字符串的话，用string中的方法每次都需要创建一个新的字符串对象并且分配新的内存地址，而stringBuilder是在原来的内存里对字符串进行修改，所以在字符串处理方面还是建议用stringBuilder这样比较节约内存。但是string 类的方法和功能仍然还是比stringBuilder类要强。
+string类由于具有不可变性（即对一个string对象进行任何更改时，其实都是创建另外一个string类的对象），所以当需要频繁的对一个string类对象进行更改的时候，建议使用StringBuilder类，StringBuilder类的原理是首先在内存中开辟一定大小的内存空间，当对此StringBuilder类对象进行更改时，如果内存空间大小不够，会对此内存空间进行扩充，而不是重新创建一个对象，这样如果对一个字符串对象进行频繁操作的时候，不会造成过多的内存浪费，其实本质上并没有很大区别，都是用来存储和操作字符串的，唯一的区别就在于性能上。
+String主要用于公共API，通用性好、用途广泛、读取性能高、占用内存小。
+StringBuilder主要用于拼接String，修改性能好。
+不过现在的编译器已经把 String 的 + 操作优化成 StringBuilder 了，所以一般用String就可以了
+String是不可变的，所以天然线程同步。
+StringBuilder可变，非线程同步。
+http://zhidao.baidu.com/question/240364840.html?qbl=relate_question_0&word=String   ͱ stringBuilder   ͵     
+
+3、C# 函数Func(string a, string b)用Lambda表达式怎么写?
+答：https://msdn.microsoft.com/zh-cn/library/bb397687.aspx
+
+4、数列1,1,2,3,5,8,13…第n位数是多少?用C#递归算法实现？
+通项公式应该是an = a(n-1) + a(n-2)
+a3=2=1+1
+a4=3=1+1+1
+a5=1+1+1+2
+a6=1+1+1+2+3
+…
+an=1+1+1+2+3+…+(n-2)+(n-3)
+=2+(n-2)(n-3)/2 (n>=3) 这是通项公式，至于递归？…
+
+5、一个简单的游戏,怪物会走动\攻击\死亡,游戏角色会走动,跳跃\攻击\格挡\死亡,还会接受玩家从输入端输入的指令,NPC会走动,他们彼此之间可以互相通信.请画出以上三种角色的UML图示？
+答：
+
+6、NGUI Button怎样接受用户点击并调用函数,具体方法名称是什么？
+OnClick()
+主要是在UICamera脚本中用射线判断点击的物体并通过SendMessage调用OnClick() OnPress()等函数，可以说NGUI的按钮是通过发消息这个方式调用的。
+
+7、怎么判断两个平面是否相交?不能用碰撞体,说出计算方法？
+答：
+https://www.baidu.com/s?wd=怎么判断两个平面是否相交&rsv_spt=1&issp=1&f=3&rsv_bp=1&rsv_idx=2&ie=utf-8&tn=baiduhome_pg&rsv_enter=0&rsv_pq=abcac720000083b6&rsv_t=ecdctoXQNURcfX%2FVm8MQdPtiBLttYO4HqJrZ1yNsNcxUqDe6DM4ovlQT4HdHZJMh6guT&inputT=2590&oq=C%23 lamb&rsv_n=2&bs=c%23 lambda
+
+8、<愤怒的小鸟>给予初速度以后,怎么让小鸟受到重力和空气阻力的影响而绘制抛物线轨迹,说出具体的计算方法.
+Vector3 v代表初速度v’代表现在的速度，假设小鸟是沿的z轴也就是transform.forward方向运动的质量为1，那么v‘=v-new Vector3(0,gt,ft)，transform.Translate(v’)做的就是抛物线运动（g为重力加速度不要用现实中的需要自己调试，f为阻力也要自己调试设置，t为时间）
+
+转载于：http://mp.weixin.qq.com/s?__biz=MjM5NjM3NDA1Mg==&mid=205669086&idx=3&sn=76dd368ba008c78f3f40fd45dd98c6a1#rd
+
+本文来源：www.unitymanual.comUnity3D面试题整合
+
+题目归类区（看题目字体颜色识第几部分）
+
+第一部分：
+
+1、请简述值类型与引用类型的区别？
+2、C#中所有引用类型的基类是什么？
+3、请简述ArrayList和List的主要区别？
+4、请简述GC（垃圾回收）产生的原因，并描述如何避免？
+5、请描述Interface与抽象类之间的不同？
+6、下列代码在运行中会产生几个临时对象？
+7、下列代码在运行中会发生什么问题？如何避免？
+8、请简述关键字Sealed用在类声明和函数声明时的作用？
+9、请简述private，public，protected，internal的区别？
+10、反射的实现原理？
+11、.Net与Mono的关系？
+12、简述Unity3D支持的作为脚本的语言的名称？
+13、Unity3D是否支持写成多线程程序？如果支持的话需要注意什么？
+14、Unity3D的协程和C#线程之间的区别是什么？
+15、U3D中用于记录节点空间几何信息的组件名称，及其父类名称？
+16、简述四元数的作用，四元数对欧拉角的优点？
+17、向量的点乘、叉乘以及归一化的意义？
+18、矩阵相乘的意义及注意点？
+19、为何大家都在移动设备上寻求U3D原生GUI的替代方案？
+20、请简述如何在不同分辨率下保持UI的一致性？
+21、为什么dynamic font在unicode环境下优于static font？
+22、Render的作用？描述MeshRender和SkinnedMeshRender的关系与不同？
+23、简述SkinnedMesh的实现原理？
+24、在场景中放置多个Camera并同时处于活动状态会发生什么？
+25、Prefab的作用？如何在移动环境的设备下恰当地使用它？
+26、如何销毁一个UnityEngine.Object及其子类？
+27、为什么Unity3D中会发生在组件上出现数据丢失的情况？
+28、如何安全的在不同工程间安全地迁移asset数据？三种方法？
+29、MeshCollider和其他Collider的一个主要不同点？
+30、当一个细小的高速物体撞向另一个较大的物体时，会出现什么情况？如何避免？
+31、OnEnable、Awake、Start运行时的发生顺序？哪些可能在同一个对象周期中反复的发生？
+32、请简述OnBecameVisible及OnBecameInvisible的发生时机，以及这一对回调函数的意义？
+33、Unity3D如何获知场景中需要加载的数据？
+34、MeshRender中material和sharedmaterial的区别？
+
+第二部分：
+
+1、请描述游戏动画有哪几种，以及其原理？
+2、alpha blend 工作原理？
+3、写光照计算中的diffuse的计算公式？
+4、lod是什么，优缺点是什么？
+5、两种阴影判断的方法工作原理？
+6、MipMap是什么？作用？
+7、用u3d实现2d游戏，有几种方式？
+8、u3d中碰撞器和触发器的区别？
+9、物体发生碰撞的必要条件？
+10、CharacterController和Rigidbody的区别？
+11、物体发生碰撞时，有几个阶段，分别对应的函数？
+12、u3d中，几种施加力的方式，描述出来？
+13、什么叫做链条关节？
+14、物体自旋转使用的函数叫什么？
+15、物体绕某点旋转使用函数叫什么？
+16、u3d提供了一个用于保存读取数据的类，（playerPrefs），请列出保存读取整形数据的函数？
+17、unity3d提供了几种光源，分别是什么？
+18、unity3d从唤醒到销毁有一段生命周期，请列出系统自己调用的几个重要方法？
+19、物理更新一般在哪个系统函数里？
+20、移动相机动作在哪个函数里，为什么在这个函数里？
+21、当游戏中需要频繁创建一个物体对象时，我们需要怎么做来节省内存？
+22、一个场景放置多个camera并同时处于活动状态，会发生什么？
+23、简述prefab的用处和环境？
+24、如何销毁一个UnityEngine.Object以及其子类？
+25、为什么u3d会出现组件上数据丢失的情况？
+26、u3d下如何安全的在不同工程迁移asset数据？
+
+第三部分：
+
+1、什么是渲染管道？
+2、如何优化内存？
+3、动态加载资源的方式？
+4、什么是协同程序？
+5、你用过哪些插件？
+
+第四部分：
+
+1、反向旋转动画的方法是什么？
+2、碰撞检测需要物体具备什么属性？
+3、用代码实现第三角色控制器？
+4、实现吊机吊物体的功能？
+5、获取、增加、删除组件的命令分别是什么？
+6、Animation.CrossFade命令作用是？
+7、Application.loadLevel命令为？
+8、调试记录到控制台的命令是什么？
+9、编辑器类存放路径是什么？
+10、使用原生GUI创建一个可以拖动的窗口命令是什么？
+11、localPosition与Position的使用区别？
+12、意义连线？
+13、写一个计时器工具，从整点开始计时，格式为：00:00:00？
+14、写出Animation的五个方法？
+15、怎么拿到一个对象上脚本的方法？
+16、上机题？
+17、请简述向量的点乘，向量的叉乘以及向量归一化的几何意义？
+
+第五部分：
+
+1、在类的构造函数前加上static会报什么错?为什么?
+2、C# String类型比stringBuilder类型的优势是什么?
+3、C# 函数Func(string a, string b)用Lambda表达式怎么写?
+4、数列1,1,2,3,5,8,13…第n位数是多少?用C#递归算法实现？
+5、UML图示？
+
+答案区：
+第一部分：
+
+1、请简述值类型与引用类型的区别？
+答：区别：
+1.值类型存储在内存栈中，引用类型数据存储在内存堆中，而内存单元中存放的是堆中存放的地址。
+2.值类型存取快，引用类型存取慢。
+3.值类型表示实际数据，引用类型表示指向存储在内存堆中的数据的指针和引用。
+4.栈的内存是自动释放的，堆内存是.NET中会由GC来自动释放。
+5.值类型继承自System.ValueType,引用类型继承自System.Object。
+可参考http://www.cnblogs.com/JimmyZhang/archive/2008/01/31/1059383.html
+
+2、C#中所有引用类型的基类是什么？
+答：引用类型的基类是System.Object 值类型的基类是System.ValueType
+同时，值类型也隐式继承自System.Object
+
+3、请简述ArrayList和List的主要区别？
+答：ArrayList存在不安全类型‘（ArrayList会把所有插入其中的数据都当做Object来处理）
+装箱拆箱的操作（费时）
+List是接口，ArrayList是一个实现了该接口的类，可以被实例化。
+
+4、请简述GC（垃圾回收）产生的原因，并描述如何避免？
+答：GC回收堆上的内存
+避免：
+
+1）减少new产生对象的次数
+2）使用公用的对象（静态成员）
+3）将String换为StringBuilder
+
+5、请描述Interface与抽象类之间的不同？
+答：抽象类表示该类中可能已经有一些方法的具体定义，但接口就是公公只能定义各个方法的界面 ，不能具体的实现代码在成员方法中。
+类是子类用来继承的，当父类已经有实际功能的方法时该方法在子类中可以不必实现，直接引用父类的方法，子类也可以重写该父类的方法。
+实现接口的时候必须要实现接口中所有的方法，不能遗漏任何一个。
+
+参考http://www.cnblogs.com/seapub/archive/2012/08/08/2628433.html
+
+6、下列代码在运行中会产生几个临时对象？
+
+string a = new string(“abc”);
+a = (a.ToUpper()+“123”).Substring(0,2);
+
+答：其实在C#中第一行是会出错的（Java中倒是可行）。应该这样初始化：
+
+string b = new string(new char[]{‘a’,‘b’,‘c’});
+
+7、下列代码在运行中会发生什么问题？如何避免？
+
+List ls = new List(new int[]{1,2,3,4,5});
+foreach(int item in ls)
+{
+Console.WriteLine(item*item);
+ls.Remove(item);
+}
+
+答：会产生运行时错误，因为foreach是只读的。不能一边遍历一边修改。
+
+8、请简述关键字Sealed用在类声明和函数声明时的作用？
+答：类声明时可防止其他类继承此类，在方法中声明则可防止派生类重写此方法。
+
+9、请简述private，public，protected，internal的区别
+答：
+public：对任何类和成员都公开，无限制访问
+private：仅对该类公开
+protected：对该类和其派生类公开
+internal：只能在包含该类的程序集中访问该类
+protected internal：protected + internal
+
+10、反射的实现原理？
+答：审查元数据并收集关于它的类型信息的能力。
+参考http://blog.163.com/xuanmingzhiyou@yeah/blog/static/1424776762011612115124188/
+反射个人认为，就是得到程序集中的属性和方法。
+实现步骤：
+1.导入using System.Reflection;
+2.Assembly.Load(“程序集”)加载程序集,返回类型是一个Assembly
+3.foreach (Type type in assembly.GetTypes())
+{
+string t = type.Name;
+}
+得到程序集中所有类的名称
+4.Type type = assembly.GetType(“程序集.类名”);获取当前类的类型
+5.Activator.CreateInstance(type); 创建此类型实例
+6.MethodInfo mInfo = type.GetMethod(“方法名”);获取当前方法
+7.mInfo.Invoke(null,方法参数);
+
+11、.Net与Mono的关系？
+答：Mono官网主页
+Mono is a software platform designed to allow developers to easily create
+cross platform applications. Sponsored by Xamarin, Mono is an open source
+implementation of Microsoft’s .NET Framework based on the ECMA standards for C# and the Common Language Runtime.
+mono是.net的一个开源跨平台工具，就类似java虚拟机，java本身不是跨平台语言，但运行在虚拟机上就能够实现了跨平台。.net只能在windows下运行，mono可以实现跨平台跑，
+可以运行于linux，Unix，Mac OS等。
+
+12、简述Unity3D支持的作为脚本的语言的名称？
+答：Unity的脚本语言基于Mono的.Net平台上运行，可以使用.NET库，这也为XML、数据库、正则表达式等问题提供了很好的解决方案。
+Unity里的脚本都会经过编译，他们的运行速度也很快。这三种语言实际上的功能和运行速度是一样的，区别主要体现在语言特性上。
+JavaScript：和网页中常用的JavaScript不一样，它编译后的运行速度很快，语法方面也会有不少区别。
+C#
+Boo：可以看做是Python语言的变种，又糅合了Ruby和C#的特性，它是静态类型语言。
+
+13、Unity3D是否支持写成多线程程序？如果支持的话需要注意什么？
+答：参考http://www.unitymanual.com/3821.html
+仅能从主线程中访问Unity3D的组件，对象和Unity3D系统调用
+支持：如果同时你要处理很多事情或者与Unity的对象互动小可以用thread,否则使用coroutine。
+注意：C#中有lock这个关键字,以确保只有一个线程可以在特定时间内访问特定的对象
+
+14、Unity3D的协程和C#线程之间的区别是什么？
+答：http://blog.csdn.net/kongbu0622/article/details/8775037
+多线程程序同时运行多个线程 ，而在任一指定时刻只有一个协程在运行，并且这个正在运行的协同程序只在必要时才被挂起。除主线程之外的线程无法访问Unity3D的对象、组件、方法。
+Unity3d没有多线程的概念，不过unity也给我们提供了StartCoroutine（协同程序）和LoadLevelAsync（异步加载关卡）后台加载场景的方法。 StartCoroutine为什么叫协同程序呢，所谓协同，就是当你在StartCoroutine的函数体里处理一段代码时，利用yield语句等待执行结果，这期间不影响主程序的继续执行，可以协同工作。而LoadLevelAsync则允许你在后台加载新资源和场景，所以再利用协同，你就可以前台用loading条或动画提示玩家游戏未卡死，同时后台协同处理加载的事宜asynchronous[e ɪˈ s ɪŋ kr ə n ə s] .synchronous同步。
+
+15、U3D中用于记录节点空间几何信息的组件名称，及其父类名称？
+答：Transform 父类是 Component
+
+16、简述四元数的作用，四元数对欧拉角的优点？
+答：四元数用于表示旋转
+相对欧拉角的优点：
+1）能进行增量旋转
+2）避免万向锁
+3）给定方位的表达方式有两种，互为负（欧拉角有无数种表达方式）
+
+17、向量的点乘、叉乘以及归一化的意义？
+1）点乘描述了两个向量的相似程度，结果越大两向量越相似，还可表示投影
+2）叉乘得到的向量垂直于原来的两个向量
+3）标准化向量：用在只关系方向，不关心大小的时候
+
+18、矩阵相乘的意义及注意点？
+用于表示线性变换：旋转、缩放、投影、平移、仿射
+注意矩阵的蠕变：误差的积累
+
+19、为何大家都在移动设备上寻求U3D原生GUI的替代方案？
+不美观，OnGUI很耗费时间，使用不方便 ，DrawCall
+
+20、请简述如何在不同分辨率下保持UI的一致性？
+NGUI很好的解决了这一点，屏幕分辨率的自适应性，原理就是计算出屏幕的宽高比跟原来的预设的屏幕分辨率求出一个对比值，然后修改摄像机的size。
+原生GUI http://unity3d.9ria.com/?p=2587
+NGUI http://blog.csdn.net/mfc11/article/details/17681429
+
+21、为什么dynamic font在unicode环境下优于static font？
+
+Unicode是国际组织制定的可以容纳世界上所有文字和符号的字符编码方案。
+使用动态字体时，Unity将不会预先生成一个与所有字体的字符纹理。当需要支持亚洲语言或者较大的字体的时候，若使用正常纹理，则字体的纹理将非常大。
+
+22、Render的作用？描述MeshRender和SkinnedMeshRender的关系与不同？
+A renderer is what makes an object appear on the screen。
+Mesh就是指模型的网格（同名组件是用于调整网格属性的），MeshFilter一般是用于获得模型网格的组件，而MeshRender是用于把网格渲染出来的组件
+
+23、简述SkinnedMesh的实现原理？
+http://blog.csdn.net/n5/article/details/3105872
+
+24、在场景中放置多个Camera并同时处于活动状态会发生什么？
+答：游戏界面可以看到很多摄像机的混合
+
+25、Prefab的作用？如何在移动环境的设备下恰当地使用它？
+答：Prefab在实例化的时候用到，主要用于经常会用到的物体，属性方便修改
+http://www.cnblogs.com/88999660/archive/2013/03/15/2961663.html
+
+26、如何销毁一个UnityEngine.Object及其子类？
+答：Destory
+
+27、为什么Unity3D中会发生在组件上出现数据丢失的情况？
+答：组件上绑定的对象被删除了
+
+28、如何安全的在不同工程间安全地迁移asset数据？三种方法？
+
+答：
+将Assets目录和Library目录一起迁移
+导出包
+用unity自带的assets Server功能
+
+29、MeshCollider和其他Collider的一个主要不同点？
+答：Meshcollider再快也是基于V3顶点~~ 建议还是用boxcollider，boxcollider本身是基于算法，没有面的概念。
+
+30、当一个细小的高速物体撞向另一个较大的物体时，会出现什么情况？如何避免？
+穿透（碰撞检测失败）
+http://forum.unity3d.com/threads/3353-collision-detection-at-high-speed
+(碰撞体变大，FixedUpdate, 代码限制)
+
+31、OnEnable、Awake、Start运行时的发生顺序？哪些可能在同一个对象周期中反复的发生？
+答：Awake -》OnEnable-》Start
+OnEnable在同一周期中可以反复地发生
+http://answers.unity3d.com/questions/217941/onenable-awake-start-order.html
+
+32、请简述OnBecameVisible及OnBecameInvisible的发生时机，以及这一对回调函数的意义？
+答：当物体是否可见切换之时。可以用于只需要在物体可见时才进行的计算。
+
+33、Unity3D如何获知场景中需要加载的数据？
+答：题目是获取的意思？
+Resource.Load
+AssetBundle
+
+34、MeshRender中material和sharedmaterial的区别？
+修改sharedMaterial将改变所有物体使用这个材质的外观，并且也改变储存在工程里的材质设置。
+不推荐修改由sharedMaterial返回的材质。如果你想修改渲染器的材质，使用material替代。
+
+第二部分
+1、请描述游戏动画有哪几种，以及其原理？
+主要有关节动画、单一网格模型动画(关键帧动画)、骨骼动画。
+关节动画把角色分成若干独立部分，一个部分对应一个网格模型，部分的动画连接成一个整体的动画，角色比较灵活Quake2中使用了这种动画。
+单一网络模型动画由一个完整的网格模型构成，在动画序列的关键帧里记录各个顶点的原位置及其改变量，然后插值运算实现动画效果，角色动画较真实。
+骨骼动画，广泛应用的动画方式，集成了以上两个方式的优点，骨骼按角色特点组成一定的层次结构，由关节相连，可做相对运动，皮肤作为单一网格蒙在骨骼之外，决定角色的外观。皮肤网格每一个顶点都会受到骨骼的影响，从而实现完美的动画。（骨骼动画是由关节动画发展而来的，如今基本都使用骨骼动画来实现角色动画）
+
+2、alpha blend 工作原理？
+实际显示颜色 = 前景颜色Alpha/255 + 背景颜色(255-Alpha)/255
+
+3、写光照计算中的diffuse的计算公式？
+实际光照强度 I= 环境光(Iambient) + 漫反射光(Idiffuse) + 镜面高光(Ispecular);
+环境光：Iambient= Aintensity* Acolor; (Aintensity表示环境光强度，Acolor表示环境光颜色)
+漫反射光：Idiffuse = DintensityDcolorN.L;
+(Dintensity表示漫反射强度，Dcolor表示漫反射光颜色，N为该点的法向量，L为光源向量)
+镜面反射光：Ispecular = SintensityScolor(R.V)^n;
+(Sintensity表示镜面光照强度，Scolor表示镜面光颜色，R为光的反射向量，V为观察者向量，n称为镜面光指数)
+
+4、lod是什么，优缺点是什么？
+LOD技术即Levels of Detail的简称，意为多细节层次。LOD技术指根据物体模型的节点在显示环境中所处的位置和重要度，决定物体渲染的资源分配，降低非重要物体的面数和细节度，从而获得高效率的渲染运算。
+优点：可根据距离动态地选择渲染不同细节的模型
+缺点：加重美工的负担，要准备不同细节的同一模型，同样的会稍微增加游戏的容量。
+
+5、两种阴影判断的方法工作原理？
+阴影由两部分组成：本影与半影
+本影：景物表面上那些没有被光源直接照射的区域（全黑的轮廓分明的区域）
+半影：景物表面上那些被某些特定光源直接照射但并非被所有特定光源直接照射的区域（半明半暗区域）
+求阴影区域的方法：做两次消隐过程
+一次对每个光源进行消隐，求出对于光源而言不可见的区域L；
+一次对视点的位置进行消隐，求出对于视点而言可见的面S；
+shadow area= L ∩ S
+阴影分为两种：自身阴影和投射阴影
+自身阴影：因物体自身的遮挡而使光线照射不到它上面的某些可见面
+工作原理：利用背面剔除的方法求出，即假设视点在点光源的位置。
+投射阴影：因不透明物体遮挡光线使得场景中位于该物体后面的物体或区域受不到光照照射而形成的阴影
+工作原理：从光源处向物体的所有可见面投射光线，将这些面投影到场景中得到投影面，再将这些投影面与场景中的其他平面求交得出阴影多边形，保存这些阴影多边形信息，然后再按视点位置对场景进行相应处理得到所要求的视图（利用空间换时间，每次只需依据视点位置进行一次阴影计算即可，省去了一次消隐过程）
+若是动态光源此方法就无效了。
+
+5、Vertex Shader是什么？怎么计算？
+顶点着色器是一段执行在GPU上的程序，用来取代fixed pipeline中的transformation和lighting，Vertex Shader主要操作顶点。
+Vertex Shader对输入顶点完成了从local space到homogeneous space（齐次空间）的变换过程，homogeneous space即projection space的下一个space。在这其间共有world transformation, view transformation和projection transformation及lighting几个过程。
+
+6、MipMap是什么？作用？
+在三维计算机图形的贴图渲染中有一个常用的技术被称为Mipmapping。为了加快渲染速度和减少图像锯齿，贴图被处理成由一系列被预先计算和优化过的图片组成的文件,这样的贴图被称为 MIP map 或者 mipmap。
+
+7、用u3d实现2d游戏，有几种方式？
+1.利用引擎自带的GUI
+2.把摄像机设为Orthographic，用面片作为2d元素
+3.利用第三方插件：NGUI、2dToolkit
+
+8、u3d中碰撞器和触发器的区别？
+collider碰撞器会有碰撞的效果，IsTrigger = false,可以调用OnCollisionEnter/Stay/Exit函数
+trigger触发器没有碰撞效果，isTrigger = true,可以调用OnTriggerEnter/stay/exit函数
+
+9、物体发生碰撞的必要条件？
+物体A必须带有（collider+rigidbody）或者CharacterController，另一个物体也必须至少带有collider
+
+10、CharacterController和Rigidbody的区别？
+Rigidbody具有完全真实物理的特性，而CharacterController可以说是受限的Rigidbody，具有一定的物理效果但不是完全真实的。
+
+11、物体发生碰撞时，有几个阶段，分别对应的函数？
+三个阶段，OnCollisionEnter/Stay/Exit函数
+
+12、u3d中，几种施加力的方式，描述出来？
+rigidbody.AddForce/AddForceAtPosition，都是rigidbody的成员函数
+
+13、什么叫做链条关节？
+Hinge Joint ，他可以模拟两个物体间用一根链条连接在一起的情况，能保持两个物体在一个固定距离内部相互移动而不产生作用力，但是达到固定距离后就会产生拉力。（简单说就是弹簧）
+
+14、物体自旋转使用的函数叫什么？
+transform.Rotate
+
+15、物体绕某点旋转使用函数叫什么？
+transform.RotateAround
+
+16、u3d提供了一个用于保存读取数据的类，（playerPrefs），请列出保存读取整形数据的函数？
+PlayerPrefs.SetInt 与 PlayerPrefs.GetInt
+
+17、unity3d提供了几种光源，分别是什么？
+平行光：Directional Light
+聚光灯：Spot Light
+点光源：Point Light
+区域光源：Area Light（只用于烘培）
+
+18、unity3d从唤醒到销毁有一段生命周期，请列出系统自己调用的几个重要方法？
+Awake –>OnEnable –> Start –> Update –> FixedUpdate –> LateUpdate –> OnGUI –> Reset –> OnDisable –> OnDestroy
+
+19、物理更新一般在哪个系统函数里？
+FixedUpdate，每固定帧绘制时执行一次，和update不同的是FixedUpdate是渲染帧执行，如果你的渲染效率低下的时候FixedUpdate调用次数就会跟着下降。FixedUpdate比较适用于物理引擎的计算，因为是跟每帧渲染有关。Update就比较适合做控制。
+
+20、移动相机动作在哪个函数里，为什么在这个函数里？
+LateUpdate,，是在所有update结束后才调，比较适合用于命令脚本的执行。官网上例子是摄像机的跟随，都是在所有update操作完才跟进摄像机，不然就有可能出现摄像机已经推进了，但是视角里还未有角色的空帧出现。
+
+21、当游戏中需要频繁创建一个物体对象时，我们需要怎么做来节省内存？
+做一个pool，游戏开始时预先实例化足够的数量，然后用的时候取不用的时候收回
+
+22、一个场景放置多个camera并同时处于活动状态，会发生什么？
+实际看到的画面由多个camera的画面组成，由depth、Clear Flag、Culling Mask都会影响最终合成效果。
+
+23、简述prefab的用处和环境？
+在游戏运行时实例化，prefab相当于一个模版，对你已有的素材、脚本、参数做一个默认配置，以便于以后修改，同时prefab打包的内容简化了导出的操作，便于团队的交流。
+
+24、如何销毁一个UnityEngine.Object以及其子类？
+Destroy
+
+25、为什么u3d会出现组件上数据丢失的情况？
+一般是组件上绑定的物体对象被删除了
+
+26、u3d下如何安全的在不同工程迁移asset数据？
+方法1，可以把assets目录和Library目录一起迁移，
+方法2，导出包
+方法3，用unity带的assets server功能
+
+第三部分
+1、什么是渲染管道？
+是指在显示器上为了显示出图像而经过的一系列必要操作。 渲染管道中的很多步骤，都要将几何物体从一个坐标系中变换到另一个坐标系中去。
+主要步骤有：
+本地坐标->视图坐标->背面裁剪->光照->裁剪->投影->视图变换->光栅化。
+
+2、如何优化内存？
+有很多种方式，例如
+1.压缩自带类库；
+2.将暂时不用的以后还需要使用的物体隐藏起来而不是直接Destroy掉；
+3.释放AssetBundle占用的资源；
+4.降低模型的片面数，降低模型的骨骼数量，降低贴图的大小；
+5.使用光照贴图，使用多层次细节(LOD)，使用着色器(Shader)，使用预设(Prefab)。
+
+3、动态加载资源的方式？(有时候也问区别，具体请百度)
+1.Resources.Load();
+2.AssetBundle
+
+4、什么是协同程序？
+在主线程运行时同时开启另一段逻辑处理，来协助当前程序的执行。换句话说，开启协程就是开启一个线程。可以用来控制运动、序列以及对象的行为。
+
+5、你用过哪些插件？
+(最好多熟悉几个插件，问的时候好回答)
+
+第四部分
+1、反向旋转动画的方法是什么？
+2、碰撞检测需要物体具备什么属性？
+3、用代码实现第三角色控制器
+4、实现吊机吊物体的功能
+5、获取、增加、删除组件的命令分别是什么？
+获取：GetComponent
+增加：AddComponent
+删除：Destroy
+
+6、Animation.CrossFade命令作用是：©
+A.动画放大 B.动画转换 C.动画的淡入为其他动画
+
+7、Application.loadLevel命令为：(A)
+A.加载关卡 B.异步加载关卡 C.加载动作
+
+8、调试记录到控制台的命令是什么？
+Debug.Log();
+
+9、编辑器类存放路径是什么？
+工程目录下的Assets/Editor文件夹下。
+
+10、使用原生GUI创建一个可以拖动的窗口命令是什么？
+GUI.DragWindow();
+
+11、localPosition与Position的使用区别？
+localPosition：自身位置，相对于父级的变换的位置。 Position：在世界坐标transform的位置
+
+12、意义连线？
+Mathf.Round 四舍五入
+Mathf.Clamp 限制
+Mathf.Lerp 插值
+
+13、写一个计时器工具，从整点开始计时，格式为：00:00:00？
+14、写出Animation的五个方法？
+15、怎么拿到一个对象上脚本的方法？
+GameObject.GetComponent<>();
+
+16、上机题：用鼠标实现在场景中拖动物体，用鼠标滚轮实现缩放(用一个Cube即可)？
+17、请简述向量的点乘，向量的叉乘以及向量归一化的几何意义？
+点乘的几何意义是：计算两个向量之间的夹角，以及在某一方向上的投影；
+叉乘的几何意义是：创建垂直于平面，三角形，或者多边形的向量；参考：http://blog.sina.com.cn/s/blog_9283b6f601017hfw.html
+
+第五部分
+1、在类的构造函数前加上static会报什么错?为什么?
+构造函数格式为 public+类名如果加上static会报错（静态构造函数不能有访问修饰符）
+原因：静态构造函数不允许访问修饰符，也不接受任何参数；
+无论创建多少类型的对象，静态构造函数只执行一次；
+运行库创建类实例或者首次访问静态成员之前，运行库调用静态构造函数；
+静态构造函数执行先于任何实例级别的构造函数；
+显然也就无法使用this和base来调用构造函数。
+
+2、C# String类型比stringBuilder类型的优势是什么?
+如果是处理字符串的话，用string中的方法每次都需要创建一个新的字符串对象并且分配新的内存地址，而stringBuilder是在原来的内存里对字符串进行修改，所以在字符串处理方面还是建议用stringBuilder这样比较节约内存。但是string 类的方法和功能仍然还是比stringBuilder类要强。
+string类由于具有不可变性（即对一个string对象进行任何更改时，其实都是创建另外一个string类的对象），所以当需要频繁的对一个string类对象进行更改的时候，建议使用StringBuilder类，StringBuilder类的原理是首先在内存中开辟一定大小的内存空间，当对此StringBuilder类对象进行更改时，如果内存空间大小不够，会对此内存空间进行扩充，而不是重新创建一个对象，这样如果对一个字符串对象进行频繁操作的时候，不会造成过多的内存浪费，其实本质上并没有很大区别，都是用来存储和操作字符串的，唯一的区别就在于性能上。
+String主要用于公共API，通用性好、用途广泛、读取性能高、占用内存小。
+StringBuilder主要用于拼接String，修改性能好。
+不过现在的编译器已经把 String 的 + 操作优化成 StringBuilder 了，所以一般用String就可以了
+String是不可变的，所以天然线程同步。
+StringBuilder可变，非线程同步。
+http://zhidao.baidu.com/question/240364840.html?qbl=relate_question_0&word=String   ͱ stringBuilder   ͵     
+
+3、C# 函数Func(string a, string b)用Lambda表达式怎么写?
+答：https://msdn.microsoft.com/zh-cn/library/bb397687.aspx
+
+4、数列1,1,2,3,5,8,13…第n位数是多少?用C#递归算法实现？
+通项公式应该是an = a(n-1) + a(n-2)
+a3=2=1+1
+a4=3=1+1+1
+a5=1+1+1+2
+a6=1+1+1+2+3
+…
+an=1+1+1+2+3+…+(n-2)+(n-3)
+=2+(n-2)(n-3)/2 (n>=3) 这是通项公式，至于递归？…
+
+5、一个简单的游戏,怪物会走动\攻击\死亡,游戏角色会走动,跳跃\攻击\格挡\死亡,还会接受玩家从输入端输入的指令,NPC会走动,他们彼此之间可以互相通信.请画出以上三种角色的UML图示？
+答：
+
+6、NGUI Button怎样接受用户点击并调用函数,具体方法名称是什么？
+OnClick()
+主要是在UICamera脚本中用射线判断点击的物体并通过SendMessage调用OnClick() OnPress()等函数，可以说NGUI的按钮是通过发消息这个方式调用的。
+
+7、怎么判断两个平面是否相交?不能用碰撞体,说出计算方法？
+答：
+https://www.baidu.com/s?wd=怎么判断两个平面是否相交&rsv_spt=1&issp=1&f=3&rsv_bp=1&rsv_idx=2&ie=utf-8&tn=baiduhome_pg&rsv_enter=0&rsv_pq=abcac720000083b6&rsv_t=ecdctoXQNURcfX%2FVm8MQdPtiBLttYO4HqJrZ1yNsNcxUqDe6DM4ovlQT4HdHZJMh6guT&inputT=2590&oq=C%23 lamb&rsv_n=2&bs=c%23 lambda
+
+8、<愤怒的小鸟>给予初速度以后,怎么让小鸟受到重力和空气阻力的影响而绘制抛物线轨迹,说出具体的计算方法.
+Vector3 v代表初速度v’代表现在的速度，假设小鸟是沿的z轴也就是transform.forward方向运动的质量为1，那么v‘=v-new Vector3(0,gt,ft)，transform.Translate(v’)做的就是抛物线运动（g为重力加速度不要用现实中的需要自己调试，f为阻力也要自己调试设置，t为时间）

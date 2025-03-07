@@ -1,0 +1,31 @@
+1、请简述ArrayList和List<Int>的主要区别？
+
+2、下列代码在运行中会发生什么问题？如何避免？
+1.	List<int> ls = new List<int>(new int[]{1,2,3,4,5});  
+2.	foreach(int item in ls)  
+3.	{  
+4.	    Console.WriteLine(item*item);  
+5.	    ls.Remove(item);  
+6.	}  
+3、简述哈希表的大致原理,冲突解决方案,以及适用环境?
+
+4、在容器的遍历循环内部,添加和删除该容器的元素,需要注意什么?
+
+5、冒泡排序/快速排序/插入排序/归并排序的时间复杂度分别是多少?
+
+6、说出HashSet、Dictionary、Queue、Stack的特点以及何时使用？
+
+7、不使用foreach遍历Dictionary<int,int> dic=new Dictionary<int,int>()（代码实现)
+
+8、C#代码段
+
+List<int> list = new List<int>() { 1,2,3,4};
+            int nIndex = 0;
+            foreach(int value in list)
+            {
+                if (nIndex == 1 || nIndex == 2)
+                    list.RemoveAt(nIndex);
+                nIndex++;
+            }
+          以上代码段有什么问题？
+9、二分查找法？
