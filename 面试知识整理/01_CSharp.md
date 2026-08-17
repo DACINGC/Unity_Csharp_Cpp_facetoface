@@ -87,7 +87,7 @@ a = (a.ToUpper() + "123").Substring(0, 2);
 ```
 
 - 第一行在 C# 中**编译报错**（Java 中可以），正确写法：`string b = new string(new char[]{'a','b','c'});`。
-- 第二行会依次产生多个临时对象：`ToUpper()` 的结果字符串、"123" 字符串、拼接结果、`Substring` 结果——频繁字符串操作会产生大量临时对象并增加 GC 压力，应使用 StringBuilder。
+- 第二行会依次产生多个临时对象：`ToUpper()` 的结果字符串、`"abc" + "123"` 的拼接结果、`Substring` 的结果字符串（字面量 `"123"` 是编译期**驻留（interned）**的，不算每次运行新分配的对象）——频繁字符串操作会产生大量临时对象并增加 GC 压力，应使用 StringBuilder。
 
 ### 1.2.3 去掉字符串多余空格
 
@@ -112,7 +112,7 @@ a = (a.ToUpper() + "123").Substring(0, 2);
 - **设计**：桶（Bucket）数组 + 条目（Entry）数组。
   - 桶数组：存放"哈希码 → 条目索引"的映射，每个桶指向条目链表/冲突链的头部。
   - 条目数组：存放实际的键值对。
-- **冲突解决**：链地址法（同一桶内用链表存储冲突条目）。
+- **冲突解决**：链地址法（分离链的变体——条目数组 + next 索引串成冲突链，而非独立的链表节点对象；面试答"链地址法/链表"亦可接受）。
 - **查找 O(1)**（最坏 O(n)，当哈希冲突严重、大量条目落入同一桶）：
   1. 调用键的 `GetHashCode()` 生成哈希码；
   2. 计算桶索引；
@@ -253,7 +253,8 @@ delegate void TextIn<in T>(T t); // in 修饰：只能作参数
 
 ```csharp
 class Item { public int ID; }
-list.Sort((a, b) => a.ID > b.ID ? 1 : -1);  // 1 排右边，-1 排左边
+list.Sort((a, b) => a.ID.CompareTo(b.ID));   // 升序；CompareTo 正确处理相等（0）
+// 等价手写：list.Sort((a, b) => a.ID > b.ID ? 1 : (a.ID < b.ID ? -1 : 0));  // 1 排右边，-1 排左边
 ```
 
 ## 1.5 面向对象
@@ -337,7 +338,7 @@ m.Invoke(obj, new object[]{ 参数 });            // 5. 调用方法
 
 - Mono 是 .NET Framework 的**开源跨平台实现**，基于 C# 和 CLR 的 ECMA 标准。
 - .NET 原生主要在 Windows 运行；Mono 使 .NET 程序可跨平台运行于 Linux、Unix、macOS 等（类似 JVM 之于 Java）。
-- Unity 早期基于 Mono 运行 C# 脚本；IL2CPP 时代则把 IL 转成 C++ 再编译为机器码（详见 Unity 章节）。
+- Unity 早期基于 Mono 运行 C# 脚本；IL2CPP 时代则把 IL 转成 C++ 再编译为机器码（详见 Unity 章节 §6.1.3）。
 
 ## 1.7 迭代器、foreach、yield、索引器
 
@@ -347,7 +348,7 @@ m.Invoke(obj, new object[]{ 参数 });            // 5. 调用方法
 - `foreach` 的本质：
   1. 获取对象的 `GetEnumerator()`（对象需实现 `IEnumerable` / `IEnumerator`）；
   2. 调用 `MoveNext()`，为 true 时通过 `Current` 取得当前元素；
-  3. `Reset()` 用于在首次获取迭代器时把位置初始化。
+  3. （注：`foreach` 本身**不会调用 `Reset()`**——首次使用前位置已初始化；多数枚举器的 `Reset()` 会抛 `NotSupportedException`，应避免依赖它。）
 - `yield` 是语法糖：编译器会把包含 `yield` 的方法转换为一个**状态机类**，保存局部变量和执行位置，实现暂停/恢复（协程的底层基础）。
 
 ### 1.7.2 索引器
