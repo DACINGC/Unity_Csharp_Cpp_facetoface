@@ -28,13 +28,27 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 
 ### 6.1.2 Unity 的本质与脚本
 
-- Unity 的本质通过 **C# 反射**实现：场景和预制体本质都是配置文件，运行时通过反射读取配置信息创建对象。
-- 脚本类名必须与文件名一致（反射通过文件名查找 Type）。
+- Unity 的本质（常见面试说法）：场景和预制体本质都是**配置文件**，运行时解析配置创建对象；脚本类名必须与文件名一致（引擎按文件名/类型名查找 Type）。
+- 更严谨的表述：Unity 底层是原生（C++）引擎，场景数据通过**序列化系统**加载，C# 侧通过脚本绑定（wrapper）与引擎对象互操作；"反射"是其中类型查找/绑定机制的简化说法。
 - 支持语言：早期支持 C# / JavaScript / Boo，现**仅支持 C#**。
 - 编辑器类（Editor 脚本）存放路径：工程目录下 `Assets/Editor` 文件夹（或 Editor 子目录）。
 - 调试输出：`Debug.Log()` / `Debug.LogWarning()` / `Debug.LogError()`。
 - 切换场景：`SceneManager.LoadScene("场景名")`（`Application.loadLevel` 已弃用）。
 - 常用编辑器特性：`[ContextMenu]` 在组件右键菜单添加回调；`[MenuItem("菜单名")]` 添加顶部菜单栏（需静态方法）；`[ExecuteInEditMode]` 编辑模式下执行 Update；`[Header]`、`[SerializeField]` 等序列化特性。
+
+### 6.1.3 Mono 与 IL2CPP 的区别
+
+| 对比项 | Mono | IL2CPP |
+| --- | --- | --- |
+| 编译流程 | C# → IL（中间语言/CLR 字节码）→ 各平台 Mono 虚拟机解释/编译为机器码 | C# → IL → 转成 **C++ 代码** → 由各平台 C++ 编译器（AOT）编译为机器码 |
+| 性能 | 相对较低（虚拟机运行时开销、GC 更频繁） | 更高（AOT 机器码，更接近原生性能，GC 更可控） |
+| 包体/启动 | 需打包 Mono 运行时（跨平台库），包体大 | 不含运行时，包体更小、启动更快 |
+| 反编译 | 可通过 **ILSpy** 等工具反编译 IL，易被破解 | 编译为原生机器码，**难以反编译**（安全性更好） |
+| 兼容性 | 对 C# 特性（如 `System.Reflection.Emit` 动态生成代码）支持更好 | 不支持运行时动态生成 IL/反射 Emit（代码裁剪需处理） |
+| 平台支持 | 平台有限 | 几乎全平台（iOS 等禁止 JIT 的平台必须用 IL2CPP） |
+
+- **小结**：性能/包体/安全性选 IL2CPP（正式发布、移动端主流）；调试方便、需要动态代码生成场景选 Mono。
+- 注：iOS 平台因禁止 JIT（运行时生成代码），只能使用 IL2CPP。
 
 ## 6.2 物理系统
 
@@ -89,6 +103,11 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 ### 6.2.10 物理更新位置
 
 - 物理更新一般放在 **FixedUpdate**：按固定时间步长执行，与渲染帧率无关（受 `Time.timeScale` 影响）。`Update` 与渲染帧率相关，适合控制逻辑。
+- **固定步长实现机制**：Unity 内部通过**累积时间**触发 FixedUpdate——
+  1. 每帧把真实时间（`Time.unscaledDeltaTime`）累积到 Fixed Time 计数器；
+  2. 当累计值 ≥ `Time.fixedDeltaTime`（默认 0.02s）时，调用一次 FixedUpdate 并扣除一个步长；
+  3. 重复步骤 2 直到累计值不足一个步长。
+- 结论：**帧率波动影响 Update，不影响 FixedUpdate**（FixedUpdate 由累积时间驱动，与实际帧率无关）；但修改 `Time.timeScale` 时两者都会受影响（scaled 时间被缩放）。
 
 ## 6.3 UI 系统（UGUI）
 
@@ -459,7 +478,7 @@ public class CreateAssetBundles {
 
 - MipMap：把贴图预处理成一系列分辨率递减的图片（多级渐远纹理）。
 - 作用：根据物体离摄像机距离选择合适精度的纹理——远处用低精度，减少显存带宽消耗、提高缓存命中率、防止远处像素闪烁（锯齿）。
-- 代价：额外占用约 **1/3 内存**（256×256 会生成 2⁰~2⁷ 共 8 个层级）——典型的用空间换时间；UI 图片一般不需要开 MipMap。
+- 代价：额外占用约 **1/3 内存**（256×256 会生成 2⁰~2⁸ 共 9 个层级，即逐级减半到 1×1）——典型的用空间换时间；UI 图片一般不需要开 MipMap。
 
 ### 6.7.9 LightMap（光照贴图）
 
