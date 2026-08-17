@@ -26,12 +26,37 @@ const APP_JS = m[1];
     ? "✗ JS 引用了不存在的元素 id: " + missing.join(", ")
     : "✓ JS 引用的全部元素 id 均存在于 HTML（" + usedIds.size + " 个）");
   if (missing.length) process.exit(1);
+  const sidebarControlIds = ["toggle-sidebar", "workspace-chevron", "sidebar-reopen"];
+  const sidebarControls = sidebarControlIds.filter((id) => new RegExp('id="' + escId(id) + '"').test(APP));
+  const hasDesktopToggle = new RegExp('id="toggle-sidebar"').test(APP);
+  const hasMobileToggle = new RegExp('id="toggle-sidebar-mobile"').test(APP);
+  console.log(sidebarControls.length === 1 && hasDesktopToggle && hasMobileToggle
+    ? "✓ 侧栏仅保留统一的收起/展开按钮（桌面工具轨 + 移动端悬浮）"
+    : "✗ 侧栏收起/展开按钮数量或位置不符合预期");
+  if (!(sidebarControls.length === 1 && hasDesktopToggle && hasMobileToggle)) process.exit(1);
+  const railStart = APP.indexOf('<nav id="workspace-rail"');
+  const layoutStart = APP.indexOf('<div class="layout">');
+  const toggleStart = APP.indexOf('id="toggle-sidebar"');
+  const toggleInRail = railStart >= 0 && layoutStart > railStart &&
+    toggleStart > railStart && toggleStart < layoutStart;
+  console.log(toggleInRail
+    ? "✓ 侧栏按钮固定在左侧工具轨内（不随侧栏宽度偏移）"
+    : "✗ 侧栏按钮未固定在左侧工具轨内");
+  if (!toggleInRail) process.exit(1);
+  const toggleEnd = APP.indexOf("</button>", toggleStart);
+  const toggleMarkup = toggleStart >= 0 && toggleEnd >= 0 ? APP.slice(toggleStart, toggleEnd) : "";
+  const compactToggle = (toggleMarkup.includes("rail-icon") || toggleMarkup.includes("ico-open")) &&
+    !toggleMarkup.includes("ts-label") && !toggleMarkup.includes("lbl-");
+  console.log(compactToggle
+    ? "✓ 侧栏按钮采用紧凑图标样式"
+    : "✗ 侧栏按钮仍包含展开/收起文字");
+  if (!compactToggle) process.exit(1);
 }
 
 /* ---------- DOM 桩 ---------- */
 function makeEl(id) {
   var el = {
-    id: id, value: "", disabled: false, className: "", innerHTML: "", dataset: {}, _text: "",
+    id: id, value: "", disabled: false, className: "", innerHTML: "", dataset: {}, _text: "", attributes: {},
     _handlers: {},
     classList: {
       _s: new Set(),
@@ -44,6 +69,8 @@ function makeEl(id) {
       contains(c) { return this._s.has(c); }
     },
     addEventListener(ev, fn) { this._handlers[ev] = fn; },
+    setAttribute(name, value) { this.attributes[name] = String(value); },
+    getAttribute(name) { return this.attributes[name] || null; },
     querySelectorAll() { return []; },
     closest() { return null; },
     scrollIntoView() {},
@@ -59,13 +86,15 @@ function makeEl(id) {
   });
   return el;
 }
-const IDS = ["search", "search-results", "tab-files",
+const IDS = ["search", "search-results", "tab-files", "toggle-sidebar",
   "tab-toc", "btn-prev", "btn-next", "crumb-path", "crumb-file", "content", "main", "toast"];
 const els = {};
 IDS.forEach((id) => { els[id] = makeEl(id); });
 
 const styleProps = {};
+const bodyStub = makeEl("body");
 const documentStub = {
+  body: bodyStub,
   getElementById(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; },
   querySelectorAll() { return []; },
   addEventListener() {},
@@ -109,6 +138,16 @@ function check(name, cond, extra) {
   if (cond) console.log("  ✓ " + name + (extra ? "  (" + extra + ")" : ""));
   else { failures++; console.log("  ✗ " + name); }
 }
+
+/* ---------- 侧栏单按钮交互 ---------- */
+const sidebarBtn = els["toggle-sidebar"];
+check("侧栏按钮初始显示收起", sidebarBtn.title === "收起侧栏" && sidebarBtn.getAttribute("aria-expanded") === "true");
+sidebarBtn._handlers.click({});
+check("单按钮可收起侧栏", documentStub.body.classList.contains("sidebar-collapsed") &&
+  sidebarBtn.title === "展开侧栏" && sidebarBtn.getAttribute("aria-expanded") === "false");
+sidebarBtn._handlers.click({});
+check("单按钮可重新展开侧栏", !documentStub.body.classList.contains("sidebar-collapsed") &&
+  sidebarBtn.title === "收起侧栏" && sidebarBtn.getAttribute("aria-expanded") === "true");
 
 setTimeout(async () => {
   console.log("冒烟测试（真实 HTTP 到本地服务）");

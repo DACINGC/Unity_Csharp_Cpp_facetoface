@@ -27,6 +27,7 @@
     --code-text: #dbeafe;
     --hl: rgba(255,208,92,.28);
     --shadow: 0 18px 50px rgba(0,0,0,.22);
+    --rail-w: 58px;
   }
   :root[data-theme="light"] {
     color-scheme: light;
@@ -69,7 +70,7 @@
   /* ---------- 工作区外壳 ---------- */
   .app-shell { display: flex; width: 100%; height: 100%; min-width: 0; background: var(--bg); }
   .workspace-rail {
-    flex: 0 0 58px; display: flex; flex-direction: column; align-items: center;
+    flex: 0 0 var(--rail-w); display: flex; flex-direction: column; align-items: center;
     padding: 12px 8px 10px; background: var(--bg-deep); border-right: 1px solid var(--border-soft);
   }
   .rail-logo, .user-avatar, .workspace-avatar {
@@ -120,8 +121,6 @@
   .workspace-copy { min-width: 0; flex: 1; }
   .workspace-name { overflow: hidden; color: var(--text-strong); font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
   .workspace-sub { margin-top: 2px; color: var(--muted-2); font-size: 11px; }
-  .workspace-chevron { width: 26px; height: 26px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; cursor: pointer; }
-  .workspace-chevron:hover { background: var(--panel-soft); color: var(--text); }
   .side-toolbar { display: flex; gap: 3px; padding: 0 12px 12px; border-bottom: 1px solid var(--border-soft); }
   .side-tool { width: 29px; height: 27px; padding: 0; border: 0; border-radius: 6px; color: var(--muted); background: transparent; cursor: pointer; }
   .side-tool:hover { color: var(--text); background: var(--panel-soft); }
@@ -239,6 +238,29 @@
   .top-action:hover { color: var(--text); background: var(--panel-soft); }
   .top-action.icon-only { width: 30px; justify-content: center; padding: 0; font-size: 16px; }
   .user-avatar { width: 28px; height: 28px; margin-left: 7px; border-radius: 50%; font-size: 12px; }
+
+  /* ---------- 左侧侧栏开关按钮 ---------- */
+  /* 固定在左侧工具轨内，位置与侧栏宽度无关，收起/展开/拖拽调整宽度时均不偏移 */
+  #toggle-sidebar { margin-top: 10px; }
+  #toggle-sidebar .ico-closed, #toggle-sidebar-mobile .ico-closed { display: none; }
+  body.sidebar-collapsed #toggle-sidebar .ico-open, body.sidebar-collapsed #toggle-sidebar-mobile .ico-open { display: none; }
+  body.sidebar-collapsed #toggle-sidebar .ico-closed, body.sidebar-collapsed #toggle-sidebar-mobile .ico-closed { display: inline; }
+  body.sidebar-collapsed #toggle-sidebar { color: var(--accent); background: var(--accent-soft); }
+  /* 小屏（≤700px 工具轨隐藏）时：右下角固定悬浮按钮，位置恒定不偏移 */
+  #toggle-sidebar-mobile {
+    position: fixed; right: 16px; bottom: 16px; z-index: 45;
+    display: none; align-items: center; justify-content: center;
+    width: 44px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 50%;
+    color: var(--text); background: var(--panel-raised); cursor: pointer;
+    font-size: 17px; box-shadow: var(--shadow);
+    transition: border-color .18s ease, color .18s ease, background .18s ease;
+  }
+  #toggle-sidebar-mobile:hover { color: var(--accent); border-color: rgba(53,184,255,.45); }
+  body.sidebar-collapsed #toggle-sidebar-mobile {
+    color: var(--accent); border-color: rgba(53,184,255,.45); background: var(--panel-raised);
+  }
+  @media (max-width: 700px) { #toggle-sidebar-mobile { display: inline-flex; } }
+
   main { flex: 1; overflow-y: auto; min-height: 0; background: var(--bg); }
   #crumb {
     position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px;
@@ -328,13 +350,15 @@
   #toast { position: fixed; right: 22px; bottom: 22px; z-index: 100; max-width: 320px; padding: 10px 15px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-strong); background: var(--panel-raised); box-shadow: var(--shadow); font-size: 12px; opacity: 0; pointer-events: none; transition: opacity .25s; }
   #toast.show { opacity: 1; }
   @media (max-width: 980px) {
-    .workspace-rail { flex-basis: 50px; padding-left: 5px; padding-right: 5px; }
+    :root { --rail-w: 50px; }
+    .workspace-rail { flex-basis: var(--rail-w); padding-left: 5px; padding-right: 5px; }
     aside { flex-basis: var(--sidebar-w, 420px); }
     .sync-state { display: none; }
     .page-context { padding-left: 24px; padding-right: 24px; }
     .doc { padding-left: 34px; padding-right: 34px; }
   }
   @media (max-width: 700px) {
+    :root { --rail-w: 0px; }
     .workspace-rail { display: none; }
     aside { flex-basis: var(--sidebar-w, 360px); }
     header { gap: 10px; padding: 0 14px; }
@@ -359,6 +383,9 @@
 <div class="app-shell">
   <nav id="workspace-rail" class="workspace-rail" aria-label="工作区导航">
     <div class="rail-logo" title="淅J洇的个人空间">淅</div>
+    <button id="toggle-sidebar" class="rail-btn" title="收起侧栏" aria-label="收起侧栏" aria-expanded="true">
+      <span class="rail-icon"><span class="ico-open">☰</span><span class="ico-closed">◧</span></span>
+    </button>
     <div class="rail-divider"></div>
     <div class="rail-bottom">
       <button id="theme-toggle" class="rail-btn" title="切换明暗" aria-label="切换明暗"><span class="rail-icon">◐</span></button>
@@ -374,7 +401,6 @@
           <div class="workspace-name">淅J洇的个人空间</div>
           <div class="workspace-sub">本地知识库 · 仅自己可见</div>
         </div>
-        <button class="workspace-chevron" id="workspace-chevron" title="收起侧栏" aria-label="收起侧栏">⌄</button>
       </div>
       <div class="side-toolbar">
         <button class="side-tool" id="side-search" title="搜索">⌕</button>
@@ -403,7 +429,7 @@
           <div id="tab-toc"></div>
         </div>
       </div>
-      <div class="aside-foot">Ctrl+K 搜索 · §编号跨页跳转 · ◐ 切换明暗</div>
+      <div class="aside-foot">Ctrl+K 搜索 · §编号跨页跳转 · ☰ 收起/展开侧栏 · ◐ 切换明暗</div>
     </aside>
 
     <div id="resizer" title="拖动调整侧栏宽度" aria-label="拖动调整侧栏宽度"></div>
@@ -424,7 +450,6 @@
           <span class="sync-state">● 本地模式</span>
           <button id="share-btn" class="top-action" title="复制当前页面链接"><span>↗</span><span>分享</span></button>
           <button id="copy-btn" class="top-action icon-only" title="复制当前文件名" aria-label="复制当前文件名">▣</button>
-          <button id="toggle-sidebar" class="top-action icon-only" title="收起侧栏" aria-label="收起侧栏">☰</button>
           <div class="user-avatar" title="淅J洇">淅</div>
         </div>
       </header>
@@ -458,10 +483,14 @@
       <tr><td>点击 §编号</td><td>跨文件跳转到对应知识点</td></tr>
       <tr><td>点击左侧标题</td><td>定位到当前文档对应小节</td></tr>
       <tr><td>点击 ◐</td><td>切换明暗主题</td></tr>
-      <tr><td>点击 ☰</td><td>收起 / 展开侧栏</td></tr>
+      <tr><td>点击侧栏按钮</td><td>收起 / 展开侧栏</td></tr>
     </table>
   </div>
 </div>
+
+<button id="toggle-sidebar-mobile" type="button" title="收起侧栏" aria-label="收起侧栏" aria-expanded="true">
+  <span class="ico-open" aria-hidden="true">☰</span><span class="ico-closed" aria-hidden="true">◧</span>
+</button>
 
 <div id="toast"></div>
 
@@ -804,11 +833,25 @@ $("theme-toggle").addEventListener("click", toggleTheme);
 $("side-theme").addEventListener("click", toggleTheme);
 
 /* ---------- 侧栏收起 ---------- */
+function updateSidebarToggleUI() {
+  var collapsed = document.body && document.body.classList ? document.body.classList.contains("sidebar-collapsed") : false;
+  var label = collapsed ? "展开侧栏" : "收起侧栏";
+  var expanded = collapsed ? "false" : "true";
+  var btns = [$("toggle-sidebar"), $("toggle-sidebar-mobile")];
+  btns.forEach(function (btn) {
+    if (!btn) return;
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("aria-expanded", expanded);
+  });
+}
 function toggleSidebar() {
   if (document.body && document.body.classList) document.body.classList.toggle("sidebar-collapsed");
+  updateSidebarToggleUI();
 }
+updateSidebarToggleUI();
 $("toggle-sidebar").addEventListener("click", toggleSidebar);
-$("workspace-chevron").addEventListener("click", toggleSidebar);
+$("toggle-sidebar-mobile").addEventListener("click", toggleSidebar);
 $("side-search").addEventListener("click", function () { searchInput.focus(); searchInput.select(); });
 
 /* ---------- 侧栏宽度拖拽 ---------- */
