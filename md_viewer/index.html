@@ -725,7 +725,10 @@ function buildSearchPool() {
 }
 var searchTimer = null;
 var activeIdx = -1;
-searchInput.addEventListener("input", function () { clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 150); });
+searchInput.addEventListener("input", function () {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function () { searchTimer = null; doSearch(); }, 150);
+});
 function doSearch() {
   var q = searchInput.value.trim().toLowerCase().replace(/^§/, "");
   if (!q) { hideResults(); return; }
@@ -744,7 +747,7 @@ function doSearch() {
 }
 function renderResults(list) {
   resultsEl._list = list;
-  if (!list.length) { resultsEl.innerHTML = '<div class="sr-empty">无匹配结果</div>'; resultsEl.classList.add("show"); return; }
+  if (!list.length) { activeIdx = -1; resultsEl.innerHTML = '<div class="sr-empty">无匹配结果</div>'; resultsEl.classList.add("show"); return; }
   resultsEl.innerHTML = list.map(function (r, idx) {
     return '<div class="sr-item" data-idx="' + idx + '"><div class="sr-text">' + (r.it.number ? '<span class="sr-num">' + Renderer.esc(r.it.number) + '</span>' : '') + Renderer.esc(r.it.text) + '</div><div class="sr-meta">' + Renderer.esc(r.it.type === "file" ? "文件" : "知识点") + ' · ' + Renderer.esc(r.it.fileTitle || r.it.path) + '</div></div>';
   }).join("");
@@ -759,17 +762,45 @@ function setActive(idx) {
   for (var i = 0; i < items.length; i++) items[i].classList.toggle("active", i === idx);
   items[idx].scrollIntoView({ block: "nearest" });
 }
-function hideResults() { resultsEl.classList.remove("show"); resultsEl.innerHTML = ""; }
+function hideResults() {
+  resultsEl.classList.remove("show");
+  resultsEl.innerHTML = "";
+  resultsEl._list = [];
+  activeIdx = -1;
+}
 function jumpSearch(idx) {
-  var items = resultsEl.querySelectorAll(".sr-item"), el = items[idx];
-  if (!el) return;
-  var list = resultsEl._list || [], it = list[idx];
+  var list = resultsEl._list || [], result = list[idx];
+  // 搜索结果内部保存的是 { it, score, hay }，跳转时要取出真正的条目。
+  var it = result && result.it ? result.it : result;
+  if (!it || !it.path) return;
+  clearTimeout(searchTimer);
+  searchTimer = null;
   hideResults(); searchInput.blur();
   if (it.type === "file") openFile(it.path); else openFile(it.path, it.anchor, true);
 }
-resultsEl.addEventListener("click", function (e) { var item = e.target.closest(".sr-item"); if (item) jumpSearch(+item.dataset.idx); });
-document.addEventListener("keydown", function (e) {
+resultsEl.addEventListener("click", function (e) {
+  var item = e.target && typeof e.target.closest === "function" ? e.target.closest(".sr-item") : null;
+  if (item) jumpSearch(+item.dataset.idx);
+});
+/* 搜索框直接处理键盘事件：避免输入防抖尚未触发时按 Enter 没有任何动作。 */
+searchInput.addEventListener("keydown", function (e) {
   var showing = resultsEl.classList.contains("show");
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    if (!showing) { doSearch(); showing = resultsEl.classList.contains("show"); }
+    if (showing) setActive(activeIdx + (e.key === "ArrowDown" ? 1 : -1));
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    clearTimeout(searchTimer);
+    searchTimer = null;
+    if (!showing) { doSearch(); showing = resultsEl.classList.contains("show"); }
+    if (showing) jumpSearch(activeIdx < 0 ? 0 : activeIdx);
+  } else if (e.key === "Escape" && showing) {
+    e.preventDefault();
+    hideResults(); searchInput.blur();
+  }
+});
+document.addEventListener("keydown", function (e) {
   if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
     if (helpVisible()) hideHelp();
@@ -777,11 +808,7 @@ document.addEventListener("keydown", function (e) {
     return;
   }
   if (e.key === "Escape" && helpVisible()) { e.preventDefault(); hideHelp(); return; }
-  if (!showing) return;
-  if (e.key === "ArrowDown") { e.preventDefault(); setActive(activeIdx + 1); }
-  else if (e.key === "ArrowUp") { e.preventDefault(); setActive(activeIdx - 1); }
-  else if (e.key === "Enter") { e.preventDefault(); jumpSearch(activeIdx); }
-  else if (e.key === "Escape") { hideResults(); searchInput.blur(); }
+  if (e.key === "Escape" && resultsEl.classList.contains("show")) { hideResults(); searchInput.blur(); }
 });
 document.addEventListener("click", function (e) { if (!e.target.closest(".search-wrap")) hideResults(); });
 

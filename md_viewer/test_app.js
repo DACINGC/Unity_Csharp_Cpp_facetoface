@@ -236,6 +236,27 @@ setTimeout(async () => {
   context.doSearch();
   check("搜索编号『6.10.1』出结果", (els["search-results"].innerHTML.match(/sr-item/g) || []).length > 0);
 
+  // 用最小 DOM 桩触发结果点击，验证点击知识点确实打开目标文件。
+  const searchItem = makeEl("sr-item");
+  searchItem.dataset.idx = "0";
+  searchItem.closest = function (selector) { return selector === ".sr-item" ? this : null; };
+  els["search-results"].querySelectorAll = function (selector) {
+    return selector === ".sr-item" ? [searchItem] : [];
+  };
+  els["search-results"]._handlers.click({ target: searchItem });
+  await new Promise((r) => setTimeout(r, 400));
+  check("点击搜索知识点打开目标文件", els["crumb-file"].textContent === "06_Unity引擎.md",
+    "当前文件=" + els["crumb-file"].textContent);
+
+  // 立即按 Enter（不等待 150ms 防抖）也应使用首个结果跳转。
+  els["search"].value = "装箱";
+  els["search"]._handlers.input({});
+  let enterPrevented = false;
+  els["search"]._handlers.keydown({ key: "Enter", preventDefault() { enterPrevented = true; } });
+  await new Promise((r) => setTimeout(r, 400));
+  check("Enter 可立即打开首个搜索结果", enterPrevented && els["crumb-file"].textContent === "01_CSharp.md",
+    "当前文件=" + els["crumb-file"].textContent);
+
   // § 跨文件跳转（真实触发 openFile → fetch 目标文件）
   await new Promise((r) => setTimeout(r, 300));
   context.jumpToSection("6.10.1");
