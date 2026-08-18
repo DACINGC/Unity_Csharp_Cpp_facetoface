@@ -77,17 +77,26 @@
 - 默认**非线程安全**，多线程修改需要手动同步。
 - 适合：频繁拼接/修改字符串（动态内容、大量拼接）。
 
-> 现代编译器已将字符串 `+` 优化为 StringBuilder，少量拼接直接用 `+` 即可；大量拼接建议显式使用 StringBuilder。
+> 编译器并不会把字符串 `+` 优化成 StringBuilder：它只做常量折叠，并调用 `string.Concat` 的重载（操作数较多时用 `Concat(params string[])`，.NET Core 3.0+ 内部会用类似 StringBuilder 的 `ValueStringBuilder` 减少中间对象；两三个操作数仍是直接分配一个新串）。少量拼接直接用 `+` 即可，大量拼接建议显式使用 StringBuilder。
 
 ### 1.2.2 经典代码题：产生几个临时对象
 
 ```csharp
-string a = new string("abc");   // C# 中这样写会编译错误，不能这样构造 string
+string a = new string("abc");
 a = (a.ToUpper() + "123").Substring(0, 2);
 ```
 
-- 第一行在 C# 中**编译报错**（Java 中可以），正确写法：`string b = new string(new char[]{'a','b','c'});`。
-- 第二行会依次产生多个临时对象：`ToUpper()` 的结果字符串、`"abc" + "123"` 的拼接结果、`Substring` 的结果字符串（字面量 `"123"` 是编译期**驻留（interned）**的，不算每次运行新分配的对象）——频繁字符串操作会产生大量临时对象并增加 GC 压力，应使用 StringBuilder。
+第二行共产生 **3 个临时字符串对象**（按执行顺序）：
+
+| 顺序 | 执行 | 产生时机 | 结果 |
+| --- | --- | --- | --- |
+| 1 | `a.ToUpper()` | 方法返回时 | 新串 `"ABC"` |
+| 2 | `"ABC" + "123"` | `string.Concat` 返回时 | 新串 `"ABC123"` |
+| 3 | `.Substring(0, 2)` | 方法返回时 | 新串 `"AB"` |
+
+- 字面量 `"abc"`、`"123"` 是编译期**驻留（interned）**常量，不算每次执行的新分配。
+- 第一行 `new string("abc")` 有一次堆分配，但结果被 `a` 引用，**不是临时对象**；第二行重新赋值后它才失去引用成为垃圾。
+- 旧 `a`、`"ABC"`、`"ABC123"` 执行后立即失去引用成为垃圾，最终只剩 `"AB"` 被引用；频繁执行会增加 GC 压力，应改用 `StringBuilder`。
 
 ### 1.2.3 去掉字符串多余空格
 
@@ -353,17 +362,38 @@ m.Invoke(obj, new object[]{ 参数 });            // 5. 调用方法
 
 ### 1.7.2 索引器
 
-- 让对象可以像数组一样用下标访问元素，可以重载。
+- 让对象可以像数组一样用下标访问元素，语法类似属性：`访问修饰符 返回类型 this[参数列表] { get; set; }`。
+- 索引参数**不限于 int**：可以是 string、枚举、多个参数（类似多维数组）；同名的 `this[...]` 可按不同参数**重载**。
+- 限制：不能是 `static`；参数不能是 `ref`/`out`；可只读（只有 get）或只写（只有 set）。
 
 ```csharp
 class Person {
     private Person[] friends;
-    public Person this[int index] {   // 访问修饰符 返回值 this[参数列表]
+    public Person this[int index] {   // int 索引，封装内部数组
         get => friends[index];
         set => friends[index] = value;
     }
 }
+
+class ScoreBoard {
+    private Dictionary<string, int> map = new();
+    public int this[string name] {    // string 索引（字典式查找）
+        get => map.TryGetValue(name, out int v) ? v : 0;
+        set => map[name] = value;
+    }
+}
+
+class Matrix {
+    private int[,] data = new int[3, 3];
+    public int this[int row, int col] {   // 多参数索引（二维）
+        get => data[row, col];
+        set => data[row, col] = value;
+    }
+}
 ```
+
+- get 返回引用类型时可直接修改元素内部：`board[i].Name = "x";`（拿到的是引用）。
+- C# 8.0+ 索引与范围：类型只要有 `Count`/`Length` 和 `this[int]`，就支持 `arr[^1]`（倒数第一个）、`arr[1..3]`（切片；数组、string、List 已内置支持）。
 
 ### 1.7.3 扩展方法
 
