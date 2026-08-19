@@ -47,8 +47,18 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 | 兼容性 | 对 C# 特性（如 `System.Reflection.Emit` 动态生成代码）支持更好 | 不支持运行时动态生成 IL/反射 Emit（代码裁剪需处理） |
 | 平台支持 | 平台有限 | 几乎全平台（iOS 等禁止 JIT 的平台必须用 IL2CPP） |
 
-- **小结**：性能/包体/安全性选 IL2CPP（正式发布、移动端主流）；调试方便、需要动态代码生成场景选 Mono。
+- **总结**：Mono 是 JIT/解释执行的运行时方案（C# → IL → 虚拟机执行），灵活、调试方便、支持运行时动态生成代码，但性能与包体吃亏；IL2CPP 把 IL 转成 C++ 再 AOT 编译为机器码，性能高、包体小、难破解、几乎全平台，代价是不支持动态代码生成、需处理代码裁剪。**正式发布与移动端默认选 IL2CPP（iOS 强制）**；开发调试期或依赖反射 Emit 等动态特性的项目选 Mono。
 - 注：iOS 平台因禁止 JIT（运行时生成代码），只能使用 IL2CPP。
+
+**为什么 Unity 游戏容易被逆向破解**：
+
+- **托管语言 + 完整元数据**：C# 产物含完整类型/方法/字符串信息——Mono 下 IL 可直接反编译为源码（ILSpy/dnSpy）；IL2CPP 虽为原生码，但 `global-metadata.dat` 元数据仍明文存在，配合 Il2CppDumper 可还原结构，门槛远低于纯 C++。
+- **逻辑与数值集中在客户端**：单机/弱联网游戏的判定、数值、配置（AssetBundle/JSON）都在客户端，逆向后可读可改。
+- **资源明文打包**：模型、贴图、关卡数据可被 AssetStudio/UABE 直接解包提取。
+- **校验薄弱**：多数游戏无完整性校验/反调试，Android 端可改包重签名，配合 Cheat Engine 可直接改内存值（血量、金币）。
+- **生态工具链成熟**：dnSpy、Il2CppDumper、AssetStudio、Frida 等开源工具成熟，破解门槛低。
+
+**应对思路**：IL2CPP + 代码混淆（字符串加密、控制流混淆）、资源加密、敏感逻辑上收服务器（服务端权威）、完整性校验与反调试。
 
 ## 6.2 物理系统
 
@@ -91,8 +101,17 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 
 ### 6.2.8 高速小物体穿透及避免
 
-- 现象：细小的**高速物体**撞向较大的物体时会出现**穿透（碰撞检测失败）**。
-- 避免：增大碰撞体尺寸（或使用连续碰撞检测 CCD）、减小 FixedDeltaTime、代码限制（如手动射线检测/上一帧位置检测）。
+**问题本质**：物理引擎是**离散步进**的——每个 FixedUpdate 检测一次碰撞。若物体两步之间移动的距离（速度 × 步长）大于碰撞体的厚度/尺寸，就会"跨过去"漏检，表现为穿透（tunneling）。**放大碰撞体、全局调小 FixedDeltaTime 会牺牲表现或开销剧增，实战不推荐**。
+
+**实战方案（按优先级）**：
+
+1. **高速子弹/投射物：不用物理碰撞，用射线/扫掠自判命中**——每帧从上一位置向新位置发射 `Physics.Raycast`/`SphereCast`，命中即停在碰撞点。表现完全可控、绝不穿透，是实战最常用做法。
+2. **必须用刚体时定向开启 CCD**：`Rigidbody.collisionDetectionMode = Continuous`（防穿静态碰撞体）/ `Continuous Dynamic`（含动态体）/ `Continuous Speculative`（性能更好）。只对少量高速物体开，避免全局开销。
+3. **移动别直接改 `transform.position`**：直接改位置等于瞬移，物理引擎检测不到中间过程；用 `Rigidbody.MovePosition`/`AddForce` 走物理管线。
+4. **移动前预检测**：自控移动时先 `SphereCast`/`CapsuleCast` 探测前方，命中则贴合到碰撞点前，防止"进墙"。
+5. **兜底**：限制单步位移（最高速度 ≤ 碰撞体最小厚度 × 步长）；或仅近处物体开 CCD。
+
+**要点**：优先"射线/扫掠自判 + CCD 定向开启"；避免"放大碰撞体（改变判定表现）、全局减小 FixedDeltaTime（CPU 开销大且治标不治本）"。
 
 ### 6.2.9 MeshCollider 与其他 Collider 的主要区别
 
@@ -102,12 +121,41 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 
 ### 6.2.10 物理更新位置
 
-- 物理更新一般放在 **FixedUpdate**：按固定时间步长执行，与渲染帧率无关（受 `Time.timeScale` 影响）。`Update` 与渲染帧率相关，适合控制逻辑。
-- **固定步长实现机制**：Unity 内部通过**累积时间**触发 FixedUpdate——
-  1. 每帧把真实时间（`Time.unscaledDeltaTime`）累积到 Fixed Time 计数器；
-  2. 当累计值 ≥ `Time.fixedDeltaTime`（默认 0.02s）时，调用一次 FixedUpdate 并扣除一个步长；
-  3. 重复步骤 2 直到累计值不足一个步长。
-- 结论：**帧率波动影响 Update，不影响 FixedUpdate**（FixedUpdate 由累积时间驱动，与实际帧率无关）；但修改 `Time.timeScale` 时两者都会受影响（scaled 时间被缩放）。
+- **机制**：引擎累积缩放后的游戏时间，每满一个步长（`Time.fixedDeltaTime`，默认 0.02s）执行一次 `FixedUpdate`；固定的是**步长**而非每帧调用次数（一帧 0、1 或多次）；卡顿补算受 `Time.maximumDeltaTime`（约 0.333s）限制，防"死亡螺旋"。
+- **与 timeScale**：累积的是缩放时间，`timeScale = 0` 时物理暂停；`timeScale` 不改变 `fixedDeltaTime` 数值（0.5 时步长仍 0.02s，现实约 25 次/秒，物理半速）。
+
+> **注：** `FixedUpdate` 内 `Time.deltaTime` 等于固定步长，不是渲染帧耗时。
+
+**职责划分（放哪个回调）**：
+
+| 回调 | 调用频率 | 职责 | 适合内容 |
+| --- | --- | --- | --- |
+| Update | 每渲染帧一次（帧率相关） | 逻辑/输入 | 输入监听、状态切换、计时器、UI 更新 |
+| FixedUpdate | 固定步长（默认 0.02s，与帧率无关） | 物理同步 | 刚体移动（`MovePosition`）、施力（`AddForce`）、碰撞/触发、需确定性的逻辑（网络同步） |
+| LateUpdate | 每渲染帧一次（Update 之后） | 表现层 | 相机跟随、读取物理结果做插值表现 |
+
+- **面试一句话**：物理放 `FixedUpdate`，输入逻辑放 `Update`，相机表现放 `LateUpdate`；固定的是步长，不是每帧调用次数。
+
+### 6.2.11 Time.timeScale 详解
+
+- **定义**：全局时间缩放系数，只作用于缩放时间：`Time.deltaTime ≈ unscaledDeltaTime × timeScale`（受 `Time.maximumDeltaTime` 约束）；=1 正常、<1 变慢、=0 停。
+
+**timeScale = 0 时的对照表**：
+
+| 类别 | 受影响（停止/暂停） | 不受影响（照常） |
+| --- | --- | --- |
+| 时间值 | `Time.deltaTime`/`Time.time`/fixed 累积 | `Time.unscaledDeltaTime`/`unscaledTime`/`realtimeSinceStartup` |
+| 更新回调 | `FixedUpdate` 不触发 | `Update`/`LateUpdate` 照常每帧调用（输入、暂停菜单仍响应） |
+| 物理 | 刚体、重力、碰撞（随 FixedUpdate 停） | — |
+| 协程 | `WaitForSeconds`（永不完成） | `WaitForSecondsRealtime` |
+| 动画/粒子 | Animator（默认）、粒子（默认） | `UnscaledTime` 模式的动画/粒子 |
+| 表现 | — | UI 渲染；音频默认不停（暂停需 `AudioListener.pause = true`） |
+| 其他 | — | 网络、真实计时器 |
+
+- **实践**：暂停 = `Time.timeScale = 0`（恢复时还原原值）；暂停界面倒计时用 `unscaledDeltaTime`，延时用 `WaitForSecondsRealtime`。
+- **面试一句话**：timeScale 只影响缩放时间；=0 时物理与缩放逻辑暂停，`Update`、输入、UI、音频仍工作。
+
+> **注：** `timeScale = 0` 不等于禁用脚本：`Update` 仍执行，只是 `deltaTime = 0`。
 
 ## 6.3 UI 系统（UGUI）
 
