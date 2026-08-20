@@ -252,6 +252,149 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 - **动态字体**：按需加载字符，不需要预先生成所有字符的纹理，支持亚洲语言等大字符集时**内存占用小**；可动态调整大小形状；有缓存机制减少重复加载开销。
 - **静态字体**：需要预生成完整字符纹理，字符集大时纹理非常大。
 
+### 6.3.12 UGUI 整体架构与渲染管线
+
+- 本质：基于 `GameObject + Component` 的**保留模式** UI 系统——维护层级和状态，在需要时完成布局计算、网格生成、合批、渲染与事件分发。
+
+| 子系统 | 主要职责 | 核心类 |
+| --- | --- | --- |
+| UI 空间与层级 | 位置、大小、锚点、父子关系 | `RectTransform`、`Canvas` |
+| 图形生成 | 把 Image/Text 转成顶点与三角形 | `Graphic`、`Image`、`Text`、`VertexHelper` |
+| 渲染与合批 | 提交网格/材质/纹理，构建批次 | `CanvasRenderer`、`Canvas` |
+| 布局系统 | 计算子节点尺寸位置与自适应 | `LayoutRebuilder`、`LayoutGroup`、`ContentSizeFitter` |
+| 输入事件 | 射线检测与点击、拖拽、滚动分发 | `EventSystem`、`GraphicRaycaster`、`ExecuteEvents` |
+
+**渲染管线**：
+
+```text
+GameObject UI 层级 → RectTransform 布局计算 → Graphic 生成顶点/UV/颜色/三角形
+→ CanvasRenderer 保存渲染数据 → Canvas 排序、裁剪、合批 → 提交渲染系统
+```
+
+- 布局、脏标记、网格生成、事件系统由 C# 实现；`Canvas`/`CanvasRenderer` 与最终提交进入引擎原生层。
+
+### 6.3.13 RectTransform 底层逻辑
+
+- 用 `RectTransform` 代替 `Transform` 描述矩形 UI。
+- 关键属性：`anchorMin`/`anchorMax`（锚点范围）、`pivot`（变换中心）、`anchoredPosition`（相对锚点偏移）、`sizeDelta`（相对锚点矩形的尺寸差）、`offsetMin`/`offsetMax`（拉伸模式下的边界偏移）、`rect`（最终局部矩形）。
+- **锚点原理**：
+  - `anchorMin == anchorMax`（固定锚点）：最终尺寸 ≈ sizeDelta；
+  - 锚点拉开（拉伸）：最终尺寸 = 父节点尺寸 × 锚点范围 + sizeDelta。
+  - 所以**同一个 sizeDelta 在拉伸/非拉伸模式下含义不同**。
+- 父节点尺寸、锚点、Pivot 或布局变化会触发子节点矩形重算，回调 `OnRectTransformDimensionsChange()`——在回调里改尺寸需防递归更新。
+
+### 6.3.14 Graphic 网格生成与 CanvasRenderer
+
+**继承关系**：`UIBehaviour → Graphic → MaskableGraphic → Image / RawImage / Text`（MaskableGraphic 才支持 Mask、RectMask2D 裁剪）。
+
+**Graphic 职责**：维护颜色/材质/纹理；判断是否更新网格；生成 UI 顶点；参与射线检测；向 CanvasRenderer 提交网格与材质；响应裁剪、Mask、Canvas 状态变化。
+
+**网格生成**：UI 图形本质是三角形网格——矩形 Image = 4 顶点 + 6 索引 + 2 三角形；顶点含 Position / Color / UV0 / UV1~3（按 Shader 需要）/ Normal / Tangent。
+
+```csharp
+protected override void OnPopulateMesh(VertexHelper vh)
+{
+    vh.Clear();
+    // 添加顶点与三角形索引
+}
+```
+
+- `Image.Type` 影响网格生成：`Simple`（矩形）、`Sliced`（九宫格，顶点更多）、`Tiled`（平铺，大区域小纹理时顶点暴涨，慎用）、`Filled`（按填充比例重算）、`Preserve Aspect`（保持宽高比）。
+
+**CanvasRenderer**：保存并提交 UI Mesh、材质、纹理、透明度、裁剪状态、剔除状态。分工：Graphic 决定画什么 → CanvasRenderer 提交数据 → Canvas 组织排序/裁剪/合批/绘制（CanvasRenderer 不是普通 MeshRenderer，由 Canvas 系统统一管理）。
+
+### 6.3.15 脏标记与 Canvas 重建机制
+
+- UGUI **不每帧无条件重建**，而是用脏标记 + 延迟重建。
+
+| 方法 | 影响 |
+| --- | --- |
+| `SetVerticesDirty` | 顶点/UV/几何数据重新生成 |
+| `SetMaterialDirty` | 材质/纹理/裁剪参数更新 |
+| `SetLayoutDirty` | 尺寸与布局重算 |
+| `SetAllDirty` | 布局、顶点、材质全部更新 |
+
+- `CanvasUpdateRegistry` 维护两类重建队列：**Layout Rebuild Queue** 与 **Graphic Rebuild Queue**。
+- CanvasUpdate 阶段：`Prelayout → Layout → PostLayout → PreRender → LatePreRender`。
+
+```text
+尺寸/内容变化 → 置脏标记 → 加入 CanvasUpdateRegistry
+→ 渲染前先 Layout 重建 → 再 Graphic 网格/材质重建 → 重算批次 → 提交渲染
+```
+
+- `Canvas.ForceUpdateCanvases()` 强制立即更新（需要马上取布局结果的场景），**不要在 Update 中频繁调用**，否则破坏延迟合并更新的优势。
+
+### 6.3.16 布局系统实现原理
+
+- 两个接口：`ILayoutElement`（"我想占多大"：min/preferred/flexible 宽高；实现：LayoutElement、Image、Text、ContentSizeFitter 相关）+ `ILayoutController`（"怎么安排子节点/自身"：`ILayoutSelfController`/`ILayoutGroup`；实现：Horizontal/Vertical/Grid LayoutGroup、ContentSizeFitter、AspectRatioFitter）。
+- `LayoutRebuilder`：从脏节点**向上查找有效布局根节点**再按序重建（水平先、垂直后）。
+- 性能问题：一次属性修改触发**多层父节点重复查找与重建**，而非单个 LayoutGroup 慢。
+- 慎用组合：`ContentSizeFitter + LayoutGroup`、多层嵌套 LayoutGroup、脚本持续修改 RectTransform、父子尺寸互相依赖（父依赖子且子依赖父的循环）。
+
+### 6.3.17 事件系统实现原理
+
+**组成**：EventSystem + InputModule + Raycaster + ExecuteEvents。
+
+```text
+输入 → EventSystem 更新 InputModule → InputModule 发起 Raycast
+→ GraphicRaycaster 检测 Graphic → 排序后的 RaycastResult → ExecuteEvents 向目标及父层级分发
+```
+
+- 输入模块：`StandaloneInputModule`（旧 Input Manager）、`InputSystemUIInputModule`（新 Input System）。
+- GraphicRaycaster 检查：raycastTarget 开启、Graphic 激活、未被剔除、点在 RectTransform 内、`ICanvasRaycastFilter`、Mask/CanvasGroup 规则、深度与排序。
+- 事件接口：`IPointerClickHandler`、`IPointerDown/Up/Enter/Exit`、`IBeginDrag/IDrag/IEndDrag`、`IScroll`、`ISubmit`、`ICancel`；由 `ExecuteEvents` 分发，部分事件向父级查找可处理对象。
+
+### 6.3.18 Mask 与裁剪原理（补充 §6.3.7）
+
+- **Mask（Stencil）**：Mask 图形向模板缓冲区写入值 → 子节点用修改后的材质 → Shader 做 Stencil 比较 → 通过测试的像素才显示。
+  - 缺点：产生额外材质变体、**打断合批**、嵌套 Mask 增加模板层级与材质复杂度、Mask 自身可能额外参与绘制。
+- **RectMask2D**：基于矩形裁剪信息 + CanvasRenderer 裁剪，不依赖 Stencil；适合 ScrollRect 等矩形区域、更轻；**只能矩形裁剪**（圆形/不规则不行）。
+- 结论：矩形裁剪优先 `RectMask2D`。
+
+### 6.3.19 Canvas 合批原理（补充 §6.3.3）
+
+**影响合批的因素**：材质、纹理（图集）、Shader 与关键字、裁剪状态、Stencil 参数、层级渲染顺序、空间重叠、嵌套 Canvas、特殊材质/额外纹理。
+
+- **层级顺序不能乱**：`Image A(图集1) → B(图集2) → C(图集1)`，若 B 与 A/C 有覆盖关系，Canvas 不能跨过 B 合并 A、C——同图集元素尽量相邻，但**不能为合批破坏正确显示顺序**。
+- **SpriteAtlas**：同一图集提高合批机会，但不保证合批（材质/Mask/顺序仍可能拆批）；大图集增加显存与加载压力；按界面、生命周期、使用场景合理拆分图集。
+
+### 6.3.20 UGUI 性能开销分类
+
+- **CPU**：Canvas 重建、Layout 重建、Graphic 网格重建、Text 字符网格生成、批次重算、GraphicRaycaster 射线、ScrollRect 大量节点、Instantiate/Destroy/SetActive、频繁改 RectTransform。Profiler 常见项：`Canvas.BuildBatch`、`Canvas.SendWillRenderCanvases`、`CanvasUpdateRegistry.PerformUpdate`、`LayoutRebuilder.Rebuild`、`Graphic.Rebuild`、`GraphicRaycaster.Raycast`。
+- **GPU**：DrawCall 过多、半透明 Overdraw、全屏半透明层叠加、Mask/复杂 Shader、模糊/描边/阴影、高分辨率高填充率、World Space 双面或远距离渲染、大面积不可见 UI 仍被绘制。
+- **内存/加载**：大尺寸纹理、图集利用率低、重复加载、字体图集过大、动态字体持续扩容、频繁 Instantiate/Destroy 与临时对象 GC。
+
+### 6.3.21 UGUI 优化方法
+
+1. **拆分 Canvas（动静分离）**：静态（背景/装饰）与动态（血条/倒计时/滚动列表）分 Canvas；按**更新频率、生命周期、遮挡关系**拆，不要每控件一个 Canvas（Canvas 有管理成本、之间不能合批）。
+2. **减少 Layout 重建**：少嵌套 LayoutGroup/ContentSizeFitter、高频项固定尺寸、批量修改后只刷一次、别每帧 `ForceRebuildLayoutImmediate`/`Canvas.ForceUpdateCanvases`；仅开界面时用布局：启用 → 布局 → 禁用 → 直接用算好的位置。
+3. **控制 Canvas 重建**：事件驱动更新、赋值前比较新旧值、同帧多次修改合并一次、少改父子层级/SetSiblingIndex、动画区与静态区拆分、别持续更新不可见 UI。
+4. **优化 Raycast**：关闭背景/装饰/图标/不可交互文本的 Raycast Target（一个按钮只需主 Graphic 接收）；整组禁交互用 `CanvasGroup`（interactable=false、blocksRaycasts=false）；无交互 Canvas 移除 GraphicRaycaster；避免多余 EventSystem。
+5. **ScrollRect 长列表**：**虚拟列表/循环列表**（万条数据只建 10~20 个 Item，滚动复用）；Item 对象池、固定高度直接算位置、不用 LayoutGroup 实时排列、滚动只更新可见项、RectMask2D 裁剪、关无用 Raycast Target。
+6. **优化 Text**：别每帧刷无变化文本（如只显示秒的倒计时，秒变才更新）；少 AutoSize/富文本/阴影/描边；高频数字避免字符串分配；数字区域固定宽度防布局抖动；合理配置 TMP 字体图集、可预知字符预生成。
+7. **降低 Overdraw**：删被完全遮挡的底层图片、别用 `alpha = 0` 代替真正禁用、避免多个全屏半透明层叠加、裁剪 Sprite 透明空白、静态复杂装饰合并成一张、弹窗完全遮住底层时停底层 Canvas 绘制。
+8. **减少 Mask**：优先级 `不裁剪 > RectMask2D > Mask/Stencil > 多层嵌套 Mask`；别给每个列表项单独加 Mask；不规则遮罩考虑 Shader 裁剪或预处理。
+9. **图集与材质**：同界面 Sprite 放同一/少量图集、按加载生命周期拆图集、避免运行时给 Image 实例化独立材质、共享材质、控制 Shader Keyword；只改颜色用**顶点色/Graphic.color**，别创建材质实例。
+10. **对象池与生命周期**：飘字、聊天气泡、列表项、红点、Toast、弹幕等池化，避免频繁 Instantiate/Destroy（CPU 峰值 + 内存分配 + GC + Canvas/Layout 重建）；回池清理事件监听、动画状态、控件状态、异步请求。
+
+### 6.3.22 重要类速查
+
+**渲染**：`Canvas`（渲染根节点，排序/缩放/模式）、`CanvasRenderer`（提交网格/材质/裁剪）、`Graphic`（基类：脏标记/材质/网格/射线）、`MaskableGraphic`（支持裁剪）、`Image`（Sprite/九宫格/平铺/填充）、`RawImage`（直接显示 Texture）、`VertexHelper`（构建顶点索引）、`CanvasScaler`（分辨率适配）。
+
+**更新注册**：`CanvasUpdateRegistry`（Layout/Graphic 重建队列）、`ICanvasElement`（可重建对象接口）、`GraphicRegistry`（记录 Graphic）、`ClipperRegistry`（裁剪组件）、`Registry<T>`（注册集合基类）。
+
+**布局**：`LayoutRebuilder`、`LayoutUtility`（查询 min/preferred/flexible 尺寸）、`LayoutElement`、`Horizontal/Vertical/Grid LayoutGroup`、`ContentSizeFitter`、`AspectRatioFitter`。
+
+**事件**：`EventSystem`、`BaseInputModule`、`StandaloneInputModule`（旧输入系统）、`InputSystemUIInputModule`（新输入系统）、`GraphicRaycaster`、`ExecuteEvents`（事件分发）、`PointerEventData`（指针状态）、`CanvasGroup`（透明度/交互/射线阻挡）。
+
+### 6.3.23 UGUI 性能排查与优化优先级
+
+**排查步骤**：① Profiler 判断 CPU 还是 GPU（`Canvas.BuildBatch`/Layout 高 → CPU；DrawCall/GPU 时间/Overdraw 高 → GPU）→ ② 查 Canvas 重建（哪些每帧变、动静是否分离、每帧文本/改 RectTransform）→ ③ 查 Layout（嵌套、ContentSizeFitter、每帧强制刷新）→ ④ Frame Debugger/RenderDoc 查 DrawCall 与拆批原因 → ⑤ Overdraw 视图查透明叠层 → ⑥ **真机验证**（编辑器 ≠ 真机：填充率、图集显存、字体图集、IL2CPP、不同渲染管线与驱动差异）。
+
+**优化优先级**：找每帧重建的 Canvas → 动静拆分 → 停无变化文本/属性重复赋值 → 长列表虚拟化 + 对象池 → 减 Layout 嵌套 → 关无用 Raycast Target → RectMask2D → SpriteAtlas 减少材质纹理切换 → 删全屏透明叠层降 Overdraw → 最后才考虑自定义 Mesh/Shader/换框架。
+
+> **核心原则：少重建、少布局、少节点、少射线、少透明覆盖、少材质切换。** 优化不能只看 Draw Call——真正的瓶颈常在 Canvas 重建、布局计算、文本刷新与长列表节点数量，先定位再优化。
+
 ## 6.4 动画系统
 
 ### 6.4.1 游戏动画的几种方式及原理
