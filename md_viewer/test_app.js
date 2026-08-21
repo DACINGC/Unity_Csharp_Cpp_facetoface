@@ -10,6 +10,7 @@ const path = require("path");
 const vm = require("vm");
 
 const APP = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+const ROOT = path.join(__dirname, "..");
 const m = /<script>\n([\s\S]*?)\n<\/script>\s*<\/body>/.exec(APP);
 if (!m) { console.error("无法提取应用脚本"); process.exit(1); }
 const APP_JS = m[1];
@@ -75,6 +76,7 @@ function makeEl(id) {
     closest() { return null; },
     scrollIntoView() {},
     focus() {}, select() {}, blur() {},
+    appendChild() {},
     getBoundingClientRect() { return { width: 480, left: 0, right: 480, top: 0, bottom: 0 }; },
     parentElement: null,
     get offsetWidth() { return 0; }
@@ -96,6 +98,7 @@ const bodyStub = makeEl("body");
 const documentStub = {
   body: bodyStub,
   getElementById(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; },
+  createElement(tag) { return makeEl(tag); },
   querySelectorAll() { return []; },
   addEventListener() {},
   documentElement: {
@@ -115,6 +118,8 @@ const SERVER_BASE = process.env.MDVIEWER_URL || "http://127.0.0.1:8765";
 const context = {
   document: documentStub,
   localStorage: localStorageStub,
+  // vm 沙箱默认有独立的 Math；注入宿主 Math 便于测试中 stub 随机数
+  Math: Math,
   // 浏览器中相对路径可用，Node 的 fetch 需要绝对 URL，这里补一个 base
   fetch: (u, o) => globalThis.fetch(new URL(u, SERVER_BASE), o),
   requestAnimationFrame(fn) { queueMicrotask(fn); },
@@ -166,7 +171,8 @@ setTimeout(async () => {
 
   // 目录与知识点双分区（不再切换，同时可见）
   const tocHtml2 = els["tab-toc"].innerHTML;
-  check("知识点分区已渲染", tocHtml2.includes("知识点") && (tocHtml2.match(/toc-link/g) || []).length > 0,
+  check("知识点分区已渲染（含标记徽标）",
+    (tocHtml2.match(/toc-link/g) || []).length > 0 && tocHtml2.includes("mark-badge"),
     (tocHtml2.match(/toc-link/g) || []).length + " 条标题");
   check("空间计数 全部=25", els["nav-count-all"].textContent === "25",
     "实际=" + els["nav-count-all"].textContent);
@@ -257,6 +263,22 @@ setTimeout(async () => {
   check("Enter 可立即打开首个搜索结果", enterPrevented && els["crumb-file"].textContent === "01_CSharp.md",
     "当前文件=" + els["crumb-file"].textContent);
 
+  // 全文搜索：等待服务端正文结果合并进下拉（正文命中带高亮片段）
+  els["search"].value = "装箱";
+  context.doSearch();
+  await new Promise((r) => setTimeout(r, 600));
+  check("全文搜索合并正文命中", els["search-results"].innerHTML.includes("sr-snippet") &&
+    els["search-results"].innerHTML.includes("正文"),
+    (els["search-results"].innerHTML.match(/sr-item/g) || []).length + " 项");
+
+  // 全文搜索接口直连
+  const sres = await (await fetch(new URL("/api/search?q=虚函数表", SERVER_BASE))).json();
+  check("全文搜索接口返回命中", sres.results.length > 0 && sres.results[0].matches.length > 0,
+    sres.results.length + " 个文件");
+  const tline = sres.results[0].matches[0];
+  check("命中带行号与小节锚点", typeof tline.line === "number" && typeof tline.anchor === "string",
+    "第" + tline.line + "行 → " + tline.anchor);
+
   // § 跨文件跳转（真实触发 openFile → fetch 目标文件）
   await new Promise((r) => setTimeout(r, 300));
   context.jumpToSection("6.10.1");
@@ -266,6 +288,78 @@ setTimeout(async () => {
     "当前文件=" + els["crumb-file"].textContent);
   const doc6 = els["content"].innerHTML;
   check("跳转后渲染出 6.10.1 小节", doc6.includes('id="6.10.1"'));
+
+  // 掌握度标记 + 待复习清单
+  console.log("掌握度标记与待复习检查");
+  const badge = makeEl("mark-badge");
+  badge.dataset.path = "面试知识整理/01_CSharp.md";
+  badge.dataset.anchor = "1.1.2";
+  badge.closest = function (selector) { return selector === ".mark-badge" ? this : null; };
+  const marksState = () => JSON.parse(localStorageStub._d["mdviewer:marks"]);
+  els["tab-toc"]._handlers.click({ target: badge });
+  check("第一次点击标记为 已掌握", marksState()["面试知识整理/01_CSharp.md|1.1.2"] === "done");
+  els["tab-toc"]._handlers.click({ target: badge });
+  els["tab-toc"]._handlers.click({ target: badge });
+  check("循环标记到 薄弱", marksState()["面试知识整理/01_CSharp.md|1.1.2"] === "weak");
+  check("待复习计数徽标更新", els["toc-review-count"].textContent === "1",
+    "实际=" + els["toc-review-count"].textContent);
+  els["toc-tab-review"]._handlers.click({});
+  check("待复习列表渲染", els["tab-toc"].innerHTML.includes("review-item") &&
+    els["tab-toc"].innerHTML.includes("装箱与拆箱"),
+    "…" + els["tab-toc"].innerHTML.slice(0, 60));
+  els["toc-tab-all"]._handlers.click({});
+  check("切回目录列表", (els["tab-toc"].innerHTML.match(/toc-link/g) || []).length > 0,
+    (els["tab-toc"].innerHTML.match(/toc-link/g) || []).length + " 条标题");
+
+  // 滚动位置记忆
+  console.log("滚动位置记忆检查");
+  els["main"].scrollTop = 120;
+  context.saveScrollPos();
+  check("滚动位置已持久化",
+    JSON.parse(localStorageStub._d["mdviewer:scroll"])["面试知识整理/06_Unity引擎.md"] === 120);
+
+  // 第二批：随机抽题 / 进度统计 / 编辑模式 / 保存与定位接口
+  console.log("随机抽题与进度统计检查");
+  const origRand = Math.random;
+  Math.random = () => 0;
+  context.randomPick(false);
+  Math.random = origRand;
+  await new Promise((r) => setTimeout(r, 400));
+  check("随机抽题打开知识点", els["crumb-file"].textContent === "01_CSharp.md",
+    "当前文件=" + els["crumb-file"].textContent);
+  check("进度统计渲染", els["progress-stats"].innerHTML.includes("进度") &&
+    els["progress-stats"].innerHTML.includes("/"),
+    els["progress-stats"].innerHTML.slice(0, 50));
+
+  console.log("编辑模式检查");
+  els["edit-btn"]._handlers.click({});
+  check("进入编辑模式", !els["edit-bar"].classList.contains("hidden") &&
+    els["edit-btn"].classList.contains("active"));
+  els["edit-cancel"]._handlers.click({});
+  check("取消编辑恢复只读", els["edit-bar"].classList.contains("hidden") &&
+    !els["edit-btn"].classList.contains("active"));
+
+  console.log("保存/定位接口检查（临时文件，用后即删）");
+  const tmpRel = "mdviewer_test_tmp_" + Date.now() + ".txt";
+  fs.writeFileSync(path.join(ROOT, tmpRel), "hello\n", "utf8");
+  const saveR = await (await fetch(new URL("/api/save", SERVER_BASE), {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: tmpRel, content: "你好 world\n第二行" })
+  })).json();
+  check("保存接口返回 ok", saveR.ok === true, "encoding=" + (saveR.encoding || "?"));
+  check("保存内容按原编码回写", fs.readFileSync(path.join(ROOT, tmpRel), "utf8") === "你好 world\n第二行");
+  check("保存前生成 .bak 备份", fs.existsSync(path.join(ROOT, tmpRel) + ".bak"));
+  const saveBad = await (await fetch(new URL("/api/save", SERVER_BASE), {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: "../../../Windows/win.ini", content: "x" })
+  })).json();
+  check("保存接口拒绝路径穿越", saveBad.error !== undefined);
+  const openBad = await (await fetch(new URL("/api/open", SERVER_BASE), {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: "../../../etc/passwd" })
+  })).json();
+  check("定位接口拒绝非法路径", openBad.error !== undefined);
+  try { fs.unlinkSync(path.join(ROOT, tmpRel)); fs.unlinkSync(path.join(ROOT, tmpRel) + ".bak"); } catch (e) {}
 
   console.log(failures ? `\n共 ${failures} 项失败` : "\n全部通过 ✔");
   process.exit(failures ? 1 : 0);
