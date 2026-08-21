@@ -129,5 +129,29 @@ if (csharpHtml.includes("<strong>设计</strong>：桶（Bucket）数组 + 条�
   ok("嵌套列表渲染正确（<li> 内含 <ul>）");
 } else fail("嵌套列表渲染异常");
 
+/* ---------- 新增语法：链接 / 删除线 / 任务列表 / 折叠块 ---------- */
+console.log("\n新增语法检查");
+const extLink = R.renderInline("[官方文档](https://example.com/a_b)");
+if (extLink.includes('href="https://example.com/a_b"') && extLink.includes('target="_blank"')) ok("外部链接渲染");
+else fail("外部链接未渲染: " + extLink);
+const ancLink = R.renderInline("[回到 1.1.1](#1.1.1)");
+if (ancLink.includes('data-anchor-link="1.1.1"')) ok("同文件锚点链接渲染");
+else fail("同文件锚点链接未渲染: " + ancLink);
+const fileLink = R.renderInline("[打开 C# 篇](01_CSharp.md#1.1.1)");
+if (fileLink.includes('data-file-link="01_CSharp.md"') && fileLink.includes('data-anchor-link="1.1.1"')) ok("跨文件链接渲染");
+else fail("跨文件链接未渲染: " + fileLink);
+const codeInLink = R.renderInline("[`main` 函数](https://x.com)");
+if (codeInLink.includes("<code>main</code>")) ok("链接标签内行内代码渲染");
+else fail("链接标签内行内代码未渲染: " + codeInLink);
+if (R.renderInline("~~旧内容~~").includes("<del>旧内容</del>")) ok("删除线渲染");
+else fail("删除线未渲染");
+const taskHtml = R.renderMarkdown("- [x] 已完成\n- [ ] 待办");
+if ((taskHtml.match(/task-box/g) || []).length === 2 && taskHtml.includes('checked')) ok("任务列表渲染");
+else fail("任务列表未渲染: " + taskHtml);
+const detHtml = R.renderMarkdown("<details>\n<summary>题目</summary>\n答案在折叠内\n</details>");
+if (detHtml.includes("<details>") && detHtml.includes("<summary>题目</summary>") &&
+  detHtml.includes("<p>答案在折叠内</p>") && !detHtml.includes("&lt;details")) ok("折叠块渲染");
+else fail("折叠块未渲染: " + detHtml);
+
 console.log(failures ? `\n共 ${failures} 项失败` : "\n全部通过 ✔");
 process.exit(failures ? 1 : 0);

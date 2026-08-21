@@ -8,17 +8,22 @@
     python mdviewer.py --root D:/docs # 指定文档根目录
     python mdviewer.py --no-browser   # 不自动打开浏览器
 
-提供三个接口:
-    GET /                  -> 返回前端页面 md_viewer/index.html
-    GET /api/index         -> JSON 文件列表 + 标题树 + 章节编号映射（sections）
-    GET /api/file?path=..  -> JSON 文件内容（path 为相对根目录的路径，防路径穿越）
+提供六个接口:
+    GET  /                  -> 返回前端页面 md_viewer/index.html
+    GET  /api/index         -> JSON 文件列表 + 标题树 + 章节编号映射（sections，带 mtime 缓存）
+    GET  /api/file?path=..  -> JSON 文件内容（path 为相对根目录的路径，防路径穿越）
+    GET  /api/search?q=..   -> JSON 全文搜索结果（文件 + 命中行 + 最近小节锚点）
+    POST /api/save          -> 保存文件（JSON body: {path, content}，按原编码回写，写前备份 .bak）
+    POST /api/open          -> 在系统文件管理器中定位文件（JSON body: {path}，仅本机）
 """
 
 import argparse
 import json
 import os
 import re
+import shutil
 import sys
+import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -33,15 +38,29 @@ NUMBER_RE = re.compile(r"^(\d+(?:\.\d+)*)")
 FENCE_RE = re.compile(r"^```(\w*)\s*$")
 
 
-def read_text(path):
-    """按 UTF-8 -> GBK -> latin-1 顺序尝试读取，避免 Windows 记事本 ANSI 文件乱码。"""
-    for enc in ("utf-8-sig", "utf-8", "gbk", "latin-1"):
+def read_text_enc(path):
+    """读取文件并返回 (内容, 编码)。编码顺序：BOM 嗅探 → UTF-8 → GBK → latin-1。
+    newline="" 保持原始换行符（\\r\\n / \\n），保证编辑保存后行尾不变。"""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(3)
+    except OSError:
+        return "", "utf-8"
+    if head.startswith(b"\xef\xbb\xbf"):
+        with open(path, "r", encoding="utf-8-sig", newline="") as f:
+            return f.read(), "utf-8-sig"
+    for enc in ("utf-8", "gbk", "latin-1"):
         try:
-            with open(path, "r", encoding=enc) as f:
-                return f.read()
+            with open(path, "r", encoding=enc, newline="") as f:
+                return f.read(), enc
         except (UnicodeDecodeError, UnicodeError):
             continue
-    return ""
+    return "", "utf-8"
+
+
+def read_text(path):
+    """按 UTF-8 -> GBK -> latin-1 顺序尝试读取，避免 Windows 记事本 ANSI 文件乱码。"""
+    return read_text_enc(path)[0]
 
 
 def slugify(text):
@@ -93,40 +112,124 @@ def build_index(root):
     """扫描根目录下所有 .md / .txt，构建前端所需的索引。"""
     files = []
     sections = {}  # 章节编号 -> {path, anchor}，重复编号首现优先
+    for rel in iter_docs(root):
+        full = os.path.join(root, rel)
+        ext = os.path.splitext(rel)[1].lower()
+        content = read_text(full)
+        if ext == ".md":
+            headings = extract_headings(content)
+            for h in headings:
+                if h["number"] and h["number"] not in sections:
+                    sections[h["number"]] = {"path": rel, "anchor": h["anchor"]}
+            files.append({
+                "type": "md",
+                "path": rel,
+                "name": os.path.basename(full),
+                "title": file_title(content, os.path.basename(full)),
+                "headings": headings,
+            })
+        else:
+            files.append({
+                "type": "txt",
+                "path": rel,
+                "name": os.path.basename(full),
+                "title": os.path.basename(full),
+                "headings": [],
+            })
+    files.sort(key=lambda f: (f["type"] != "md", f["path"]))
+    return {"files": files, "sections": sections}
+
+
+# ---------- 索引缓存：文件数 + 最大 mtime 做失效签名，避免每次请求全量重读 ----------
+_index_lock = threading.Lock()
+_index_cache = {"sig": None, "data": None}
+
+
+def index_signature(root):
+    """轻量签名：仅遍历目录统计文件数与最新修改时间，不读取文件内容。"""
+    n = 0
+    mt = 0.0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
+        for fn in filenames:
+            ext = os.path.splitext(fn)[1].lower()
+            if ext not in (".md", ".txt"):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, fn), root).replace("\\", "/")
+            if rel.startswith("md_viewer/") or rel == "README.md":
+                continue
+            n += 1
+            try:
+                mt = max(mt, os.path.getmtime(os.path.join(dirpath, fn)))
+            except OSError:
+                pass
+    return (n, mt)
+
+
+def get_index(root):
+    with _index_lock:
+        sig = index_signature(root)
+        if _index_cache["sig"] != sig:
+            _index_cache["sig"] = sig
+            _index_cache["data"] = build_index(root)
+        return _index_cache["data"]
+
+
+def iter_docs(root):
+    """遍历根目录下所有 .md / .txt 的相对路径（跳过工具自身文件）。"""
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if not d.startswith(".")]
         for fn in sorted(filenames):
             ext = os.path.splitext(fn)[1].lower()
             if ext not in (".md", ".txt"):
                 continue
-            full = os.path.join(dirpath, fn)
-            rel = os.path.relpath(full, root).replace("\\", "/")
-            # 排除工具自身文件
+            rel = os.path.relpath(os.path.join(dirpath, fn), root).replace("\\", "/")
             if rel.startswith("md_viewer/") or rel == "README.md":
                 continue
-            content = read_text(full)
-            if ext == ".md":
-                headings = extract_headings(content)
-                for h in headings:
-                    if h["number"] and h["number"] not in sections:
-                        sections[h["number"]] = {"path": rel, "anchor": h["anchor"]}
-                files.append({
-                    "type": "md",
-                    "path": rel,
-                    "name": fn,
-                    "title": file_title(content, fn),
-                    "headings": headings,
-                })
-            else:
-                files.append({
-                    "type": "txt",
-                    "path": rel,
-                    "name": fn,
-                    "title": fn,
-                    "headings": [],
-                })
-    files.sort(key=lambda f: (f["type"] != "md", f["path"]))
-    return {"files": files, "sections": sections}
+            yield rel
+
+
+def search_text(root, query, per_file=5, max_files=30):
+    """全文搜索：返回 [{path,name,type,title,matches:[{line,text,anchor}]}]。
+
+    - 大小写不敏感；命中行带行号与"该行所属的最近小节锚点"（md 才有）。
+    - 每文件最多 per_file 个命中，最多 max_files 个文件，避免结果过大。
+    """
+    q = query.strip().lower()
+    if not q:
+        return []
+    results = []
+    for rel in iter_docs(root):
+        full = os.path.join(root, rel)
+        content = read_text(full)
+        if q not in content.lower():
+            continue
+        ext = os.path.splitext(rel)[1].lower()
+        is_md = ext == ".md"
+        matches = []
+        anchor = ""  # 当前行所属的最近小节锚点
+        for idx, line in enumerate(content.splitlines(), 1):
+            if is_md:
+                m = HEADING_RE.match(line)
+                if m:
+                    clean = re.sub(r"[`*_~>]", "", m.group(2)).strip()
+                    num_m = NUMBER_RE.match(clean)
+                    anchor = num_m.group(1) if num_m else slugify(clean)
+            if q in line.lower():
+                matches.append({"line": idx, "text": line.strip()[:200], "anchor": anchor})
+                if len(matches) >= per_file:
+                    break
+        if matches:
+            results.append({
+                "path": rel,
+                "name": os.path.basename(full),
+                "type": "md" if is_md else "txt",
+                "title": file_title(content, os.path.basename(full)) if is_md else os.path.basename(full),
+                "matches": matches,
+            })
+            if len(results) >= max_files:
+                break
+    return results
 
 
 class ViewerHandler(BaseHTTPRequestHandler):
@@ -168,7 +271,10 @@ class ViewerHandler(BaseHTTPRequestHandler):
             elif parsed.path == "/renderer.js":
                 self._serve_asset("renderer.js", "application/javascript; charset=utf-8")
             elif parsed.path == "/api/index":
-                self._send_json(build_index(self.root))
+                self._send_json(get_index(self.root))
+            elif parsed.path == "/api/search":
+                q = parse_qs(parsed.query).get("q", [""])[0]
+                self._send_json({"q": q, "results": search_text(self.root, q)})
             elif parsed.path == "/api/file":
                 self._serve_file(parse_qs(parsed.query))
             else:
@@ -180,6 +286,89 @@ class ViewerHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 500)
             except Exception:
                 pass
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        try:
+            if parsed.path == "/api/save":
+                self._save_file()
+            elif parsed.path == "/api/open":
+                self._open_in_folder()
+            else:
+                self.send_error(404, "Not Found")
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception as exc:
+            try:
+                self._send_json({"error": f"{type(exc).__name__}: {exc}"}, 500)
+            except Exception:
+                pass
+
+    def _read_json_body(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0:
+            return {}
+        raw = self.rfile.read(length)
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+            return payload if isinstance(payload, dict) else {}
+        except (ValueError, UnicodeDecodeError):
+            return {}
+
+    def _save_file(self):
+        """保存文件：按原编码回写（保持行尾），写前覆盖式备份 .bak。"""
+        payload = self._read_json_body()
+        rel = str(payload.get("path", ""))
+        content = payload.get("content")
+        if not isinstance(content, str):
+            self._send_json({"error": "缺少 content"}, 400)
+            return
+        full = self._safe_relpath(rel)
+        if full is None:
+            self._send_json({"error": "非法的路径"}, 400)
+            return
+        ext = os.path.splitext(full)[1].lower()
+        if ext not in (".md", ".txt"):
+            self._send_json({"error": "仅支持 .md / .txt 文件"}, 400)
+            return
+        if not os.path.isfile(full):
+            self._send_json({"error": f"文件不存在: {rel}"}, 404)
+            return
+        _, enc = read_text_enc(full)
+        try:
+            shutil.copy2(full, full + ".bak")  # 写前备份
+        except OSError:
+            pass
+        try:
+            with open(full, "w", encoding=enc, newline="") as f:
+                f.write(content)
+        except UnicodeEncodeError:
+            self._send_json(
+                {"error": f"内容包含无法用原编码 {enc} 保存的字符，请先改源文件编码"}, 400)
+            return
+        self._send_json({"ok": True, "encoding": enc})
+
+    def _open_in_folder(self):
+        """在系统文件管理器中定位文件（仅本机使用）。"""
+        payload = self._read_json_body()
+        rel = str(payload.get("path", ""))
+        full = self._safe_relpath(rel)
+        if full is None or not os.path.exists(full):
+            self._send_json({"error": "非法的路径"}, 400)
+            return
+        target = full if os.path.isdir(full) else os.path.dirname(full)
+        try:
+            if sys.platform == "win32":
+                os.startfile(target)
+            elif sys.platform == "darwin":
+                import subprocess
+                subprocess.Popen(["open", target])
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open", target])
+            self._send_json({"ok": True})
+        except OSError as exc:
+            self._send_json({"error": f"无法打开文件管理器: {exc}"}, 500)
 
     def _serve_asset(self, name, content_type):
         path = os.path.realpath(os.path.join(SCRIPT_DIR, "md_viewer", name))

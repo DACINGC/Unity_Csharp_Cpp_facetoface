@@ -387,6 +387,138 @@
     .crumb-tools .nav-btn:first-child { display: none; }
     #resizer { display: none; }
   }
+
+  /* ---------- 全文搜索命中高亮 ---------- */
+  mark.hl-term { background: var(--hl); color: inherit; padding: 0 1px; border-radius: 3px; }
+  .sr-snippet {
+    margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .sr-snippet mark { background: var(--hl); color: var(--text); border-radius: 2px; padding: 0 1px; }
+
+  /* ---------- 代码块复制 / 语言标签 ---------- */
+  .doc pre { position: relative; }
+  .code-copy {
+    position: absolute; top: 7px; right: 8px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); background: rgba(16,24,32,.85); cursor: pointer;
+    font-size: 11px; opacity: 0; transition: opacity .15s, color .15s;
+  }
+  .doc pre:hover .code-copy { opacity: 1; }
+  .code-copy:hover { color: var(--accent); border-color: rgba(53,184,255,.4); }
+  .code-lang {
+    position: absolute; top: 8px; left: 13px; z-index: 1;
+    color: var(--muted-2); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    pointer-events: none; user-select: none;
+  }
+  .doc pre:has(.code-lang) code { padding-top: 4px; }
+
+  /* ---------- 新增渲染语法样式 ---------- */
+  .doc del { color: var(--muted-2); }
+  .doc li input[type="checkbox"].task-box { margin-right: 7px; accent-color: var(--accent); vertical-align: -1px; }
+  .doc details { margin: 13px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-soft); overflow: hidden; }
+  .doc summary { cursor: pointer; padding: 9px 14px; font-weight: 600; color: var(--text-strong); user-select: none; list-style: none; }
+  .doc summary::-webkit-details-marker { display: none; }
+  .doc summary::before { content: "▸ "; color: var(--accent); }
+  .doc details[open] summary { border-bottom: 1px solid var(--border-soft); }
+  .doc details[open] summary::before { content: "▾ "; }
+  .doc details > :not(summary) { margin-left: 15px; margin-right: 15px; }
+  .doc a[data-anchor-link] { border-bottom: 1px dashed var(--accent); text-decoration: none; }
+  .doc a[data-anchor-link]:hover { border-bottom-style: solid; background: var(--accent-soft); }
+
+  /* ---------- 知识点掌握度标记 / 待复习 ---------- */
+  .toc-tabs { display: flex; gap: 4px; }
+  .toc-tab {
+    display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px;
+    border: 1px solid transparent; border-radius: 999px; background: transparent;
+    color: var(--muted); font-size: 11.5px; cursor: pointer;
+  }
+  .toc-tab:hover { color: var(--text); background: var(--panel-soft); }
+  .toc-tab.active { color: var(--accent); background: var(--accent-soft); border-color: rgba(53,184,255,.22); font-weight: 600; }
+  .toc-tab-badge { min-width: 15px; padding: 0 4px; border-radius: 999px; background: var(--panel-soft); color: var(--muted-2); font-size: 10px; text-align: center; }
+  .toc-tab.active .toc-tab-badge { background: var(--accent-soft); color: var(--accent); }
+  .toc-row { display: flex; align-items: flex-start; }
+  .toc-row .toc-link { flex: 1; min-width: 0; }
+  .mark-badge {
+    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 15px;
+    width: 15px; height: 15px; margin: 4px 5px 0 0; border-radius: 4px;
+    color: var(--muted-2); background: transparent; border: 1px solid var(--border);
+    font-size: 10px; cursor: pointer; user-select: none;
+  }
+  .mark-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .mark-badge[data-state="done"] { color: #0d2217; background: var(--success); border-color: var(--success); }
+  .mark-badge[data-state="review"] { color: #201603; background: var(--warning); border-color: var(--warning); }
+  .mark-badge[data-state="weak"] { color: #fff; background: var(--error); border-color: var(--error); }
+  .review-item { display: flex; align-items: center; gap: 7px; padding: 7px 9px; margin-bottom: 2px; border-radius: 7px; cursor: pointer; }
+  .review-item:hover { background: var(--panel-soft); }
+  .review-item .ri-title { overflow: hidden; flex: 1; min-width: 0; color: var(--text); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+  .review-item .ri-file { overflow: hidden; flex: 0 0 auto; max-width: 42%; margin-left: 6px; color: var(--muted-2); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- 随机抽题 / 打印 / 进度统计 ---------- */
+  .rail-tool { position: relative; }
+  .random-menu {
+    position: absolute; left: calc(100% + 10px); bottom: 0; z-index: 70;
+    min-width: 158px; padding: 4px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--panel-raised); box-shadow: var(--shadow);
+  }
+  .random-menu.hidden { display: none; }
+  .random-menu .rm-note { padding: 6px 10px 4px; color: var(--muted-2); font-size: 10px; }
+  .random-menu button {
+    display: block; width: 100%; padding: 7px 10px; border: 0; border-radius: 6px;
+    background: transparent; color: var(--muted); font-size: 12px; text-align: left; cursor: pointer;
+  }
+  .random-menu button:hover { color: var(--text); background: var(--panel-soft); }
+  .progress-stats {
+    margin: 2px 8px 0; padding: 8px 8px 2px; border-top: 1px solid var(--border-soft);
+    color: var(--muted-2); font-size: 10.5px; line-height: 1.8;
+  }
+  .progress-stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .progress-stats .st-done { color: var(--success); }
+  .progress-stats .st-review { color: var(--warning); }
+  .progress-stats .st-weak { color: var(--error); }
+
+  /* ---------- 内置编辑 ---------- */
+  #edit-bar {
+    display: flex; align-items: center; gap: 10px; max-width: 980px; margin: 4px auto 0;
+    padding: 8px 18px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--panel); box-shadow: var(--shadow);
+  }
+  #edit-bar.hidden { display: none; }
+  #edit-bar .eb-note { color: var(--muted-2); font-size: 11px; margin-right: auto; }
+  .eb-btn { padding: 5px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); font-size: 12px; cursor: pointer; }
+  .eb-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .eb-btn.primary { border-color: rgba(53,184,255,.45); color: var(--accent); background: var(--accent-soft); }
+  textarea.edit-source {
+    display: block; width: 100%; max-width: 980px; min-height: 62vh; margin: 11px auto 60px; resize: vertical;
+    padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-deep); color: var(--text); font-family: Consolas, "Courier New", monospace;
+    font-size: 13px; line-height: 1.7; outline: none;
+  }
+  textarea.edit-source:focus { border-color: rgba(53,184,255,.65); box-shadow: 0 0 0 3px rgba(53,184,255,.10); }
+  #content.hidden, textarea.edit-source.hidden { display: none !important; }
+  #edit-btn.active { color: var(--accent); background: var(--accent-soft); }
+
+  /* ---------- 打印 / 导出 PDF ---------- */
+  @media print {
+    :root {
+      --bg: #fff; --panel: #fff; --text: #000; --text-strong: #000; --muted: #444; --muted-2: #666;
+      --border: #ccc; --border-soft: #ddd; --panel-soft: #f5f5f5; --accent: #0366d6;
+      --code-bg: #f6f8fa; --code-text: #24292f; --hl: rgba(255,208,92,.45);
+    }
+    body { background: #fff !important; overflow: visible !important; }
+    .workspace-rail, aside, header, #crumb, .page-context, #edit-bar,
+    #toggle-sidebar-mobile, #toast, .code-copy, .code-lang, .sec-ref { display: none !important; }
+    .layout, .main-shell, main { display: block !important; height: auto !important; overflow: visible !important; }
+    .doc {
+      max-width: none; margin: 0; padding: 6px 4px; border: 0; box-shadow: none;
+      background: #fff; color: #000;
+    }
+    .doc h1, .doc h2, .doc h3, .doc h4 { break-after: avoid; }
+    .doc pre { break-inside: avoid; white-space: pre-wrap; }
+    .doc a { color: #0366d6; text-decoration: underline; }
+    .doc details { break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
@@ -398,6 +530,15 @@
     </button>
     <div class="rail-divider"></div>
     <div class="rail-bottom">
+      <div class="rail-tool">
+        <button id="rail-random" class="rail-btn" title="随机抽题自测" aria-label="随机抽题"><span class="rail-icon">🎲</span></button>
+        <div id="random-menu" class="random-menu hidden">
+          <div class="rm-note">抽一个知识点自测</div>
+          <button id="random-all" data-mode="all">全部知识点</button>
+          <button id="random-review" data-mode="review">待复习 / 薄弱</button>
+        </div>
+      </div>
+      <button id="rail-print" class="rail-btn" title="打印 / 导出 PDF" aria-label="打印"><span class="rail-icon">🖨</span></button>
       <button id="theme-toggle" class="rail-btn" title="切换明暗" aria-label="切换明暗"><span class="rail-icon">◐</span></button>
       <button id="rail-help" class="rail-btn" title="快捷键" aria-label="快捷键"><span class="rail-icon">?</span></button>
     </div>
@@ -421,6 +562,7 @@
         <div class="nav-section-title"><span>空间</span><span>⌄</span></div>
         <button class="workspace-link" id="nav-all"><span class="nav-glyph">⌂</span><span>全部笔记</span><span class="nav-count" id="nav-count-all">—</span></button>
         <button class="workspace-link" id="nav-kb"><span class="nav-glyph">▦</span><span>面试知识库</span><span class="nav-count" id="nav-count-kb">—</span></button>
+        <div class="progress-stats" id="progress-stats"></div>
       </nav>
 
       <div class="side-split" id="side-split">
@@ -436,10 +578,17 @@
         </div>
         <div id="col-resizer" title="拖动调整目录宽度" aria-label="拖动调整目录宽度"></div>
         <div class="side-col" id="col-toc">
+          <div class="tab-heading">
+            <span class="tab-heading-title">知识点</span>
+            <div class="toc-tabs" role="tablist">
+              <button class="toc-tab active" id="toc-tab-all" data-tab="all" role="tab">目录</button>
+              <button class="toc-tab" id="toc-tab-review" data-tab="review" role="tab">待复习<span class="toc-tab-badge" id="toc-review-count">0</span></button>
+            </div>
+          </div>
           <div id="tab-toc"></div>
         </div>
       </div>
-      <div class="aside-foot">Ctrl+K 搜索 · §编号跨页跳转 · ☰ 收起/展开侧栏 · ◐ 切换明暗</div>
+      <div class="aside-foot">Ctrl+K 搜索 · §编号跨页跳转 · ○ 标记掌握度 · ☰ 收起/展开侧栏 · ◐ 切换明暗</div>
     </aside>
 
     <div id="resizer" title="拖动调整侧栏宽度" aria-label="拖动调整侧栏宽度"></div>
@@ -460,6 +609,8 @@
           <span class="sync-state">● 本地模式</span>
           <button id="share-btn" class="top-action" title="复制当前页面链接"><span>↗</span><span>分享</span></button>
           <button id="copy-btn" class="top-action icon-only" title="复制当前文件名" aria-label="复制当前文件名">▣</button>
+          <button id="edit-btn" class="top-action icon-only" title="编辑当前文档（Ctrl+E）" aria-label="编辑当前文档">✎</button>
+          <button id="reveal-btn" class="top-action icon-only" title="在文件管理器中定位" aria-label="在文件管理器中定位">📁</button>
           <div class="user-avatar" title="淅J洇">淅</div>
         </div>
       </header>
@@ -476,7 +627,13 @@
           <span class="context-kicker">当前页面</span><span class="context-divider"></span><span id="meta-title">正在打开文档…</span>
           <span class="context-pills"><span id="meta-type" class="context-pill">MD 文档</span><span id="meta-sections" class="context-pill">— 个知识点</span></span>
         </div>
+        <div id="edit-bar" class="hidden">
+          <span class="eb-note">编辑模式 · Ctrl+S 保存 · Esc 取消 · 保存前自动备份 .bak</span>
+          <button id="edit-save" class="eb-btn primary">保存</button>
+          <button id="edit-cancel" class="eb-btn">取消</button>
+        </div>
         <div id="content" class="doc loading">加载中…</div>
+        <textarea id="edit-source" class="edit-source hidden" spellcheck="false" aria-label="编辑区"></textarea>
       </main>
     </section>
   </div>
@@ -486,12 +643,17 @@
   <div class="help-card">
     <div class="help-head"><span>快捷键与操作</span><button id="help-close" title="关闭">✕</button></div>
     <table class="help-table">
-      <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>聚焦搜索框</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>聚焦搜索框（支持全文搜索正文）</td></tr>
       <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>在搜索结果中移动</td></tr>
       <tr><td><kbd>Enter</kbd></td><td>打开选中的搜索结果</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>关闭弹层 / 收起搜索结果</td></tr>
       <tr><td>点击 §编号</td><td>跨文件跳转到对应知识点</td></tr>
+      <tr><td>点击 ○ 标记</td><td>循环标记：✓已掌握 / ◔待复习 / ✕薄弱，侧栏「待复习」汇总</td></tr>
       <tr><td>点击左侧标题</td><td>定位到当前文档对应小节</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>编辑当前文档（<kbd>Ctrl</kbd>+<kbd>S</kbd> 保存、<kbd>Esc</kbd> 取消）</td></tr>
+      <tr><td><kbd>/</kbd></td><td>聚焦搜索框</td></tr>
+      <tr><td>🎲 随机抽题</td><td>从全部或待复习/薄弱中随机抽一个知识点自测</td></tr>
+      <tr><td>🖨 打印</td><td>打印当前文档 / 另存为 PDF</td></tr>
       <tr><td>点击 ◐</td><td>切换明暗主题</td></tr>
       <tr><td>点击侧栏按钮</td><td>收起 / 展开侧栏</td></tr>
     </table>
@@ -535,9 +697,23 @@ function loadIndex() {
     if (fileFilter !== "all" && fileFilter !== "md" && fileFilter !== "txt") fileFilter = "all";
     syncFilterButtons();
     renderFiles();
-    // 恢复上次打开的文档
-    var last = localStorage.getItem("mdviewer:last");
+    renderReviewTab();
+    renderStats();
+    // 优先打开 URL 中 ?path= 指定的文档（分享链接直达），否则恢复上次打开的文档
+    var qpath = null, qanchor = "";
+    try {
+      if (typeof location !== "undefined" && typeof URLSearchParams !== "undefined") {
+        var params = new URLSearchParams(location.search);
+        qpath = params.get("path");
+        qanchor = params.get("anchor") || "";
+      }
+    } catch (e) {}
     var list = filteredFiles();
+    if (qpath && list.some(function (f) { return f.path === qpath; })) {
+      openFile(qpath, qanchor, false);
+      return;
+    }
+    var last = localStorage.getItem("mdviewer:last");
     var found = last && list.some(function (f) { return f.path === last; });
     openFile(found ? last : (list.length ? list[0].path : null));
   }).catch(function (e) {
@@ -612,12 +788,16 @@ function setFilter(type) {
 }
 
 /* ============================== 打开与渲染文件 ============================== */
-function openFile(path, anchor, flash) {
+var currentHeadings = []; // 当前文件的标题树（tab 切换时复用）
+
+function openFile(path, anchor, flash, opts) {
   var file = index.files.filter(function (f) { return f.path === path; })[0];
-  if (!file) return;
-  fetch("/api/file?path=" + encodeURIComponent(path)).then(function (r) { return r.json(); })
+  if (!file) return Promise.resolve(null);
+  if (editing) teardownEditUI(); // 编辑态切换文档时退出编辑
+  saveScrollPos(); // 切换前记住当前阅读位置
+  return fetch("/api/file?path=" + encodeURIComponent(path)).then(function (r) { return r.json(); })
     .then(function (data) {
-      if (data.error) { showError(data.error); return; }
+      if (data.error) { showError(data.error); return null; }
       current = data;
       try { localStorage.setItem("mdviewer:last", path); } catch (e) {}
       renderContent(data);
@@ -630,15 +810,19 @@ function openFile(path, anchor, flash) {
       $("btn-prev").disabled = first <= 0;
       $("btn-next").disabled = first >= list.length - 1;
       if (anchor) doubleRaf(function () { scrollToAnchor(anchor, flash); });
-      else mainEl.scrollTop = 0;
+      else if (!(opts && opts.skipRestore)) doubleRaf(restoreScrollPos);
+      return data;
     })
-    .catch(function (e) { showError(e.message); });
+    .catch(function (e) { showError(e.message); return null; });
 }
 function renderContent(data) {
+  clearHighlights();
   if (data.type === "txt") {
     var lines = data.content.split(/\r\n|\r|\n/);
     var html = '<pre class="txt">';
-    lines.forEach(function (l, idx) { html += '<span class="ln"><span class="no">' + (idx + 1) + "</span>" + Renderer.esc(l, false) + "</span>"; });
+    lines.forEach(function (l, idx) {
+      html += '<span class="ln" data-line="' + (idx + 1) + '"><span class="no">' + (idx + 1) + "</span>" + Renderer.esc(l, false) + "</span>";
+    });
     html += "</pre>";
     contentEl.className = "doc";
     contentEl.innerHTML = html;
@@ -646,15 +830,167 @@ function renderContent(data) {
     contentEl.className = "doc";
     contentEl.innerHTML = Renderer.renderMarkdown(data.content);
   }
+  attachCodeCopy();
 }
-function renderToc(headings) {
+/* ---------- 代码块：复制按钮 + 语言标签 ---------- */
+function attachCodeCopy() {
+  var pres = contentEl.querySelectorAll("pre");
+  for (var i = 0; i < pres.length; i++) {
+    var pre = pres[i];
+    if (pre._copyReady) continue;
+    pre._copyReady = true;
+    var code = pre.querySelector("code");
+    var lang = code && /language-([\w+-]+)/.exec(code.className || "");
+    if (lang) {
+      var lbl = document.createElement("span");
+      lbl.className = "code-lang";
+      lbl.textContent = lang[1];
+      pre.appendChild(lbl);
+    }
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "code-copy";
+    btn.textContent = "⧉ 复制";
+    btn.title = "复制代码";
+    btn.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      var text = code ? code.innerText : pre.innerText;
+      if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(function () { toast("代码已复制"); })
+          .catch(function () { toast("复制失败，请手动选择"); });
+      } else toast("复制失败，请手动选择");
+    });
+    pre.appendChild(btn);
+  }
+}
+/* ---------- 搜索结果正文高亮 ---------- */
+function clearHighlights() {
+  var marks = contentEl.querySelectorAll ? contentEl.querySelectorAll("mark.hl-term") : [];
+  for (var i = 0; i < marks.length; i++) {
+    var m = marks[i], t = document.createTextNode(m.textContent);
+    if (m.parentNode) m.parentNode.replaceChild(t, m);
+  }
+}
+function highlightTerms(term) {
+  if (!term) return;
+  var re = new RegExp(escapeRe(term), "gi");
+  var walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT, null);
+  var nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (var i = 0; i < nodes.length; i++) {
+    var n = nodes[i];
+    if (!n.nodeValue) continue;
+    var frag = document.createDocumentFragment(), last = 0, m, hit = false;
+    re.lastIndex = 0;
+    while ((m = re.exec(n.nodeValue))) {
+      hit = true;
+      frag.appendChild(document.createTextNode(n.nodeValue.slice(last, m.index)));
+      var mark = document.createElement("mark");
+      mark.className = "hl-term";
+      mark.textContent = m[0];
+      frag.appendChild(mark);
+      last = m.index + m[0].length;
+    }
+    if (hit) {
+      frag.appendChild(document.createTextNode(n.nodeValue.slice(last)));
+      n.parentNode.replaceChild(frag, n);
+    }
+  }
+}
+function scrollTxtLine(line) {
+  var el = contentEl.querySelector('[data-line="' + line + '"]');
+  if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); flashEl(el); }
+}
+function flashEl(el) {
+  el.classList.remove("flash-target"); void el.offsetWidth; el.classList.add("flash-target");
+}
+
+/* ============================== 掌握度标记 / 待复习 ============================== */
+var marks = {};
+try { marks = JSON.parse(localStorage.getItem("mdviewer:marks") || "{}"); } catch (e) { marks = {}; }
+var MARK_STATES = ["done", "review", "weak"];
+var MARK_GLYPH = { done: "✓", review: "◔", weak: "✕" };
+var MARK_TITLE = { done: "已掌握", review: "待复习", weak: "薄弱" };
+function markKey(path, anchor) { return path + "|" + anchor; }
+function getMark(path, anchor) { return marks[markKey(path, anchor)] || ""; }
+function cycleMark(path, anchor) {
+  var cur = getMark(path, anchor);
+  var idx = MARK_STATES.indexOf(cur);
+  var next = idx < 0 ? MARK_STATES[0] : (idx + 1 >= MARK_STATES.length ? "" : MARK_STATES[idx + 1]);
+  if (next) marks[markKey(path, anchor)] = next; else delete marks[markKey(path, anchor)];
+  try { localStorage.setItem("mdviewer:marks", JSON.stringify(marks)); } catch (e) {}
+  refreshTocMarks();
+  renderReviewTab();
+  renderStats();
+}
+function markBadgeHtml(path, anchor) {
+  var s = getMark(path, anchor);
+  return '<span class="mark-badge" data-path="' + Renderer.escAttr(path) + '" data-anchor="' + Renderer.escAttr(anchor) + '" data-state="' + s + '" title="' + (s ? MARK_TITLE[s] + " · 点击切换" : "标记掌握度 · 点击切换") + '">' + (s ? MARK_GLYPH[s] : "○") + "</span>";
+}
+function refreshTocMarks() {
+  var badges = $("tab-toc").querySelectorAll ? $("tab-toc").querySelectorAll(".mark-badge") : [];
+  for (var i = 0; i < badges.length; i++) {
+    var b = badges[i], s = getMark(b.dataset.path, b.dataset.anchor);
+    b.dataset.state = s;
+    b.textContent = s ? MARK_GLYPH[s] : "○";
+    b.title = s ? MARK_TITLE[s] + " · 点击切换" : "标记掌握度 · 点击切换";
+  }
+}
+var reviewTabActive = false;
+function reviewItems() {
+  var items = [];
+  if (!index) return items;
+  index.files.forEach(function (f) {
+    (f.headings || []).forEach(function (h) {
+      var s = getMark(f.path, h.anchor);
+      if (s === "review" || s === "weak") {
+        items.push({ path: f.path, anchor: h.anchor, text: h.text, file: f.title || f.path, state: s });
+      }
+    });
+  });
+  items.sort(function (a, b) { return a.state !== b.state ? (a.state === "weak" ? -1 : 1) : a.path.localeCompare(b.path, "zh") || a.text.localeCompare(b.text, "zh"); });
+  return items;
+}
+function renderReviewTab() {
+  $("toc-review-count").textContent = reviewItems().length;
+  if (!reviewTabActive) return;
+  var items = reviewItems();
   var el = $("tab-toc");
-  if (!headings || !headings.length) {
-    el.innerHTML = '<div class="toc-pane-title">知识点</div><div class="empty">当前文档无标题结构</div>';
+  if (!items.length) {
+    el.innerHTML = '<div class="toc-pane-title">待复习</div><div class="empty">暂无标记的知识点<br>在「目录」中点击 ○ 标记：✓已掌握 / ◔待复习 / ✕薄弱</div>';
     return;
   }
-  var tree = buildTocTree(headings);
-  el.innerHTML = '<div class="toc-pane-title">知识点</div><div class="toc-intro"><div class="toc-intro-label">当前页面</div><div class="toc-intro-text">点击标题跳转到对应位置</div></div><div class="pane-scroll">' + tree.map(tocHtml).join("") + '</div>';
+  var html = '<div class="toc-pane-title">待复习 · ' + items.length + ' 项</div><div class="pane-scroll">';
+  items.forEach(function (it) {
+    html += '<div class="review-item" data-path="' + Renderer.escAttr(it.path) + '" data-anchor="' + Renderer.escAttr(it.anchor) + '">' +
+      '<span class="mark-badge" data-path="' + Renderer.escAttr(it.path) + '" data-anchor="' + Renderer.escAttr(it.anchor) + '" data-state="' + it.state + '" title="' + MARK_TITLE[it.state] + ' · 点击切换">' + MARK_GLYPH[it.state] + '</span>' +
+      '<span class="ri-title">' + Renderer.esc(it.text) + '</span>' +
+      '<span class="ri-file">' + Renderer.esc(it.file) + '</span></div>';
+  });
+  el.innerHTML = html + "</div>";
+}
+function syncTocTabs() {
+  $("toc-tab-all").classList.toggle("active", !reviewTabActive);
+  $("toc-tab-review").classList.toggle("active", reviewTabActive);
+}
+$("toc-tab-all").addEventListener("click", function () {
+  reviewTabActive = false; syncTocTabs(); renderToc(currentHeadings);
+});
+$("toc-tab-review").addEventListener("click", function () {
+  reviewTabActive = true; syncTocTabs(); renderReviewTab();
+});
+
+function renderToc(headings) {
+  currentHeadings = headings || [];
+  if (reviewTabActive) { renderReviewTab(); return; }
+  var el = $("tab-toc");
+  if (!currentHeadings.length) {
+    el.innerHTML = '<div class="empty">当前文档无标题结构</div>';
+    return;
+  }
+  var tree = buildTocTree(currentHeadings);
+  el.innerHTML = '<div class="pane-scroll">' + tree.map(tocHtml).join("") + "</div>";
 }
 function buildTocTree(headings) {
   var root = { level: 0, children: [] };
@@ -668,16 +1004,22 @@ function buildTocTree(headings) {
   return root.children;
 }
 function tocHtml(node) {
-  var html = '<div class="toc-item l' + node.level + '"><a class="toc-link" data-anchor="' + Renderer.escAttr(node.anchor) + '">';
+  var path = current && current.path ? current.path : "";
+  var html = '<div class="toc-item l' + node.level + '"><div class="toc-row">' +
+    markBadgeHtml(path, node.anchor) +
+    '<a class="toc-link" data-anchor="' + Renderer.escAttr(node.anchor) + '">';
   if (node.number) html += '<span class="toc-num">' + Renderer.esc(node.number) + "</span>";
-  html += Renderer.esc(node.text) + "</a>";
+  html += Renderer.esc(node.text) + "</a></div>";
   if (node.children.length) html += node.children.map(tocHtml).join("");
   return html + "</div>";
 }
 $("tab-toc").addEventListener("click", function (e) {
+  var badge = e.target.closest(".mark-badge");
+  if (badge) { cycleMark(badge.dataset.path, badge.dataset.anchor); return; }
+  var ri = e.target.closest(".review-item");
+  if (ri) { openFile(ri.dataset.path, ri.dataset.anchor, true); return; }
   var link = e.target.closest(".toc-link");
-  if (!link || !current) return;
-  scrollToAnchor(link.dataset.anchor, true);
+  if (link && current) scrollToAnchor(link.dataset.anchor, true);
 });
 function scrollToAnchor(anchor, flash) {
   var target = document.getElementById(anchor);
@@ -703,6 +1045,145 @@ function updateCrumb(data) {
 function showError(msg) { contentEl.className = "doc error"; contentEl.innerHTML = "<p>加载失败：" + Renderer.esc(msg) + "</p>"; }
 function doubleRaf(fn) { requestAnimationFrame(function () { requestAnimationFrame(fn); }); }
 
+/* ============================== 滚动位置记忆 ============================== */
+var scrollPos = {};
+try { scrollPos = JSON.parse(localStorage.getItem("mdviewer:scroll") || "{}"); } catch (e) { scrollPos = {}; }
+function saveScrollPos() {
+  if (!current || !mainEl || typeof mainEl.scrollTop !== "number") return;
+  scrollPos[current.path] = mainEl.scrollTop;
+  try { localStorage.setItem("mdviewer:scroll", JSON.stringify(scrollPos)); } catch (e) {}
+}
+function restoreScrollPos() {
+  var p = current && scrollPos[current.path];
+  if (typeof p === "number" && p > 0) mainEl.scrollTop = p;
+}
+mainEl.addEventListener("scroll", function () {
+  if (mainEl._scrollTimer) clearTimeout(mainEl._scrollTimer);
+  mainEl._scrollTimer = setTimeout(saveScrollPos, 250);
+});
+
+/* 正则转义（用于把用户输入当作字面量匹配） */
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/* ============================== 复习工具：进度 / 随机抽题 / 打印 ============================== */
+function renderStats() {
+  var el = $("progress-stats");
+  if (!el || !index) return;
+  var total = 0, done = 0, review = 0, weak = 0;
+  index.files.forEach(function (f) {
+    (f.headings || []).forEach(function (h) {
+      total++;
+      var s = getMark(f.path, h.anchor);
+      if (s === "done") done++; else if (s === "review") review++; else if (s === "weak") weak++;
+    });
+  });
+  el.innerHTML = "进度 <b>" + (done + review + weak) + "</b>/" + total + " · " +
+    '<span class="st-done">✓' + done + '</span> <span class="st-review">◔' + review + '</span> <span class="st-weak">✕' + weak + "</span>";
+}
+
+function randomPick(fromReview) {
+  if (!index) { toast("索引尚未加载"); return; }
+  var pool = [];
+  if (fromReview) {
+    pool = reviewItems().map(function (it) { return { path: it.path, anchor: it.anchor }; });
+    if (!pool.length) { toast("暂无待复习/薄弱的知识点"); return; }
+  } else {
+    index.files.forEach(function (f) {
+      (f.headings || []).forEach(function (h) { pool.push({ path: f.path, anchor: h.anchor }); });
+    });
+    if (!pool.length) { toast("没有可抽的知识点"); return; }
+  }
+  var pick = pool[Math.floor(Math.random() * pool.length)];
+  toast(fromReview ? "随机复习：待复习/薄弱" : "随机抽题");
+  openFile(pick.path, pick.anchor, true);
+}
+function toggleRandomMenu(show) {
+  var m = $("random-menu");
+  if (show === undefined) show = m.classList.contains("hidden");
+  m.classList.toggle("hidden", !show);
+}
+$("rail-random").addEventListener("click", function (e) { e.stopPropagation(); toggleRandomMenu(); });
+$("random-all").addEventListener("click", function () { toggleRandomMenu(false); randomPick(false); });
+$("random-review").addEventListener("click", function () { toggleRandomMenu(false); randomPick(true); });
+document.addEventListener("click", function (e) {
+  var m = $("random-menu");
+  if (m && !m.classList.contains("hidden") && !e.target.closest(".rail-tool")) toggleRandomMenu(false);
+});
+
+$("rail-print").addEventListener("click", function () {
+  if (typeof window !== "undefined" && typeof window.print === "function") window.print();
+  else toast("请使用浏览器菜单打印（Ctrl+P）");
+});
+
+/* ============================== 内置编辑（只读浏览 + 手动进入编辑态） ============================== */
+var editing = false;
+function teardownEditUI() {
+  editing = false;
+  var b = $("edit-btn");
+  if (b) { b.classList.remove("active"); b.title = "编辑当前文档（Ctrl+E）"; }
+  var bar = $("edit-bar");
+  if (bar) bar.classList.add("hidden");
+  var ta = $("edit-source");
+  if (ta) ta.classList.add("hidden");
+  if (contentEl) contentEl.classList.remove("hidden");
+}
+function enterEditMode() {
+  if (!current) { toast("请先打开一个文档"); return; }
+  if (editing) return;
+  editing = true;
+  $("edit-btn").classList.add("active");
+  $("edit-btn").title = "取消编辑";
+  $("edit-bar").classList.remove("hidden");
+  var ta = $("edit-source");
+  ta.value = current.content || "";
+  ta.classList.remove("hidden");
+  contentEl.classList.add("hidden");
+  doubleRaf(function () { ta.focus(); });
+}
+function exitEditMode(saved) {
+  if (!editing) return;
+  teardownEditUI();
+  if (saved) {
+    // 标题/搜索池可能已变化：重新拉取索引并重开当前文件
+    loadIndex();
+  }
+}
+function saveEdit() {
+  if (!editing || !current) return;
+  var content = $("edit-source").value;
+  fetch("/api/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: current.path, content: content })
+  }).then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) { toast("保存失败：" + data.error); return; }
+      toast("已保存（" + (data.encoding || "") + "）");
+      exitEditMode(true);
+    })
+    .catch(function () { toast("保存失败：网络错误"); });
+}
+$("edit-btn").addEventListener("click", function () { editing ? exitEditMode(false) : enterEditMode(); });
+$("edit-save").addEventListener("click", saveEdit);
+$("edit-cancel").addEventListener("click", function () { exitEditMode(false); });
+
+/* ============================== 在文件管理器中定位 ============================== */
+$("reveal-btn").addEventListener("click", function () {
+  if (!current) { toast("请先打开一个文档"); return; }
+  fetch("/api/open", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: current.path })
+  }).then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) toast("定位失败：" + data.error);
+      else toast("已在文件管理器中定位");
+    })
+    .catch(function () { toast("定位失败：网络错误"); });
+});
+
 /* ============================== § 跨文件跳转 ============================== */
 function jumpToSection(sec) {
   var hit = index.sections[sec];
@@ -714,6 +1195,13 @@ function jumpToSection(sec) {
   openFile(hit.path, hit.anchor, true);
 }
 contentEl.addEventListener("click", function (e) {
+  var a = e.target && typeof e.target.closest === "function" ? e.target.closest("a") : null;
+  if (a) {
+    var fl = a.getAttribute && a.getAttribute("data-file-link");
+    if (fl) { e.preventDefault(); openFile(fl, a.getAttribute("data-anchor-link") || "", true); return; }
+    var al = a.getAttribute && a.getAttribute("data-anchor-link");
+    if (al) { e.preventDefault(); scrollToAnchor(al, true); return; }
+  }
   var ref = e.target.closest(".sec-ref");
   if (ref) jumpToSection(ref.dataset.sec);
 });
@@ -721,7 +1209,7 @@ contentEl.addEventListener("keydown", function (e) {
   if (e.key === "Enter" && e.target.classList && e.target.classList.contains("sec-ref")) jumpToSection(e.target.dataset.sec);
 });
 
-/* ============================== 全局搜索 ============================== */
+/* ============================== 全局搜索（标题即时 + 正文全文） ============================== */
 function buildSearchPool() {
   searchPool = [];
   index.files.forEach(function (f) {
@@ -735,13 +1223,13 @@ function buildSearchPool() {
 }
 var searchTimer = null;
 var activeIdx = -1;
+var searchSeq = 0; // 递增序号：丢弃过期的全文搜索响应
 searchInput.addEventListener("input", function () {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(function () { searchTimer = null; doSearch(); }, 150);
 });
-function doSearch() {
-  var q = searchInput.value.trim().toLowerCase().replace(/^§/, "");
-  if (!q) { hideResults(); return; }
+/* 本地池评分：编号前缀 > 编号包含 > 标题包含 > 文件名包含 */
+function scoreLocal(q) {
   var scored = [];
   searchPool.forEach(function (it) {
     var hay = (it.number + " " + it.text + " " + it.fileTitle).toLowerCase();
@@ -753,13 +1241,53 @@ function doSearch() {
     if (score >= 0) scored.push({ it: it, score: score, hay: hay });
   });
   scored.sort(function (a, b) { return a.score - b.score || a.it.text.localeCompare(b.it.text, "zh"); });
-  renderResults(scored.slice(0, 14));
+  return scored.slice(0, 14);
 }
-function renderResults(list) {
+/* 把服务端正文命中合并进本地结果（同小节标题已命中则不重复） */
+function mergeBodyResults(local, bodyFiles, q) {
+  var out = local.slice();
+  var seen = {};
+  out.forEach(function (r) { if (r.it.anchor) seen[r.it.path + "|" + r.it.anchor] = true; });
+  bodyFiles.forEach(function (f) {
+    f.matches.forEach(function (m) {
+      var key = f.path + "|" + m.anchor;
+      if (m.anchor && seen[key]) return;
+      seen[key] = true;
+      out.push({ it: {
+        kind: "body", path: f.path, anchor: m.anchor, line: m.line,
+        text: f.title, snippet: m.text, type: f.type, fileTitle: f.title, q: q
+      }, score: 4 });
+    });
+  });
+  return out.slice(0, 20);
+}
+function doSearch() {
+  var q = searchInput.value.trim().toLowerCase().replace(/^§/, "");
+  if (!q) { hideResults(); return; }
+  var seq = ++searchSeq;
+  var local = scoreLocal(q);
+  renderResults(local, q); // 先渲染标题/文件名结果，保证即时响应
+  if (typeof fetch !== "function") return;
+  fetch("/api/search?q=" + encodeURIComponent(q)).then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (seq !== searchSeq) return;
+      renderResults(mergeBodyResults(local, data.results || [], q), q);
+    })
+    .catch(function () { /* 全文搜索失败时保留本地结果 */ });
+}
+function snippetHtml(text, q) {
+  var safe = Renderer.esc(text);
+  return safe.replace(new RegExp(escapeRe(q), "gi"), function (m) { return "<mark>" + m + "</mark>"; });
+}
+function renderResults(list, q) {
   resultsEl._list = list;
   if (!list.length) { activeIdx = -1; resultsEl.innerHTML = '<div class="sr-empty">无匹配结果</div>'; resultsEl.classList.add("show"); return; }
   resultsEl.innerHTML = list.map(function (r, idx) {
-    return '<div class="sr-item" data-idx="' + idx + '"><div class="sr-text">' + (r.it.number ? '<span class="sr-num">' + Renderer.esc(r.it.number) + '</span>' : '') + Renderer.esc(r.it.text) + '</div><div class="sr-meta">' + Renderer.esc(r.it.type === "file" ? "文件" : "知识点") + ' · ' + Renderer.esc(r.it.fileTitle || r.it.path) + '</div></div>';
+    var it = r.it;
+    if (it.kind === "body") {
+      return '<div class="sr-item" data-idx="' + idx + '"><div class="sr-snippet">' + snippetHtml(it.snippet, it.q || q) + '</div><div class="sr-meta">正文 · ' + Renderer.esc(it.fileTitle || it.path) + ' · 第' + it.line + '行</div></div>';
+    }
+    return '<div class="sr-item" data-idx="' + idx + '"><div class="sr-text">' + (it.number ? '<span class="sr-num">' + Renderer.esc(it.number) + '</span>' : '') + Renderer.esc(it.text) + '</div><div class="sr-meta">' + Renderer.esc(it.type === "file" ? "文件" : "知识点") + ' · ' + Renderer.esc(it.fileTitle || it.path) + '</div></div>';
   }).join("");
   activeIdx = 0; setActive(0); resultsEl.classList.add("show");
 }
@@ -773,6 +1301,7 @@ function setActive(idx) {
   items[idx].scrollIntoView({ block: "nearest" });
 }
 function hideResults() {
+  searchSeq++; // 作废在途的全文搜索响应
   resultsEl.classList.remove("show");
   resultsEl.innerHTML = "";
   resultsEl._list = [];
@@ -786,6 +1315,17 @@ function jumpSearch(idx) {
   clearTimeout(searchTimer);
   searchTimer = null;
   hideResults(); searchInput.blur();
+  if (it.kind === "body") {
+    // 正文命中：打开文件（跳过滚动恢复）→ 高亮关键词 → 定位到小节（txt 则精确到行）
+    openFile(it.path, null, false, { skipRestore: true }).then(function () {
+      if (it.q) highlightTerms(it.q);
+      if (it.type === "txt" && it.line) { scrollTxtLine(it.line); return; }
+      if (it.anchor) { scrollToAnchor(it.anchor, false); return; }
+      var first = contentEl.querySelector("mark.hl-term");
+      if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return;
+  }
   if (it.type === "file") openFile(it.path); else openFile(it.path, it.anchor, true);
 }
 resultsEl.addEventListener("click", function (e) {
@@ -811,6 +1351,25 @@ searchInput.addEventListener("keydown", function (e) {
   }
 });
 document.addEventListener("keydown", function (e) {
+  var tag = (e.target && e.target.tagName) || "";
+  // 编辑态：Ctrl+S 保存 / Esc 取消
+  if (editing) {
+    if (e.key === "s" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveEdit(); return; }
+    if (e.key === "Escape") { e.preventDefault(); exitEditMode(false); return; }
+  }
+  // GitHub 式 / 聚焦搜索（输入框内不拦截）
+  if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey &&
+      !/^(input|textarea|select)$/i.test(tag)) {
+    e.preventDefault();
+    searchInput.focus();
+    return;
+  }
+  // Ctrl+E 编辑当前文档
+  if (e.key === "e" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    editing ? exitEditMode(false) : enterEditMode();
+    return;
+  }
   if (e.key === "k" && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
     if (helpVisible()) hideHelp();
@@ -863,8 +1422,14 @@ function toggleTheme() {
   if (document.documentElement && document.documentElement.getAttribute && document.documentElement.getAttribute("data-theme") === "dark") next = "light";
   setTheme(next);
 }
-var savedTheme = "dark";
-try { savedTheme = localStorage.getItem("mdviewer:theme") || "dark"; } catch (e) {}
+var savedTheme = null;
+try { savedTheme = localStorage.getItem("mdviewer:theme"); } catch (e) {}
+if (!savedTheme) {
+  // 未手动选择过主题时，跟随系统明暗
+  try {
+    savedTheme = (typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+  } catch (e) { savedTheme = "dark"; }
+}
 setTheme(savedTheme);
 $("theme-toggle").addEventListener("click", toggleTheme);
 $("side-theme").addEventListener("click", toggleTheme);
