@@ -11,7 +11,7 @@ const vm = require("vm");
 
 const APP = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const ROOT = path.join(__dirname, "..");
-const m = /<script>\n([\s\S]*?)\n<\/script>\s*<\/body>/.exec(APP);
+const m = /<script>\r?\n([\s\S]*?)\r?\n<\/script>\s*<\/body>/.exec(APP); // 兼容 LF / CRLF 行尾
 if (!m) { console.error("无法提取应用脚本"); process.exit(1); }
 const APP_JS = m[1];
 
@@ -156,8 +156,15 @@ check("单按钮可重新展开侧栏", !documentStub.body.classList.contains("s
 
 setTimeout(async () => {
   console.log("冒烟测试（真实 HTTP 到本地服务）");
+  // 预期计数从服务端索引实时计算（不再硬编码，新增笔记后测试不过期）
+  const idxJson = await (await fetch(new URL("/api/index", SERVER_BASE))).json();
+  const totalFiles = idxJson.files.length;
+  const mdFiles = idxJson.files.filter((f) => f.type === "md").length;
+  const txtFiles = totalFiles - mdFiles;
+  const firstTxtName = idxJson.files.filter((f) => f.type === "txt")[0].name;
+  const firstMdName = idxJson.files.filter((f) => f.type === "md")[0].name;
   const filesHtml = els["file-list"].innerHTML;
-  check("文件列表渲染（全部=25）", (filesHtml.match(/file-item/g) || []).length === 25,
+  check("文件列表渲染（全部=" + totalFiles + "）", (filesHtml.match(/file-item/g) || []).length === totalFiles,
     (filesHtml.match(/file-item/g) || []).length + " 项");
 
   const doc = els["content"].innerHTML;
@@ -174,33 +181,33 @@ setTimeout(async () => {
   check("知识点分区已渲染（含标记徽标）",
     (tocHtml2.match(/toc-link/g) || []).length > 0 && tocHtml2.includes("mark-badge"),
     (tocHtml2.match(/toc-link/g) || []).length + " 条标题");
-  check("空间计数 全部=25", els["nav-count-all"].textContent === "25",
+  check("空间计数 全部=" + totalFiles, els["nav-count-all"].textContent === String(totalFiles),
     "实际=" + els["nav-count-all"].textContent);
-  check("空间计数 面试知识库=10", els["nav-count-kb"].textContent === "10",
+  check("空间计数 面试知识库=" + mdFiles, els["nav-count-kb"].textContent === String(mdFiles),
     "实际=" + els["nav-count-kb"].textContent);
 
   // 文件类型筛选
   console.log("文件筛选检查");
   context.setFilter("txt");
   await new Promise((r) => setTimeout(r, 300));
-  check("筛选 TXT → 15 项", (els["file-list"].innerHTML.match(/file-item/g) || []).length === 15,
+  check("筛选 TXT → " + txtFiles + " 项", (els["file-list"].innerHTML.match(/file-item/g) || []).length === txtFiles,
     (els["file-list"].innerHTML.match(/file-item/g) || []).length + " 项");
   check("筛选记忆已写入", localStorageStub._d["mdviewer:filter"] === "txt");
-  check("自动切到第一个 txt", els["crumb-file"].textContent === "C#.txt",
+  check("自动切到第一个 txt", els["crumb-file"].textContent === firstTxtName,
     "当前=" + els["crumb-file"].textContent);
   check("筛选后 上一个 正确禁用", els["btn-prev"].disabled === true,
     "disabled=" + els["btn-prev"].disabled);
   context.setFilter("md");
   await new Promise((r) => setTimeout(r, 300));
-  check("筛选 MD → 10 项", (els["file-list"].innerHTML.match(/file-item/g) || []).length === 10,
+  check("筛选 MD → " + mdFiles + " 项", (els["file-list"].innerHTML.match(/file-item/g) || []).length === mdFiles,
     (els["file-list"].innerHTML.match(/file-item/g) || []).length + " 项");
-  check("切回第一个 md", els["crumb-file"].textContent === "01_CSharp.md",
+  check("切回第一个 md", els["crumb-file"].textContent === firstMdName,
     "当前=" + els["crumb-file"].textContent);
   check("MD 首个文件 上一个禁用", els["btn-prev"].disabled === true);
   check("MD 首个文件 下一个可用", els["btn-next"].disabled === false);
   context.setFilter("all");
   await new Promise((r) => setTimeout(r, 300));
-  check("筛选 全部 → 25 项", (els["file-list"].innerHTML.match(/file-item/g) || []).length === 25);
+  check("筛选 全部 → " + totalFiles + " 项", (els["file-list"].innerHTML.match(/file-item/g) || []).length === totalFiles);
 
   // 侧栏宽度拖拽
   console.log("侧栏宽度拖拽检查");
@@ -360,6 +367,50 @@ setTimeout(async () => {
   })).json();
   check("定位接口拒绝非法路径", openBad.error !== undefined);
   try { fs.unlinkSync(path.join(ROOT, tmpRel)); fs.unlinkSync(path.join(ROOT, tmpRel) + ".bak"); } catch (e) {}
+
+  // 服务控制接口（status 只读，不触发 restart/shutdown 以免停掉测试服务）
+  console.log("服务控制接口检查");
+  const st = await (await fetch(new URL("/api/service/status", SERVER_BASE))).json();
+  check("服务状态接口返回 ok", st.ok === true && st.app.length > 0,
+    "v" + st.version + " · pid=" + st.pid + " · 端口=" + st.port);
+  check("状态含 pid/端口/运行时长", typeof st.pid === "number" && typeof st.port === "number" &&
+    typeof st.uptime_sec === "number" && typeof st.detached === "boolean");
+  check("状态含文档目录与地址", typeof st.root === "string" && /^http:\/\/127\.0\.0\.1:\d+$/.test(st.url));
+
+  // 启动覆盖层：索引加载完成后应已隐藏（首次加载动画）
+  check("启动覆盖层已隐藏（索引加载成功）", els["boot-overlay"].classList.contains("hidden"));
+  // 服务控制下拉面板：DOM 桩不解析 HTML class，给元素补上标记里的 hidden 初始态（保留已注册的事件处理器）
+  const svcDropEl = documentStub.getElementById("svc-drop");
+  svcDropEl.classList.add("hidden");
+  documentStub.getElementById("svc-confirm").classList.add("hidden");
+  check("服务面板默认隐藏", svcDropEl.classList.contains("hidden"));
+  els["service-btn"]._handlers.click({ stopPropagation() {} });
+  await new Promise((r) => setTimeout(r, 300));
+  check("点击电源按钮展开下拉面板", !svcDropEl.classList.contains("hidden"));
+  check("面板渲染状态信息", els["svc-rows"].innerHTML.includes("访问地址") &&
+    (els["svc-rows"].innerHTML.match(/svc-row/g) || []).length === 4,
+    (els["svc-rows"].innerHTML.match(/svc-row/g) || []).length + " 行状态");
+  check("运行时长已渲染", els["svc-uptime"].textContent.includes("已运行"),
+    els["svc-uptime"].textContent);
+  check("确认框初始隐藏", els["svc-confirm"].classList.contains("hidden"));
+  // 再次点击按钮收起 / Esc 收起
+  els["service-btn"]._handlers.click({ stopPropagation() {} });
+  check("再次点击电源按钮收起面板", svcDropEl.classList.contains("hidden"));
+  els["service-btn"]._handlers.click({ stopPropagation() {} });
+  windowHandlers["keydown"] && windowHandlers["keydown"]({ key: "Escape", preventDefault() {} });
+  await new Promise((r) => setTimeout(r, 50));
+  check("Esc 可收起面板", svcDropEl.classList.contains("hidden"));
+  // 二次确认流（不点「确认」，避免真的重启/关闭测试服务）
+  els["service-btn"]._handlers.click({ stopPropagation() {} });
+  els["svc-restart"]._handlers.click({});
+  check("重启前弹二次确认", !els["svc-confirm"].classList.contains("hidden") &&
+    els["svc-confirm-text"].textContent.includes("重启"));
+  els["svc-confirm-no"]._handlers.click({});
+  check("取消后确认框收起", els["svc-confirm"].classList.contains("hidden"));
+  els["svc-shutdown"]._handlers.click({});
+  check("关闭前弹二次确认", !els["svc-confirm"].classList.contains("hidden") &&
+    els["svc-confirm-text"].textContent.includes("关闭"));
+  els["svc-confirm-no"]._handlers.click({});
 
   console.log(failures ? `\n共 ${failures} 项失败` : "\n全部通过 ✔");
   process.exit(failures ? 1 : 0);

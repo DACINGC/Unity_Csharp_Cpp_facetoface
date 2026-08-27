@@ -362,6 +362,75 @@
   /* ---------- Toast ---------- */
   #toast { position: fixed; right: 22px; bottom: 22px; z-index: 100; max-width: 320px; padding: 10px 15px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-strong); background: var(--panel-raised); box-shadow: var(--shadow); font-size: 12px; opacity: 0; pointer-events: none; transition: opacity .25s; }
   #toast.show { opacity: 1; }
+
+  /* ---------- 服务控制下拉面板（锚定顶栏电源按钮） ---------- */
+  .service-wrap { position: relative; }
+  .svc-drop {
+    position: absolute; top: calc(100% + 9px); right: 0; z-index: 60;
+    width: 300px; padding: 10px 12px 11px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--panel-raised); box-shadow: var(--shadow);
+    transform-origin: top right; animation: svcdrop .16s ease;
+  }
+  .svc-drop.hidden { display: none; }
+  @keyframes svcdrop { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+  /* 指向按钮的小箭头 */
+  .svc-drop::before {
+    content: ""; position: absolute; top: -5px; right: 11px;
+    width: 9px; height: 9px; background: var(--panel-raised);
+    border-left: 1px solid var(--border); border-top: 1px solid var(--border);
+    transform: rotate(45deg);
+  }
+  .svc-head { display: flex; align-items: center; gap: 6px; padding: 2px 1px 8px; border-bottom: 1px solid var(--border-soft); }
+  .svc-dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px rgba(93,204,145,.15); }
+  .svc-dot.down { background: var(--error); box-shadow: 0 0 0 3px rgba(240,126,126,.15); }
+  .svc-title { color: var(--text-strong); font-size: 12.5px; font-weight: 650; }
+  .svc-uptime { margin-left: auto; color: var(--muted-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .svc-rows { padding: 7px 1px 2px; font-size: 11.5px; }
+  .svc-row { display: flex; justify-content: space-between; gap: 12px; padding: 2.5px 0; }
+  .svc-row span { flex: 0 0 auto; color: var(--muted-2); }
+  .svc-row b { overflow: hidden; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+  .svc-actions { display: flex; gap: 7px; padding-top: 9px; }
+  .svc-btn {
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    flex: 1; padding: 6px 0; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--panel); color: var(--text); font-size: 12px; cursor: pointer;
+  }
+  .svc-btn svg { display: block; width: 13px; height: 13px; }
+  .svc-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .svc-btn.primary { border-color: rgba(53,184,255,.45); color: var(--accent); background: var(--accent-soft); }
+  .svc-btn.danger:hover { border-color: var(--error); color: var(--error); }
+  .svc-confirm { margin-top: 9px; padding: 8px 10px; border: 1px solid var(--warning); border-radius: 8px; background: rgba(232,183,104,.08); }
+  .svc-confirm.hidden { display: none; }
+  .svc-confirm-text { margin-bottom: 7px; color: var(--text); font-size: 11.5px; line-height: 1.6; }
+  .svc-confirm-btns { display: flex; gap: 7px; }
+
+  /* ---------- 启动 / 服务状态全屏覆盖层（加载动画） ---------- */
+  #boot-overlay {
+    position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--bg); transition: opacity .28s ease;
+  }
+  #boot-overlay.hidden { opacity: 0; pointer-events: none; }
+  .boot-logo {
+    display: flex; align-items: center; justify-content: center; width: 56px; height: 56px;
+    border-radius: 16px; color: #07131a; font-size: 26px; font-weight: 700;
+    background: linear-gradient(145deg, #51d0ff, #168ed0); box-shadow: 0 10px 30px rgba(21,158,231,.30);
+  }
+  .boot-spinner {
+    margin-top: 26px; width: 38px; height: 38px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: bootspin .9s linear infinite;
+  }
+  /* 服务已停止态：圆环静止变灰 */
+  #boot-overlay.boot-stopped .boot-spinner { animation: none; border-top-color: var(--border); }
+  @keyframes bootspin { to { transform: rotate(360deg); } }
+  .boot-title { margin-top: 18px; color: var(--text-strong); font-size: 15px; font-weight: 650; }
+  .boot-sub { max-width: 440px; margin-top: 7px; padding: 0 20px; color: var(--muted-2); font-size: 12px; line-height: 1.7; text-align: center; }
+  .boot-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .boot-btn { padding: 6px 16px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); color: var(--text); font-size: 12.5px; cursor: pointer; }
+  .boot-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .boot-btn.primary { border-color: rgba(53,184,255,.45); color: var(--accent); background: var(--accent-soft); }
+  .boot-btn.hidden { display: none; }
   @media (max-width: 980px) {
     :root { --rail-w: 50px; }
     .workspace-rail { flex-basis: var(--rail-w); padding-left: 5px; padding-right: 5px; }
@@ -622,6 +691,28 @@
         </div>
         <div class="header-right">
           <span class="sync-state">● 本地模式</span>
+          <div class="service-wrap">
+            <button id="service-btn" class="top-action icon-only" title="服务控制（状态 / 重启 / 关闭）" aria-label="服务控制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.72 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
+            <div id="svc-drop" class="svc-drop hidden">
+              <div class="svc-head">
+                <span class="svc-dot" id="svc-dot"></span>
+                <span class="svc-title" id="svc-state-text">服务运行中</span>
+                <span class="svc-uptime" id="svc-uptime"></span>
+              </div>
+              <div class="svc-rows" id="svc-rows"></div>
+              <div class="svc-actions">
+                <button id="svc-restart" class="svc-btn" title="重启本地笔记服务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg><span>重启服务</span></button>
+                <button id="svc-shutdown" class="svc-btn danger" title="关闭本地笔记服务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.72 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg><span>关闭服务</span></button>
+              </div>
+              <div id="svc-confirm" class="svc-confirm hidden">
+                <div class="svc-confirm-text" id="svc-confirm-text">确认操作？</div>
+                <div class="svc-confirm-btns">
+                  <button id="svc-confirm-yes" class="svc-btn primary">确认</button>
+                  <button id="svc-confirm-no" class="svc-btn">取消</button>
+                </div>
+              </div>
+            </div>
+          </div>
           <button id="share-btn" class="top-action" title="复制当前页面链接"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg><span>分享</span></button>
           <button id="copy-btn" class="top-action icon-only" title="复制当前文件名" aria-label="复制当前文件名"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
           <button id="edit-btn" class="top-action icon-only" title="编辑当前文档（Ctrl+E）" aria-label="编辑当前文档"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -669,6 +760,7 @@
       <tr><td><kbd>/</kbd></td><td>聚焦搜索框</td></tr>
       <tr><td>🎲 随机抽题</td><td>从全部或待复习/薄弱中随机抽一个知识点自测</td></tr>
       <tr><td>🖨 打印</td><td>打印当前文档 / 另存为 PDF</td></tr>
+      <tr><td>⏻ 服务控制</td><td>顶栏电源按钮：查看服务状态、重启 / 关闭本地服务</td></tr>
       <tr><td>点击 ◐</td><td>切换明暗主题</td></tr>
       <tr><td>点击侧栏按钮</td><td>收起 / 展开侧栏</td></tr>
     </table>
@@ -680,6 +772,17 @@
 </button>
 
 <div id="toast"></div>
+
+<!-- 启动 / 重启 / 停止 全屏覆盖层：页面打开即显示，索引加载成功后隐藏 -->
+<div id="boot-overlay">
+  <div class="boot-logo">淅</div>
+  <div class="boot-spinner" id="boot-spinner"></div>
+  <div class="boot-title" id="boot-title">服务正在启动中…</div>
+  <div class="boot-sub" id="boot-sub">正在连接本地笔记服务，请稍候</div>
+  <div class="boot-actions">
+    <button id="boot-retry" class="boot-btn primary hidden">重试连接</button>
+  </div>
+</div>
 
 <script src="renderer.js"></script>
 <script>
@@ -726,15 +829,25 @@ function loadIndex() {
     var list = filteredFiles();
     if (qpath && list.some(function (f) { return f.path === qpath; })) {
       openFile(qpath, qanchor, false);
+    } else {
+      var last = localStorage.getItem("mdviewer:last");
+      var found = last && list.some(function (f) { return f.path === last; });
+      openFile(found ? last : (list.length ? list[0].path : null));
+    }
+    // 首次加载成功：隐藏「服务正在启动中」覆盖层
+    if (firstBoot) { firstBoot = false; hideBoot(); }
+  }).catch(function (e) {
+    if (firstBoot) {
+      // 首次加载失败：服务可能正在启动或已停止——覆盖层转错误态并自动探活重连
+      firstBoot = false;
+      showBoot("error", "无法连接服务",
+        "本地笔记服务未响应（" + e.message + "）。若服务正在启动，稍候会自动重连；也可以点击下方按钮手动重试。", true);
+      pollServiceUp(function () { reloadPage(); }, { timeoutMs: 60000 });
       return;
     }
-    var last = localStorage.getItem("mdviewer:last");
-    var found = last && list.some(function (f) { return f.path === last; });
-    openFile(found ? last : (list.length ? list[0].path : null));
-  }).catch(function (e) {
     contentEl.className = "doc error";
     contentEl.innerHTML = "<p>无法加载文档索引：" + Renderer.esc(e.message) + "</p>" +
-      "<p>请确认已通过 <code>python mdviewer.py</code> 启动本服务。</p>";
+      "<p>请确认已通过 <code>start_viewer.bat</code> 或 <code>python mdviewer.py --daemon</code> 启动本服务。</p>";
   });
 }
 
@@ -1596,7 +1709,186 @@ $("rail-help").addEventListener("click", showHelp);
 $("help-close").addEventListener("click", hideHelp);
 $("help-overlay").addEventListener("click", function (e) { if (e.target === this) hideHelp(); });
 
+/* ============================== 服务控制（状态 / 重启 / 关闭） ============================== */
+var bootEl = $("boot-overlay");
+var firstBoot = true;      // 首次加载期间显示启动动画；后续 loadIndex（如保存后刷新索引）不再遮挡页面
+var svcTimer = null;       // 后台探活定时器
+var svcStatusCache = null; // 最近一次 /api/service/status 结果（重启时用于比对 pid）
+
+/* 覆盖层三态：loading（启动/重启中，转圈）| error（连接失败，可重试）| stopped（服务已关闭，静止） */
+function showBoot(kind, title, sub, showRetry) {
+  if (!bootEl) return;
+  bootEl.classList.remove("hidden");
+  bootEl.classList.toggle("boot-stopped", kind === "stopped");
+  $("boot-title").textContent = title;
+  $("boot-sub").textContent = sub || "";
+  $("boot-retry").classList.toggle("hidden", !showRetry);
+}
+function hideBoot() { if (bootEl) bootEl.classList.add("hidden"); }
+
+/* 轮询探活：服务恢复后回调。opts.expectNewPid 传旧 pid 时，等到「换了新进程」才算就绪（用于重启） */
+function pollServiceUp(onUp, opts) {
+  opts = opts || {};
+  var deadline = Date.now() + (opts.timeoutMs || 30000);
+  var interval = opts.intervalMs || 800;
+  stopPolling();
+  function again() {
+    if (Date.now() < deadline) svcTimer = setTimeout(tick, interval);
+    else if (opts.onTimeout) opts.onTimeout();
+  }
+  function tick() {
+    fetch("/api/service/status").then(function (r) { return r.json(); }).then(function (st) {
+      if (st && st.ok && !(opts.expectNewPid && st.pid === opts.expectNewPid)) {
+        svcStatusCache = st;
+        if (onUp) onUp(st);
+        return;
+      }
+      again(); // 旧进程尚未退出或服务未就绪，继续等
+    }).catch(again); // 连接被拒：服务尚未起来，继续等
+  }
+  svcTimer = setTimeout(tick, interval);
+}
+function stopPolling() { if (svcTimer) { clearTimeout(svcTimer); svcTimer = null; } }
+
+function reloadPage() {
+  if (typeof location !== "undefined" && location && typeof location.reload === "function") location.reload();
+  else { hideBoot(); loadIndex(); } // 非浏览器环境（测试桩）兜底
+}
+
+function fmtUptime(sec) {
+  sec = Math.max(0, Math.floor(Number(sec) || 0));
+  var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  if (h) return h + " 小时 " + m + " 分";
+  if (m) return m + " 分 " + s + " 秒";
+  return s + " 秒";
+}
+function renderServiceMenu(st) {
+  $("svc-dot").classList.remove("down");
+  $("svc-state-text").textContent = "服务运行中";
+  $("svc-uptime").textContent = "已运行 " + fmtUptime(st.uptime_sec);
+  var rows = [
+    ["访问地址", st.url],
+    ["端口 / PID", st.port + " / " + st.pid + (st.detached ? "（后台）" : "（前台）")],
+    ["文档目录", st.root],
+    ["版本", "v" + st.version + " · 启动于 " + st.started_at]
+  ];
+  $("svc-rows").innerHTML = rows.map(function (r) {
+    return '<div class="svc-row"><span>' + Renderer.esc(r[0]) + '</span><b title="' +
+      Renderer.escAttr(String(r[1])) + '">' + Renderer.esc(String(r[1])) + "</b></div>";
+  }).join("");
+}
+function toggleServiceDrop(show) {
+  var drop = $("svc-drop");
+  if (show === undefined) show = drop.classList.contains("hidden");
+  drop.classList.toggle("hidden", !show);
+  hideSvcConfirm();
+  if (show) refreshServiceStatus();
+}
+function refreshServiceStatus() {
+  fetch("/api/service/status").then(function (r) { return r.json(); }).then(function (st) {
+    if (st && st.ok) { svcStatusCache = st; renderServiceMenu(st); }
+  }).catch(function () {
+    $("svc-dot").classList.add("down");
+    $("svc-state-text").textContent = "服务无响应";
+    $("svc-uptime").textContent = "";
+    $("svc-rows").innerHTML = "";
+  });
+}
+
+/* 二次确认（自绘，避免依赖浏览器 confirm） */
+var svcPendingAction = null;
+function askSvcConfirm(action) {
+  svcPendingAction = action;
+  $("svc-confirm-text").textContent = action === "restart"
+    ? "确认重启服务？页面会短暂显示「服务正在重启中」，新服务就绪后自动恢复。"
+    : "确认关闭服务？关闭后本页面将无法访问文档，需重新运行 start_viewer.bat 才能再次使用。";
+  $("svc-confirm").classList.remove("hidden");
+}
+function hideSvcConfirm() {
+  svcPendingAction = null;
+  var c = $("svc-confirm");
+  if (c) c.classList.add("hidden");
+}
+
+function doRestartService() {
+  var oldPid = svcStatusCache && svcStatusCache.pid;
+  showBoot("loading", "服务正在重启中…", "旧进程正在退出，新服务就绪后页面会自动恢复");
+  fetch("/api/service/restart", { method: "POST" }).then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data && data.error) {
+        showBoot("error", "重启失败", String(data.error), true);
+        return;
+      }
+      if (data && data.old_pid) oldPid = data.old_pid;
+      pollServiceUp(function () { reloadPage(); }, {
+        expectNewPid: oldPid,
+        timeoutMs: 30000,
+        onTimeout: function () {
+          showBoot("error", "重启超时", "新服务迟迟未就绪，请点击重试或手动刷新页面。", true);
+        }
+      });
+    })
+    .catch(function () {
+      // 旧进程已退出导致连接中断：直接开始探活等待新进程
+      pollServiceUp(function () { reloadPage(); }, {
+        expectNewPid: oldPid,
+        timeoutMs: 30000,
+        onTimeout: function () {
+          showBoot("error", "重启超时", "新服务迟迟未就绪，请点击重试或手动刷新页面。", true);
+        }
+      });
+    });
+}
+function doShutdownService() {
+  showBoot("loading", "服务正在关闭…", "正在通知本地服务退出");
+  fetch("/api/service/shutdown", { method: "POST" }).then(function () { showStopped(); })
+    .catch(function () { showStopped(); }); // 连接被断开同样说明服务正在退出
+}
+function showStopped() {
+  showBoot("stopped", "服务已关闭",
+    "可以安全关闭本页面。需要再次使用时，运行 start_viewer.bat（或 python mdviewer.py --daemon）即可；点击下方按钮可随时尝试重新连接。", true);
+}
+
+$("service-btn").addEventListener("click", function (e) { e.stopPropagation(); toggleServiceDrop(); });
+$("svc-restart").addEventListener("click", function () { askSvcConfirm("restart"); });
+$("svc-shutdown").addEventListener("click", function () { askSvcConfirm("shutdown"); });
+$("svc-confirm-no").addEventListener("click", hideSvcConfirm);
+$("svc-confirm-yes").addEventListener("click", function () {
+  var action = svcPendingAction;
+  hideSvcConfirm();
+  toggleServiceDrop(false);
+  if (action === "restart") doRestartService();
+  else if (action === "shutdown") doShutdownService();
+});
+// 点击面板外任意处收起；Esc 收起（与随机抽题菜单行为一致）
+document.addEventListener("click", function (e) {
+  var drop = $("svc-drop");
+  if (drop && !drop.classList.contains("hidden") &&
+      !(e.target && e.target.closest && e.target.closest(".service-wrap"))) {
+    toggleServiceDrop(false);
+  }
+});
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("keydown", function (e) {
+    var drop = $("svc-drop");
+    if (e.key === "Escape" && drop && !drop.classList.contains("hidden")) {
+      e.preventDefault();
+      toggleServiceDrop(false);
+    }
+  });
+}
+$("boot-retry").addEventListener("click", function () {
+  showBoot("loading", "正在重新连接…", "正在探测本地笔记服务");
+  pollServiceUp(function () { reloadPage(); }, {
+    timeoutMs: 15000,
+    onTimeout: function () {
+      showBoot("error", "仍无法连接服务", "请确认服务已启动（start_viewer.bat 或 python mdviewer.py --daemon）。", true);
+    }
+  });
+});
+
 /* ============================== 启动 ============================== */
+showBoot("loading", "服务正在启动中…", "正在连接本地笔记服务，请稍候");
 loadIndex();
 </script>
 </body>
