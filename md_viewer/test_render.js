@@ -121,13 +121,13 @@ for (const fn of files) {
 if (unresolvable === 0) ok(`全部 ${total} 处 § 引用均可解析（${Object.keys(sections).length} 个章节编号可跳转）`);
 else fail(`${unresolvable}/${total} 处 § 引用无法解析`);
 
-/* ---------- 嵌套列表（01 的 设计 条目） ---------- */
+/* ---------- 嵌套列表（渲染器直测，不依赖笔记内容） ---------- */
 console.log("\n嵌套列表检查");
-const csharp = fs.readFileSync(path.join(NOTES, "01_CSharp.md"), "utf8");
-const csharpHtml = R.renderMarkdown(csharp);
-if (csharpHtml.includes("<strong>设计</strong>：桶（Bucket）数组 + 条目（Entry）数组。<ul><li>桶数组")) {
+const nestedHtml = R.renderMarkdown("**设计**：桶（Bucket）数组 + 条目（Entry）数组。\n- 桶数组：按哈希码索引\n  - 条目数组：键/值/哈希码/next\n  - 冲突链：next 串成链");
+if (nestedHtml.includes("<p><strong>设计</strong>：桶（Bucket）数组 + 条目（Entry）数组。</p>") &&
+    nestedHtml.includes("<li>桶数组：按哈希码索引<ul><li>条目数组：键/值/哈希码/next</li>")) {
   ok("嵌套列表渲染正确（<li> 内含 <ul>）");
-} else fail("嵌套列表渲染异常");
+} else fail("嵌套列表渲染异常: " + nestedHtml);
 
 /* ---------- 新增语法：链接 / 删除线 / 任务列表 / 折叠块 ---------- */
 console.log("\n新增语法检查");

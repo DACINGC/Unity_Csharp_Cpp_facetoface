@@ -175,16 +175,15 @@ setTimeout(async () => {
   check("§ 引用可点击（sec-ref）", doc.includes('class="sec-ref"'));
   check("面包屑文件名", els["crumb-file"].textContent === "01_CSharp.md");
   check("本地记忆已写入", localStorageStub._d["mdviewer:last"] === "面试知识整理/01_CSharp.md");
+  check("当前文档进度条渲染（0/55）", !els["file-progress"].classList.contains("hidden") &&
+    els["file-progress"].innerHTML.includes("0/55"),
+    els["file-progress"].innerHTML.replace(/<[^>]+>/g, "").slice(0, 30));
 
   // 目录与知识点双分区（不再切换，同时可见）
   const tocHtml2 = els["tab-toc"].innerHTML;
   check("知识点分区已渲染（含标记徽标）",
     (tocHtml2.match(/toc-link/g) || []).length > 0 && tocHtml2.includes("mark-badge"),
     (tocHtml2.match(/toc-link/g) || []).length + " 条标题");
-  check("空间计数 全部=" + totalFiles, els["nav-count-all"].textContent === String(totalFiles),
-    "实际=" + els["nav-count-all"].textContent);
-  check("空间计数 面试知识库=" + mdFiles, els["nav-count-kb"].textContent === String(mdFiles),
-    "实际=" + els["nav-count-kb"].textContent);
 
   // 文件类型筛选
   console.log("文件筛选检查");
@@ -334,6 +333,8 @@ setTimeout(async () => {
   await new Promise((r) => setTimeout(r, 400));
   check("随机抽题打开知识点", els["crumb-file"].textContent === "01_CSharp.md",
     "当前文件=" + els["crumb-file"].textContent);
+  check("标记后当前文档进度更新（1/55）", els["file-progress"].innerHTML.includes("1/55"),
+    els["file-progress"].innerHTML.replace(/<[^>]+>/g, "").slice(0, 40));
   check("进度统计渲染", els["progress-stats"].innerHTML.includes("进度") &&
     els["progress-stats"].innerHTML.includes("/"),
     els["progress-stats"].innerHTML.slice(0, 50));
