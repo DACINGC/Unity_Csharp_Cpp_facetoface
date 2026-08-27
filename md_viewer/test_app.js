@@ -335,6 +335,21 @@ setTimeout(async () => {
     "当前文件=" + els["crumb-file"].textContent);
   check("标记后当前文档进度更新（1/55）", els["file-progress"].innerHTML.includes("1/55"),
     els["file-progress"].innerHTML.replace(/<[^>]+>/g, "").slice(0, 40));
+
+  // 快速定位：下一个未标记知识点（当前文档 01_CSharp.md，含 1 个薄弱 + 54 个未标记）
+  console.log("未复习定位检查");
+  context.jumpToNextUnmarked();
+  check("定位到未标记知识点（toast 提示）", els["toast"].textContent.includes("定位到未标记知识点"),
+    els["toast"].textContent.slice(0, 40));
+  // 全部标记后应提示已完成
+  const f01 = idxJson.files.filter((f) => f.path === "面试知识整理/01_CSharp.md")[0];
+  const allDone = {};
+  f01.headings.forEach((h) => { allDone["面试知识整理/01_CSharp.md|" + h.anchor] = "done"; });
+  context.marks = allDone;
+  context.jumpToNextUnmarked();
+  check("全部标记后提示已完成", els["toast"].textContent.includes("已全部标记"),
+    els["toast"].textContent);
+  context.marks = {}; // 还原，避免影响后续检查
   check("进度统计渲染", els["progress-stats"].innerHTML.includes("进度") &&
     els["progress-stats"].innerHTML.includes("/"),
     els["progress-stats"].innerHTML.slice(0, 50));

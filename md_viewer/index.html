@@ -704,6 +704,7 @@
           <div class="crumb-left"><span class="crumb-home" id="crumb-home" title="回到复习题索引">面试</span><span class="crumb-chevron">/</span><span id="crumb-path"></span><span id="crumb-file"></span></div>
           <span id="file-progress" class="hidden" title="当前文档学习进度"></span>
           <div class="crumb-tools">
+            <button id="btn-unmarked" class="nav-btn" title="按标题顺序跳转到当前文档第一个未标记的知识点">▸ 未复习</button>
             <button id="btn-find" class="nav-btn" title="在当前文档中查找（Ctrl+F）">查找</button>
             <button id="btn-prev" class="nav-btn" title="上一个文件">← 上一篇</button>
             <button id="btn-next" class="nav-btn" title="下一个文件">下一篇 →</button>
@@ -740,6 +741,7 @@
       <tr><td>点击 §编号</td><td>跨文件跳转到对应知识点</td></tr>
       <tr><td>点击 ○ 标记</td><td>循环标记：✓已掌握 / ◔待复习 / ✕薄弱，侧栏「待复习」汇总</td></tr>
       <tr><td>面包屑进度</td><td>显示当前文档知识点掌握进度（进度条 + ✓/◔/✕ 计数），随标记实时更新</td></tr>
+      <tr><td>点击「未复习」</td><td>按标题顺序跳转到当前文档第一个未标记的知识点（全部标完时提示）</td></tr>
       <tr><td>点击左侧标题</td><td>定位到当前文档对应小节</td></tr>
       <tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>编辑当前文档（<kbd>Ctrl</kbd>+<kbd>S</kbd> 保存、<kbd>Esc</kbd> 取消）</td></tr>
       <tr><td><kbd>/</kbd></td><td>聚焦搜索框</td></tr>
@@ -1389,6 +1391,24 @@ document.addEventListener("click", function (e) {
   var m = $("random-menu");
   if (m && !m.classList.contains("hidden") && !e.target.closest(".rail-tool")) toggleRandomMenu(false);
 });
+
+/* ---------- 快速定位：按标题顺序的第一个未标记知识点 ---------- */
+function jumpToNextUnmarked() {
+  if (!current || !index) { toast("请先打开一个文档"); return; }
+  var file = index.files.filter(function (f) { return f.path === current.path; })[0];
+  var headings = (file && file.headings) || [];
+  if (!headings.length) { toast("当前文档没有可标记的知识点"); return; }
+  // 按标题顺序（文档顺序）取第一个未标记的知识点
+  var pick = null;
+  for (var i = 0; i < headings.length; i++) {
+    var h = headings[i];
+    if (h.anchor && !getMark(current.path, h.anchor)) { pick = h; break; }
+  }
+  if (!pick) { toast("当前文档知识点已全部标记 ✔"); return; }
+  scrollToAnchor(pick.anchor, true);
+  toast("定位到未标记知识点：" + (pick.number ? pick.number + " " : "") + pick.text);
+}
+$("btn-unmarked").addEventListener("click", jumpToNextUnmarked);
 
 $("rail-print").addEventListener("click", function () {
   if (typeof window !== "undefined" && typeof window.print === "function") window.print();
