@@ -575,11 +575,14 @@ class ViewerHandler(BaseHTTPRequestHandler):
         if ext not in (".md", ".txt"):
             self._send_json({"error": "仅支持 .md / .txt 文件"}, 400)
             return
+        content = read_text(full)
         self._send_json({
             "path": rel,
             "name": os.path.basename(full),
             "type": "md" if ext == ".md" else "txt",
-            "content": read_text(full),
+            "content": content,
+            # 让前端用最新内容的小节树渲染目录，避免页面打开期间文件被修改后目录过期
+            "headings": extract_headings(content) if ext == ".md" else [],
         })
 
     # 静默访问日志

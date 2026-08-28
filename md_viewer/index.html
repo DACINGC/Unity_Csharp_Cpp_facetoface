@@ -182,7 +182,7 @@
   .toc-item.l2 { padding-left: 19px; }
   .toc-item.l3 { padding-left: 30px; }
   .toc-item.l4 { padding-left: 41px; }
-  .toc-link { display: block; padding: 5px 7px; border-radius: 6px; color: var(--muted); text-decoration: none; cursor: pointer; line-height: 1.45; }
+  .toc-link { display: block; padding: 5px 7px; border-radius: 6px; color: var(--muted); text-decoration: none; cursor: pointer; line-height: 1.45; transition: background .15s ease, color .15s ease; }
   .toc-link:hover { color: var(--text-strong); background: var(--panel-soft); }
   .toc-num { margin-right: 6px; color: var(--accent); font-family: Consolas, monospace; font-size: 11px; }
   .empty { color: var(--muted-2); text-align: center; padding: 24px 0; font-size: 12px; }
@@ -480,6 +480,32 @@
   .toc-tab.active .toc-tab-badge { background: var(--accent-soft); color: var(--accent); }
   .toc-row { display: flex; align-items: flex-start; }
   .toc-row .toc-link { flex: 1; min-width: 0; }
+  /* 大标题折叠/展开箭头 + 小节复习进度 */
+  .toc-chev {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; margin-right: 3px; border-radius: 4px;
+    color: var(--muted-2); cursor: pointer; user-select: none; vertical-align: -2px;
+  }
+  .toc-chev:hover { color: var(--accent); background: var(--panel-soft); }
+  .toc-chev svg { display: block; width: 11px; height: 11px; transition: transform .15s ease; }
+  .toc-item.collapsed > .toc-row .toc-chev svg { transform: rotate(-90deg); }
+  .toc-item.collapsed > .toc-item { display: none; }
+  .node-prog {
+    flex: 0 0 auto; align-self: center; margin-left: 5px; padding: 1px 6px;
+    border-radius: 999px; background: var(--panel-soft); color: var(--muted-2);
+    font-size: 10px; font-weight: 650; font-variant-numeric: tabular-nums; cursor: default;
+  }
+  .node-prog.done { color: var(--success); background: rgba(93,204,145,.12); }
+  .node-prog.review { color: var(--warning); background: rgba(232,183,104,.12); }
+  .node-prog.weak { color: var(--error); background: rgba(240,126,126,.12); }
+  /* 大标题旁的「定位到小节」按钮 */
+  .toc-goto {
+    flex: 0 0 18px; width: 18px; height: 18px; margin: 5px 2px 0 2px; padding: 0;
+    border: 0; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center;
+    color: var(--muted-2); background: transparent; cursor: pointer;
+  }
+  .toc-goto:hover { color: var(--accent); background: var(--panel-soft); }
+  .toc-goto svg { display: block; width: 11px; height: 11px; }
   .mark-badge {
     display: inline-flex; align-items: center; justify-content: center; flex: 0 0 15px;
     width: 15px; height: 15px; margin: 4px 5px 0 0; border-radius: 4px;
@@ -557,6 +583,13 @@
   #find-count { min-width: 78px; color: var(--muted-2); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
   mark.find-term { background: var(--hl); color: inherit; border-radius: 2px; padding: 0 1px; }
   mark.find-term.active { background: var(--accent); color: #fff; }
+  /* ---------- 双击不选中：标题与侧栏交互条目禁用文本选择，避免唤起浏览器/插件的复制、分享、翻译弹窗 ---------- */
+  .doc h1, .doc h2, .doc h3, .doc h4,
+  .toc-link, .toc-link *, .review-item, .review-item *, .file-item, .file-item *,
+  .mark-badge, .tab-heading, .tab-heading *, .crumb, .crumb * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
 
   /* ---------- 内置编辑 ---------- */
   #edit-bar {
@@ -916,7 +949,8 @@ function openFile(path, anchor, flash, opts) {
       current = data;
       try { localStorage.setItem("mdviewer:last", path); } catch (e) {}
       renderContent(data);
-      renderToc(file.headings || []);
+      // 优先用服务端按最新文件内容解析的小节树渲染目录（页面打开期间文件被改也不会过期）
+      renderToc(((data.headings && data.headings.length) ? data.headings : file.headings) || []);
       updateCrumb(data);
       updateFileProgress();
       highlightFile(path);
@@ -1048,6 +1082,7 @@ function cycleMark(path, anchor) {
   if (next) marks[markKey(path, anchor)] = next; else delete marks[markKey(path, anchor)];
   try { localStorage.setItem("mdviewer:marks", JSON.stringify(marks)); } catch (e) {}
   refreshTocMarks();
+  refreshNodeProgress();
   renderReviewTab();
   renderStats();
   updateFileProgress();
@@ -1063,6 +1098,93 @@ function refreshTocMarks() {
     b.dataset.state = s;
     b.textContent = s ? MARK_GLYPH[s] : "○";
     b.title = s ? MARK_TITLE[s] + " · 点击切换" : "标记掌握度 · 点击切换";
+  }
+}
+/* ---------- 大标题折叠/展开（记忆状态） + 小节复习进度 ---------- */
+var tocCollapsed = {};
+try { tocCollapsed = JSON.parse(localStorage.getItem("mdviewer:toc-collapsed") || "{}"); } catch (e) { tocCollapsed = {}; }
+function saveTocCollapsed() {
+  try { localStorage.setItem("mdviewer:toc-collapsed", JSON.stringify(tocCollapsed)); } catch (e) {}
+}
+/* 折叠/展开一个标题（点击箭头或点击大标题本身） */
+function toggleTocCollapse(chev) {
+  if (!chev) return;
+  var item = chev.closest ? chev.closest(".toc-item") : null;
+  if (!item) return;
+  var collapsed = item.classList.toggle("collapsed");
+  chev.setAttribute("aria-expanded", String(!collapsed));
+  var key = chev.dataset.key;
+  if (collapsed) tocCollapsed[key] = true; else delete tocCollapsed[key];
+  saveTocCollapsed();
+}
+/* 定位到某小节前，展开其所有被折叠的祖先标题（仅显式导航时调用） */
+function expandTocTo(anchor) {
+  var tocEl = $("tab-toc");
+  if (!tocEl || !tocEl.querySelectorAll) return;
+  var links = tocEl.querySelectorAll(".toc-link");
+  for (var i = 0; i < links.length; i++) {
+    if (links[i].dataset && links[i].dataset.anchor === anchor) {
+      var anc = links[i].closest ? links[i].closest(".toc-item") : null;
+      while (anc) {
+        if (anc.classList && anc.classList.contains("collapsed")) {
+          anc.classList.remove("collapsed");
+          var ck = anc.querySelector(".toc-chev");
+          if (ck) {
+            ck.setAttribute("aria-expanded", "true");
+            var k = ck.getAttribute("data-key");
+            if (k && tocCollapsed[k]) { delete tocCollapsed[k]; saveTocCollapsed(); }
+          }
+        }
+        anc = anc.parentElement && anc.parentElement.closest ? anc.parentElement.closest(".toc-item") : null;
+      }
+      break;
+    }
+  }
+}
+/* 统计某标题下全部子孙知识点的掌握度 */
+function subtreeMarkStats(path, node) {
+  var done = 0, review = 0, weak = 0, total = 0;
+  (function walk(n) {
+    for (var i = 0; i < n.children.length; i++) {
+      total++;
+      var s = getMark(path, n.children[i].anchor);
+      if (s === "done") done++; else if (s === "review") review++; else if (s === "weak") weak++;
+      walk(n.children[i]);
+    }
+  })(node);
+  return { done: done, review: review, weak: weak, total: total };
+}
+function nodeProgClass(st) {
+  return st.weak ? "weak" : (st.review ? "review" : (st.done ? "done" : ""));
+}
+function nodeProgTitle(st) {
+  return "复习进度（子知识点）：已掌握 " + st.done + " · 待复习 " + st.review + " · 薄弱 " + st.weak + " · 共 " + st.total;
+}
+function nodeProgHtml(path, node) {
+  var st = subtreeMarkStats(path, node);
+  if (!st.total) return "";
+  return '<span class="node-prog ' + nodeProgClass(st) + '" title="' + Renderer.escAttr(nodeProgTitle(st)) + '">' + st.done + "/" + st.total + "</span>";
+}
+function refreshNodeProgress() {
+  var pros = $("tab-toc") && $("tab-toc").querySelectorAll ? $("tab-toc").querySelectorAll(".node-prog") : [];
+  for (var i = 0; i < pros.length; i++) {
+    var item = pros[i].closest ? pros[i].closest(".toc-item") : null;
+    if (!item) continue;
+    var all = item.querySelectorAll(".mark-badge");
+    var own = item.querySelector(".toc-row .mark-badge");
+    var done = 0, review = 0, weak = 0, total = 0;
+    for (var j = 0; j < all.length; j++) {
+      if (own && all[j] === own) continue; // 排除标题自身（只看子知识点）
+      total++;
+      var s = all[j].dataset.state;
+      if (s === "done") done++; else if (s === "review") review++; else if (s === "weak") weak++;
+    }
+    var st = { done: done, review: review, weak: weak, total: total };
+    if (!total) { pros[i].style.display = "none"; continue; }
+    pros[i].style.display = "";
+    pros[i].className = "node-prog " + nodeProgClass(st);
+    pros[i].textContent = done + "/" + total;
+    pros[i].title = nodeProgTitle(st);
   }
 }
 var reviewTabActive = false;
@@ -1134,21 +1256,46 @@ function buildTocTree(headings) {
 }
 function tocHtml(node) {
   var path = current && current.path ? current.path : "";
-  var html = '<div class="toc-item l' + node.level + '"><div class="toc-row">' +
+  var hasKids = node.children.length > 0;
+  var key = hasKids ? markKey(path, node.anchor) : "";
+  var collapsed = hasKids && !!tocCollapsed[key];
+  var html = '<div class="toc-item l' + node.level + (collapsed ? " collapsed" : "") + '"><div class="toc-row">' +
     markBadgeHtml(path, node.anchor) +
     '<a class="toc-link" data-anchor="' + Renderer.escAttr(node.anchor) + '">';
+  if (hasKids) {
+    html += '<span class="toc-chev" role="button" tabindex="0" data-key="' + Renderer.escAttr(key) + '" aria-label="折叠/展开" aria-expanded="' + (collapsed ? "false" : "true") + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>';
+  }
   if (node.number) html += '<span class="toc-num">' + Renderer.esc(node.number) + "</span>";
-  html += Renderer.esc(node.text) + "</a></div>";
-  if (node.children.length) html += node.children.map(tocHtml).join("");
+  html += Renderer.esc(node.text) + "</a>";
+  if (hasKids) {
+    // 大标题：定位按钮与折叠分开 —— 点标题=折叠/展开，点此按钮=定位到小节
+    html += '<button class="toc-goto" data-anchor="' + Renderer.escAttr(node.anchor) + '" title="定位到该小节" aria-label="定位到该小节"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>';
+    html += nodeProgHtml(path, node);
+  }
+  html += "</div>";
+  if (hasKids) html += node.children.map(tocHtml).join("");
   return html + "</div>";
 }
 $("tab-toc").addEventListener("click", function (e) {
+  var chev = e.target.closest ? e.target.closest(".toc-chev") : null;
+  if (chev) { toggleTocCollapse(chev); return; }
+  var goto = e.target.closest ? e.target.closest(".toc-goto") : null;
+  if (goto) { if (current) navigateAnchor(goto.dataset.anchor, true); return; }
   var badge = e.target.closest(".mark-badge");
   if (badge) { cycleMark(badge.dataset.path, badge.dataset.anchor); return; }
   var ri = e.target.closest(".review-item");
   if (ri) { openFile(ri.dataset.path, ri.dataset.anchor, true); return; }
   var link = e.target.closest(".toc-link");
-  if (link && current) navigateAnchor(link.dataset.anchor, true);
+  if (link && current) {
+    // 大标题：点击只做折叠/展开；子知识点：点击定位
+    var ch = link.querySelector(".toc-chev");
+    if (ch) toggleTocCollapse(ch);
+    else navigateAnchor(link.dataset.anchor, true);
+  }
+});
+$("tab-toc").addEventListener("keydown", function (e) {
+  var chev = e.target && e.target.classList && e.target.classList.contains("toc-chev") ? e.target : null;
+  if (chev && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); chev.click(); }
 });
 function scrollToAnchor(anchor, flash) {
   var target = document.getElementById(anchor);
@@ -1159,6 +1306,8 @@ function scrollToAnchor(anchor, flash) {
     }
   }
   if (!target) { toast("未找到目标小节"); return; }
+  expandTocTo(anchor); // 显式导航时展开被折叠的祖先标题
+  lockSpyTo(anchor);   // 立即高亮目标并锁定滚动跟随，避免平滑滚动途中逐节跳变
   target.scrollIntoView({ behavior: "smooth", block: "start" });
   if (flash) { target.classList.remove("flash-target"); void target.offsetWidth; target.classList.add("flash-target"); }
 }
@@ -1212,13 +1361,26 @@ function isInView(el, container) {
   var r = el.getBoundingClientRect(), c = container.getBoundingClientRect();
   return r.top >= c.top - 4 && r.bottom <= c.bottom + 4;
 }
-function updateScrollSpy() {
+/* 计算当前滚动位置对应的标题 anchor */
+function currentSpyAnchor(scrollTop) {
   var main = mainEl;
-  var scrollTop = main && typeof main.scrollTop === "number" ? main.scrollTop : 0;
   var cur = "";
+  // 当前节判定线：与标题的 scroll-margin-top（避开顶部粘性栏）对齐，另加 4px 容差，
+  // 避免「scrollIntoView 落点 == 阈值」导致的选中漂移（如 1.6.2 高亮成 1.6.1）
+  var lineY = 120;
+  if (main && typeof main.getBoundingClientRect === "function") {
+    lineY = main.getBoundingClientRect().top;
+    if (spyHeadings.length && typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+      var smv = parseFloat(window.getComputedStyle(spyHeadings[0]).scrollMarginTop);
+      lineY += isNaN(smv) ? 62 : smv;
+    } else {
+      lineY += 62;
+    }
+    lineY += 4;
+  }
   for (var i = 0; i < spyHeadings.length; i++) {
     var h = spyHeadings[i];
-    if (typeof h.getBoundingClientRect === "function" && h.getBoundingClientRect().top <= 120) cur = h.id;
+    if (typeof h.getBoundingClientRect === "function" && h.getBoundingClientRect().top <= lineY) cur = h.id;
     else break;
   }
   // 滚动到底部：强制最后一节为当前节
@@ -1226,21 +1388,55 @@ function updateScrollSpy() {
       main.scrollHeight - scrollTop - main.clientHeight < 4 && spyHeadings.length) {
     cur = spyHeadings[spyHeadings.length - 1].id;
   }
-  currentAnchor = cur;
+  return cur;
+}
+/* 目录高亮（仅处理可见、未被折叠的条目） */
+function setTocActive(anchor) {
   var tocEl = $("tab-toc");
   if (tocEl && typeof tocEl.querySelectorAll === "function") {
     var links = tocEl.querySelectorAll(".toc-link");
     for (var j = 0; j < links.length; j++) {
-      var on = links[j].dataset && links[j].dataset.anchor === cur;
+      var on = links[j].dataset && links[j].dataset.anchor === anchor;
       if (links[j].classList) links[j].classList.toggle("active", on);
-      if (on && !isInView(links[j], tocEl) && typeof links[j].scrollIntoView === "function") links[j].scrollIntoView({ block: "nearest" });
+      // 仅对可见(未被折叠)的当前链接做滚动跟随；被折叠的标题不强制展开
+      if (on && links[j].offsetParent != null && !isInView(links[j], tocEl) && typeof links[j].scrollIntoView === "function") {
+        links[j].scrollIntoView({ block: "nearest" });
+      }
     }
   }
+}
+/* 程序化跳转到小节：立即把目标置为选中态并锁定滚动跟随，平滑滚动途中不逐节跳变 */
+var spyLocked = false;
+var spyLockTimer = null;
+function lockSpyTo(anchor) {
+  currentAnchor = anchor || "";
+  setTocActive(currentAnchor);
+  spyLocked = true;
+  if (spyLockTimer) clearTimeout(spyLockTimer);
+  spyLockTimer = setTimeout(unlockSpy, 1200); // scrollend 不可用/未触发时的兜底解锁
+}
+function unlockSpy() {
+  if (spyLockTimer) { clearTimeout(spyLockTimer); spyLockTimer = null; }
+  if (!spyLocked) return;
+  spyLocked = false;
+  updateScrollSpy();
+}
+if (mainEl && typeof mainEl.addEventListener === "function") {
+  mainEl.addEventListener("scrollend", function () { if (spyLocked) unlockSpy(); });
+}
+function updateScrollSpy() {
+  var main = mainEl;
+  var scrollTop = main && typeof main.scrollTop === "number" ? main.scrollTop : 0;
+  // 阅读进度条始终随滚动平滑更新
   var fill = $("read-progress-fill");
   if (fill && fill.style && main && typeof main.scrollHeight === "number" && typeof main.clientHeight === "number") {
     var total = main.scrollHeight - main.clientHeight;
     fill.style.width = (total > 0 ? Math.min(100, scrollTop / total * 100) : 0) + "%";
   }
+  // 程序化跳转期间锁定：保持点击目标的选中态，不随中间标题跳变
+  if (spyLocked) return;
+  currentAnchor = currentSpyAnchor(scrollTop);
+  setTocActive(currentAnchor);
 }
 function scheduleScrollSpy() {
   if (spyPending) return;
