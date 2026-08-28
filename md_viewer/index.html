@@ -516,6 +516,20 @@
   .mark-badge[data-state="done"] { color: #0d2217; background: var(--success); border-color: var(--success); }
   .mark-badge[data-state="review"] { color: #201603; background: var(--warning); border-color: var(--warning); }
   .mark-badge[data-state="weak"] { color: #fff; background: var(--error); border-color: var(--error); }
+  /* 目录标题复习状态：行尾小圆点（视觉重点在标题文字，而非左侧标识） */
+  .mark-badge.toc-dot {
+    flex: 0 0 18px; width: 18px; height: 18px; margin: 2px 1px 0 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; background: transparent; font-size: 0;
+  }
+  .mark-badge.toc-dot::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted-2); opacity: .45;
+  }
+  .mark-badge.toc-dot:hover::before { opacity: .85; }
+  .mark-badge.toc-dot[data-state="done"]::before { background: var(--success); opacity: 1; }
+  .mark-badge.toc-dot[data-state="review"]::before { background: var(--warning); opacity: 1; }
+  .mark-badge.toc-dot[data-state="weak"]::before { background: var(--error); opacity: 1; }
   .review-item { display: flex; align-items: center; gap: 7px; padding: 7px 9px; margin-bottom: 2px; border-radius: 7px; cursor: pointer; }
   .review-item:hover { background: var(--panel-soft); }
   .review-item .ri-title { overflow: hidden; flex: 1; min-width: 0; color: var(--text); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
@@ -772,7 +786,7 @@
       <tr><td><kbd>Enter</kbd></td><td>打开选中的搜索结果</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>关闭弹层 / 收起搜索结果</td></tr>
       <tr><td>点击 §编号</td><td>跨文件跳转到对应知识点</td></tr>
-      <tr><td>点击 ○ 标记</td><td>循环标记：✓已掌握 / ◔待复习 / ✕薄弱，侧栏「待复习」汇总</td></tr>
+      <tr><td>点击标题行尾圆点</td><td>循环标记：✓已掌握 / ◔待复习 / ✕薄弱，侧栏「待复习」汇总</td></tr>
       <tr><td>面包屑进度</td><td>显示当前文档知识点掌握进度（进度条 + ✓/◔/✕ 计数），随标记实时更新</td></tr>
       <tr><td>点击「未复习」</td><td>按标题顺序跳转到当前文档第一个未标记的知识点（全部标完时提示）</td></tr>
       <tr><td>点击左侧标题</td><td>定位到当前文档对应小节</td></tr>
@@ -1096,8 +1110,13 @@ function refreshTocMarks() {
   for (var i = 0; i < badges.length; i++) {
     var b = badges[i], s = getMark(b.dataset.path, b.dataset.anchor);
     b.dataset.state = s;
-    b.textContent = s ? MARK_GLYPH[s] : "○";
     b.title = s ? MARK_TITLE[s] + " · 点击切换" : "标记掌握度 · 点击切换";
+    if (b.classList && b.classList.contains("toc-dot")) {
+      // 行尾圆点样式：无文字，状态色由 CSS 呈现
+      b.textContent = "";
+    } else {
+      b.textContent = s ? MARK_GLYPH[s] : "○";
+    }
   }
 }
 /* ---------- 大标题折叠/展开（记忆状态） + 小节复习进度 ---------- */
@@ -1208,7 +1227,7 @@ function renderReviewTab() {
   var items = reviewItems();
   var el = $("tab-toc");
   if (!items.length) {
-    el.innerHTML = '<div class="toc-pane-title">待复习</div><div class="empty">暂无标记的知识点<br>在「目录」中点击 ○ 标记：✓已掌握 / ◔待复习 / ✕薄弱</div>';
+    el.innerHTML = '<div class="toc-pane-title">待复习</div><div class="empty">暂无标记的知识点<br>在「目录」中点击标题行尾圆点标记：✓已掌握 / ◔待复习 / ✕薄弱</div>';
     return;
   }
   var html = '<div class="toc-pane-title">待复习 · ' + items.length + ' 项</div><div class="pane-scroll">';
@@ -1254,19 +1273,23 @@ function buildTocTree(headings) {
   });
   return root.children;
 }
+function tocDotHtml(path, anchor) {
+  var s = getMark(path, anchor);
+  return '<span class="mark-badge toc-dot" data-path="' + Renderer.escAttr(path) + '" data-anchor="' + Renderer.escAttr(anchor) + '" data-state="' + s + '" title="' + (s ? MARK_TITLE[s] + " · 点击切换" : "标记掌握度 · 点击切换") + '"></span>';
+}
 function tocHtml(node) {
   var path = current && current.path ? current.path : "";
   var hasKids = node.children.length > 0;
   var key = hasKids ? markKey(path, node.anchor) : "";
   var collapsed = hasKids && !!tocCollapsed[key];
   var html = '<div class="toc-item l' + node.level + (collapsed ? " collapsed" : "") + '"><div class="toc-row">' +
-    markBadgeHtml(path, node.anchor) +
     '<a class="toc-link" data-anchor="' + Renderer.escAttr(node.anchor) + '">';
   if (hasKids) {
     html += '<span class="toc-chev" role="button" tabindex="0" data-key="' + Renderer.escAttr(key) + '" aria-label="折叠/展开" aria-expanded="' + (collapsed ? "false" : "true") + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>';
   }
   if (node.number) html += '<span class="toc-num">' + Renderer.esc(node.number) + "</span>";
   html += Renderer.esc(node.text) + "</a>";
+  html += tocDotHtml(path, node.anchor);
   if (hasKids) {
     // 大标题：定位按钮与折叠分开 —— 点标题=折叠/展开，点此按钮=定位到小节
     html += '<button class="toc-goto" data-anchor="' + Renderer.escAttr(node.anchor) + '" title="定位到该小节" aria-label="定位到该小节"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>';
