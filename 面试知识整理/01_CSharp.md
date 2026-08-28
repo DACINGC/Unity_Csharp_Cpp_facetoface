@@ -423,10 +423,12 @@ m.Invoke(obj, new object[]{ 参数 });            // 5. 调用方法
 
 ### 1.6.2 特性（Attribute）与 DllImport
 
-- **程序集**：编译器编译得到的中间产物（.dll / .exe），包含代码与元数据。
-- **元数据**：描述数据的数据，如程序中的类、函数、变量等声明信息。
-- **特性**：允许向程序集添加额外元数据的类；可通过反射获取这些额外信息（如 `[ContextMenu]`、`[MenuItem]`、`[DllImport]`）。
-- `[DllImport("Text.dll")]`：引用外部语言的 dll；配合 `public static extern int Add(int a, int b)` 映射外部函数。
+- **程序集（Assembly）**：.NET **编译、加载和部署的基本单元**，通常为 .dll / .exe，内部包含 **IL 代码、元数据、程序集清单（Manifest）和资源**。
+- **元数据（Metadata）**：描述程序集中**类型、方法、字段、参数及依赖关系**的结构化信息；CLR 加载与**反射**都依靠它识别代码结构。
+- **特性（Attribute）**：继承自 `System.Attribute` 的**声明式信息**，编译后通常记录在程序集元数据中；由编译器、运行时或框架读取并赋予具体行为（如 `[ContextMenu]`、`[MenuItem]`、`[DllImport]`），也可通过反射获取。
+- `[DllImport("Text.dll")]`：引用外部（非托管）dll；配合 `public static extern int Add(int a, int b)` 映射外部函数。
+
+**一句话关系**：**程序集是载体，元数据描述代码，特性补充声明式信息**——即"容器 / 说明书 / 附加标注"三层关系。
 
 ### 1.6.3 .NET 与 Mono 的关系
 
@@ -438,47 +440,86 @@ m.Invoke(obj, new object[]{ 参数 });            // 5. 调用方法
 
 ### 1.7.1 foreach 的本质与迭代器
 
-- 迭代器模式：顺序访问聚合对象中的元素，而不暴露内部结构。
-- `foreach` 的本质：
-  1. 获取对象的 `GetEnumerator()`（对象需实现 `IEnumerable` / `IEnumerator`）；
-  2. 调用 `MoveNext()`，为 true 时通过 `Current` 取得当前元素；
-  3. （注：`foreach` 本身**不会调用 `Reset()`**——首次使用前位置已初始化；多数枚举器的 `Reset()` 会抛 `NotSupportedException`，应避免依赖它。）
-- `yield` 是语法糖：编译器会把包含 `yield` 的方法转换为一个**状态机类**，保存局部变量和执行位置，实现暂停/恢复（协程的底层基础）。
+- **迭代器**：按顺序访问集合元素、并**保存遍历位置**的机制，通常通过 `IEnumerable<T>`（可枚举：提供迭代器）与 `IEnumerator<T>`（迭代器本体：`Current` + `MoveNext()`）实现。
+- **`foreach` 是使用迭代器的语法糖**，底层流程：
+  1. 调用 `GetEnumerator()` 获取迭代器；
+  2. 循环执行 `MoveNext()`，返回 true 时通过 `Current` 读取当前元素；
+  3. 遍历结束自动释放迭代器（调用 `Dispose()`）。
+  - 注：`foreach` 本身**不会调用 `Reset()`**——首次使用前位置已初始化；多数枚举器的 `Reset()` 会抛 `NotSupportedException`，应避免依赖它。
+- **`yield` 是实现迭代器的语法糖**：编译器会把包含 `yield` 的方法转换成**状态机类**，保存局部变量与执行位置；`yield return` 返回当前元素并**暂停**，下次遍历从暂停位置继续；`yield break` 结束迭代。
+- **特点**：**延迟执行、按需生成数据**（不遍历就不执行方法体）；代价是产生状态机，且方法体内的逻辑与异常在**真正遍历时**才执行。
 
 ### 1.7.2 索引器
 
-- 让对象可以像数组一样用下标访问元素，语法类似属性：`访问修饰符 返回类型 this[参数列表] { get; set; }`。
-- 索引参数**不限于 int**：可以是 string、枚举、多个参数（类似多维数组）；同名的 `this[...]` 可按不同参数**重载**。
-- 限制：不能是 `static`；参数不能是 `ref`/`out`；可只读（只有 get）或只写（只有 set）。
+**定义**：索引器（Indexer）允许对象像数组/字典一样通过下标访问内部数据：`object[index]`。本质是**带参数的属性**——用 `this` 声明，通过 `get`/`set` 控制读写。
+
+**基本语法**：
 
 ```csharp
-class Person {
-    private Person[] friends;
-    public Person this[int index] {   // int 索引，封装内部数组
-        get => friends[index];
-        set => friends[index] = value;
-    }
-}
-
-class ScoreBoard {
-    private Dictionary<string, int> map = new();
-    public int this[string name] {    // string 索引（字典式查找）
-        get => map.TryGetValue(name, out int v) ? v : 0;
-        set => map[name] = value;
-    }
-}
-
-class Matrix {
-    private int[,] data = new int[3, 3];
-    public int this[int row, int col] {   // 多参数索引（二维）
-        get => data[row, col];
-        set => data[row, col] = value;
+public class PlayerList {
+    private readonly string[] players = new string[10];
+    public string this[int index] {        // 本质：带参数的属性
+        get => players[index];             // 读：playerList[0]
+        set => players[index] = value;     // 写：playerList[0] = "PlayerA"
     }
 }
 ```
 
-- get 返回引用类型时可直接修改元素内部：`board[i].Name = "x";`（拿到的是引用）。
-- C# 8.0+ 索引与范围：类型只要有 `Count`/`Length` 和 `this[int]`，就支持 `arr[^1]`（倒数第一个）、`arr[1..3]`（切片；数组、string、List 已内置支持）。
+**特点**：
+
+| 特点 | 说明 |
+| --- | --- |
+| 本质 | 带参数的属性，用 `this[参数]` 声明 |
+| 访问控制 | 通过 `get`/`set`；可只读（只有 get）、只写（只有 set），可分别限制访问级别（如 `private set`） |
+| 参数 | 数量不限（可多参数，类似多维数组）；类型不限（int/string/枚举等） |
+| 重载 | 可按参数数量/类型重载；**不能仅按返回类型重载** |
+| 限制 | 不支持静态索引器；参数不能用 `ref`/`out` |
+| 存储 | 自身通常不保存数据，只封装内部数据访问 |
+
+**典型变体**（各举一例）：
+
+```csharp
+class Grid {                                          // 多参数：二维访问
+    private int[,] values = new int[10, 10];
+    public int this[int x, int y] { get => values[x, y]; set => values[x, y] = value; }
+}
+
+class ScoreBoard {                                    // 非整数键：字典式访问
+    private Dictionary<string, int> map = new();
+    public int this[string name] { get => map.TryGetValue(name, out int v) ? v : 0; set => map[name] = value; }
+}
+
+class DataStore {                                     // 重载：int 与 string 版本并存
+    private string[] values = new string[10];
+    private Dictionary<string, string> named = new();
+    public string this[int i]    { get => values[i];  set => values[i]  = value; }
+    public string this[string k] { get => named[k];   set => named[k]  = value; }
+}
+```
+
+- `get` 返回引用类型时可直接修改元素内部（拿到的是引用）：`board[i].Name = "x";`。
+
+**编译后的本质**：索引器编译为特殊属性，元数据默认名称是 `Item`，访问器对应 `get_Item(index)` / `set_Item(index, value)`；可用 `[IndexerName("Entry")]` 修改元数据中的名称（C# 内访问方式仍是 `object[index]`）。
+
+**与属性对比**：
+
+| 对比项 | 属性 | 索引器 |
+| --- | --- | --- |
+| 访问形式 | `object.Name` | `object[index]` |
+| 名称 | 有明确名称 | 用 `this`，无名称 |
+| 参数 | 通常不带参数 | 必须带参数 |
+| 重载 | 一般不能同名重载 | 可按参数列表重载 |
+| 静态 | 支持静态属性 | 不支持静态索引器 |
+
+**与数组/Dictionary 的关系**：索引器只是**访问语法**，不限定底层结构——可以是数组、`List<T>`、`Dictionary<TKey,TValue>`、缓存、数据库甚至动态计算结果；"有索引器"≠"是数组"。
+
+**使用注意**：`get`/`set` 本质是**方法调用**——复杂度不保证 O(1)，内部可能做校验、查询、计算甚至抛异常；应对非法下标做边界检查，避免在索引器中执行耗时操作（调用形式简单但成本不直观）；查询可能失败时可提供 `TryGet` 方法而非依赖异常；多线程安全取决于内部数据结构。
+
+**补充**：C# 8.0+ 索引与范围——类型只要有 `Count`/`Length` 和 `this[int]`，就支持 `arr[^1]`（倒数第一个）、`arr[1..3]`（切片；数组、string、List 已内置支持）。
+
+**面试话术**：
+
+> 索引器允许对象用 `对象[参数]` 访问数据，本质是带参数的属性（`this[参数]` + `get/set`）。参数可以是整数、字符串或多个参数，可按参数列表重载但不能仅按返回类型重载，且不支持静态索引器。编译后对应元数据中的 `Item` 属性与 `get_Item`/`set_Item` 方法。它只封装访问方式，底层可以是数组、List、Dictionary 或动态计算，复杂度取决于具体实现。
 
 ### 1.7.3 扩展方法
 
@@ -557,10 +598,25 @@ Thread.Sleep(毫秒);            // 当前线程休眠
 
 ### 1.10.4 枚举、异或、运算符优先级
 
-- 枚举成员的值必须是**整数类型**；未显式赋值时依次递增 1。
-- 多选枚举：成员用二进制位占位（`[Flags]`）。
-- 异或：相同为 0、不同为 1；任何数和 0 异或等于其本身。
-- 运算符优先级：`!` > 算术运算符 > 关系运算符 > `&&` > `||` > 赋值运算符。
+**枚举（enum）**：
+
+- **本质**：具有名称的整数常量，默认底层类型是 **`int`**（可显式指定 `byte`/`short`/`uint`/`long` 等整数类型）。
+- **普通枚举表示互斥状态**：成员未显式赋值时按 0、1、2、3 依次递增（建议将 0 定义为 `None`/`Default`，保证默认值安全）。
+- 可显式赋值：手动指定后，后续成员在其基础上继续递增。
+- 与整型/字符串互转：`(int)State.Run` / `(State)1`（显式强转）；`Enum.Parse` / `Enum.TryParse`（字符串 ↔ 枚举）；`Enum.GetName` / `Enum.GetNames`。
+- **多选枚举用 `[Flags]`**：成员以 2 的幂（二进制位）占位，表示可组合状态；用 `|` 组合、`&` 判断包含（或 `HasFlag`）。
+
+```csharp
+enum State { Idle, Run, Attack, Dead }        // 未赋值：0、1、2、3
+enum Level : byte { Low = 1, Mid = 5, High = 9 }  // 显式赋值 + 指定底层类型
+
+[Flags] enum Buff { None = 0, Atk = 1, Def = 2, Hp = 4 }
+Buff b = Buff.Atk | Buff.Def;                 // 组合：值为 3
+bool hasAtk = (b & Buff.Atk) != 0;            // 判断：true（或 b.HasFlag(Buff.Atk)）
+```
+
+- **异或**：相同为 0、不同为 1；任何数和 0 异或等于其本身。
+- **运算符优先级**：`!` > 算术运算符 > 关系运算符 > `&&` > `||` > 赋值运算符。
 
 ### 1.10.5 readonly 与 const
 
