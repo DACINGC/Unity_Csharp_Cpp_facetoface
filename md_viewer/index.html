@@ -162,8 +162,15 @@
   .filter-count { margin-left: auto; color: var(--muted-2); font-size: 11px; white-space: nowrap; }
   .pane-scroll { flex: 1; overflow-y: auto; padding: 0 8px 12px; min-height: 0; }
   .file-group { margin: 6px 0 13px; }
-  .file-group-label { padding: 0 9px 5px; font-size: 10px; }
+  .file-group-label { padding: 4px 9px 5px; font-size: 10px; border-radius: 6px; cursor: pointer; }
+  .file-group-label:hover { background: var(--panel-soft); }
   .file-group-label span:last-child { font-variant-numeric: tabular-nums; }
+  .fg-left { display: inline-flex; align-items: center; min-width: 0; }
+  .fg-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fg-chev { display: inline-flex; align-items: center; margin-right: 4px; color: var(--muted-2); }
+  .fg-chev svg { display: block; width: 10px; height: 10px; transition: transform .15s ease; }
+  .file-group.collapsed .fg-chev svg { transform: rotate(-90deg); }
+  .file-group.collapsed .file-item { display: none; }
   .file-item {
     display: flex; align-items: center; gap: 9px; min-width: 0; padding: 8px 9px; margin-bottom: 2px;
     border: 1px solid transparent; border-radius: 7px; cursor: pointer; transition: background .15s, border-color .15s;
@@ -599,7 +606,7 @@
   mark.find-term.active { background: var(--accent); color: #fff; }
   /* ---------- 双击不选中（仅侧栏交互条目）：禁用文本选择，避免唤起浏览器/插件的复制、分享、翻译弹窗；正文标题与段落保持可选中复制 ---------- */
   .toc-link, .toc-link *, .review-item, .review-item *, .file-item, .file-item *,
-  .mark-badge, .tab-heading, .tab-heading *, .crumb, .crumb * {
+  .mark-badge, .tab-heading, .tab-heading *, .crumb, .crumb *, .file-group-label {
     -webkit-user-select: none;
     user-select: none;
   }
@@ -898,6 +905,33 @@ function fileGroupName(path) {
   var slash = path.indexOf("/");
   return slash >= 0 ? path.slice(0, slash) : "根目录";
 }
+/* ---------- 目录分组折叠/展开（状态记忆） ---------- */
+var fileGroupsCollapsed = {};
+try { fileGroupsCollapsed = JSON.parse(localStorage.getItem("mdviewer:file-groups-collapsed") || "{}"); } catch (e) { fileGroupsCollapsed = {}; }
+function saveFileGroupsCollapsed() {
+  try { localStorage.setItem("mdviewer:file-groups-collapsed", JSON.stringify(fileGroupsCollapsed)); } catch (e) {}
+}
+function toggleFileGroupCollapse(label) {
+  var group = label.parentElement;
+  if (!group || !group.classList) return;
+  var collapsed = group.classList.toggle("collapsed");
+  label.setAttribute("aria-expanded", String(!collapsed));
+  var key = label.getAttribute ? label.getAttribute("data-key") : "";
+  if (collapsed) fileGroupsCollapsed[key] = true; else delete fileGroupsCollapsed[key];
+  saveFileGroupsCollapsed();
+}
+/* 打开某文件时，其所在目录若被折叠则自动展开，保证当前文件可见 */
+function expandFileGroupOf(item) {
+  var group = item.parentElement;
+  if (!group || !group.classList || !group.classList.contains("collapsed")) return;
+  group.classList.remove("collapsed");
+  var label = group.querySelector ? group.querySelector(".file-group-label") : null;
+  if (label) {
+    label.setAttribute("aria-expanded", "true");
+    var k = label.getAttribute ? label.getAttribute("data-key") : "";
+    if (k && fileGroupsCollapsed[k]) { delete fileGroupsCollapsed[k]; saveFileGroupsCollapsed(); }
+  }
+}
 function renderFiles() {
   var list = filteredFiles();
   var el = $("file-list");
@@ -914,6 +948,7 @@ function renderFiles() {
     group.items.push(f);
   });
   el.innerHTML = groups.map(function (group) {
+    var collapsed = !!fileGroupsCollapsed[group.name];
     var rows = group.items.map(function (f) {
       var title = f.name;
       var meta = f.type === "md" ? (f.title || "Markdown 文档") : "纯文本笔记";
@@ -922,17 +957,31 @@ function renderFiles() {
         '<span class="file-copy"><span class="fi-title">' + Renderer.esc(title) + "</span>" +
         '<span class="fi-meta">' + Renderer.esc(meta) + '</span></span></div>';
     }).join("");
-    return '<div class="file-group"><div class="file-group-label"><span>' + Renderer.esc(group.name) + '</span><span>' + group.items.length + '</span></div>' + rows + '</div>';
+    return '<div class="file-group' + (collapsed ? " collapsed" : "") + '">' +
+      '<div class="file-group-label" data-key="' + Renderer.escAttr(group.name) + '" role="button" tabindex="0" aria-expanded="' + (collapsed ? "false" : "true") + '">' +
+        '<span class="fg-left"><span class="fg-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>' +
+        '<span class="fg-name">' + Renderer.esc(group.name) + '</span></span>' +
+        '<span>' + group.items.length + '</span></div>' + rows + '</div>';
   }).join("");
   updateFilterCount(list.length);
   el.onclick = function (e) {
+    var label = e.target.closest(".file-group-label");
+    if (label) { toggleFileGroupCollapse(label); return; }
     var item = e.target.closest(".file-item");
     if (item) openFile(item.dataset.path);
   };
+  el.onkeydown = function (e) {
+    var label = e.target && e.target.classList && e.target.classList.contains("file-group-label") ? e.target : null;
+    if (label && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggleFileGroupCollapse(label); }
+  };
 }
 function highlightFile(path) {
-  var items = $("file-list").querySelectorAll(".file-item");
-  for (var i = 0; i < items.length; i++) items[i].classList.toggle("active", items[i].dataset.path === path);
+  var items = $("file-list").querySelectorAll ? $("file-list").querySelectorAll(".file-item") : [];
+  for (var i = 0; i < items.length; i++) {
+    var on = items[i].dataset.path === path;
+    items[i].classList.toggle("active", on);
+    if (on) expandFileGroupOf(items[i]);
+  }
 }
 function setFilter(type) {
   fileFilter = type;
