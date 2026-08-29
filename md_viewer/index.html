@@ -754,7 +754,7 @@
       <main id="main">
         <div id="read-progress" aria-hidden="true"><div id="read-progress-fill"></div></div>
         <div id="crumb">
-          <div class="crumb-left"><span class="crumb-home" id="crumb-home" title="回到复习题索引">面试</span><span class="crumb-chevron">/</span><span id="crumb-path"></span><span id="crumb-file"></span></div>
+          <div class="crumb-left"><span class="crumb-home" id="crumb-home" title="回到知识索引">面试</span><span class="crumb-chevron">/</span><span id="crumb-path"></span><span id="crumb-file"></span></div>
           <span id="file-progress" class="hidden" title="当前文档学习进度"></span>
           <div class="crumb-tools">
             <button id="btn-unmarked" class="nav-btn" title="按标题顺序跳转到当前文档第一个未标记的小标题（知识点）">▸ 未复习</button>
@@ -2072,10 +2072,10 @@ $("btn-prev").addEventListener("click", function () { navFile(-1); });
 $("btn-next").addEventListener("click", function () { navFile(1); });
 $("file-filter").addEventListener("click", function (e) { var btn = e.target.closest("button[data-filter]"); if (btn) setFilter(btn.dataset.filter); });
 
-/* 面包屑首页：回到复习题索引 */
+/* 面包屑首页：回到知识索引 */
 $("crumb-home").addEventListener("click", function () {
   if (!index) return;
-  var home = index.files.filter(function (f) { return f.path === "面试知识整理/10_复习题索引.md"; })[0];
+  var home = index.files.filter(function (f) { return f.path === "面试知识整理/00_知识索引.md"; })[0];
   openFile(home ? home.path : index.files[0].path);
 });
 
