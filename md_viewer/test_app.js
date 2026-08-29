@@ -168,15 +168,14 @@ setTimeout(async () => {
     (filesHtml.match(/file-item/g) || []).length + " 项");
 
   const doc = els["content"].innerHTML;
-  check("首个文档已渲染（h1）", doc.includes("<h1") && doc.includes("一、C# 语言"));
-  check("表格渲染", doc.includes("<table>") && doc.includes("<th>对比项</th>"),
+  check("首个文档为 00 知识索引（h1）", doc.includes("<h1") && doc.includes("知识索引"));
+  check("索引表格渲染", doc.includes("<table>") && doc.includes("<th>"),
     (doc.match(/<table>/g) || []).length + " 个表格");
-  check("标题锚点 id=1.1.1", doc.includes('id="1.1.1"'));
-  check("§ 引用可点击（sec-ref）", doc.includes('class="sec-ref"'));
-  check("面包屑文件名", els["crumb-file"].textContent === "01_CSharp.md");
-  check("本地记忆已写入", localStorageStub._d["mdviewer:last"] === "面试知识整理/01_CSharp.md");
-  check("当前文档进度条渲染（0/55）", !els["file-progress"].classList.contains("hidden") &&
-    els["file-progress"].innerHTML.includes("0/55"),
+  check("索引 § 引用可点击（sec-ref）", doc.includes('class="sec-ref"'));
+  check("面包屑文件名", els["crumb-file"].textContent === "00_知识索引.md");
+  check("本地记忆已写入", localStorageStub._d["mdviewer:last"] === "面试知识整理/00_知识索引.md");
+  check("当前文档进度条渲染（0/9）", !els["file-progress"].classList.contains("hidden") &&
+    els["file-progress"].innerHTML.includes("0/9"),
     els["file-progress"].innerHTML.replace(/<[^>]+>/g, "").slice(0, 30));
 
   // 目录与知识点双分区（不再切换，同时可见）
@@ -268,6 +267,10 @@ setTimeout(async () => {
   await new Promise((r) => setTimeout(r, 400));
   check("Enter 可立即打开首个搜索结果", enterPrevented && els["crumb-file"].textContent === "01_CSharp.md",
     "当前文件=" + els["crumb-file"].textContent);
+  // 深度渲染检查（01_CSharp 现已打开）
+  const doc01 = els["content"].innerHTML;
+  check("01_CSharp 渲染（一、C# 语言 + 对比项表 + 锚点 1.1.1）",
+    doc01.includes("一、C# 语言") && doc01.includes("<th>对比项</th>") && doc01.includes('id="1.1.1"'));
 
   // 全文搜索：等待服务端正文结果合并进下拉（正文命中带高亮片段）
   els["search"].value = "装箱";
@@ -331,12 +334,14 @@ setTimeout(async () => {
   context.randomPick(false);
   Math.random = origRand;
   await new Promise((r) => setTimeout(r, 400));
-  check("随机抽题打开知识点", els["crumb-file"].textContent === "01_CSharp.md",
+  check("随机抽题打开知识点", els["crumb-file"].textContent === firstMdName,
     "当前文件=" + els["crumb-file"].textContent);
+  // 显式打开 01_CSharp（含 1 个薄弱标记），验证标记后当前文档进度实时更新
+  await context.openFile("面试知识整理/01_CSharp.md");
   check("标记后当前文档进度更新（1/55）", els["file-progress"].innerHTML.includes("1/55"),
     els["file-progress"].innerHTML.replace(/<[^>]+>/g, "").slice(0, 40));
 
-  // 快速定位：下一个未标记知识点（当前文档 01_CSharp.md，含 1 个薄弱 + 54 个未标记）
+  // 快速定位：按标题顺序的第一个未标记小标题（当前文档 01_CSharp.md，含 1 个薄弱 + 54 个未标记）
   console.log("未复习定位检查");
   context.jumpToNextUnmarked();
   check("定位到未标记知识点（toast 提示）", els["toast"].textContent.includes("定位到未标记知识点"),
