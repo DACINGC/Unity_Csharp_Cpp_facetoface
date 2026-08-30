@@ -52,6 +52,23 @@ const APP_JS = m[1];
     ? "✓ 侧栏按钮采用紧凑图标样式"
     : "✗ 侧栏按钮仍包含展开/收起文字");
   if (!compactToggle) process.exit(1);
+  const workbenchFullscreen = /body\.workbench-view \.workspace-rail[\s\S]*?body\.workbench-view aside[\s\S]*?body\.workbench-view #resizer/.test(APP);
+  console.log(workbenchFullscreen
+    ? "✓ 工作台页会隐藏笔记工具轨、侧栏与分隔条"
+    : "✗ 工作台页未完整隐藏笔记侧栏区域");
+  if (!workbenchFullscreen) process.exit(1);
+  const fixedAppNav = /header\s*\{[\s\S]*?position: fixed; inset: 0 0 auto; height: 58px;/.test(APP) &&
+    /\.layout\s*\{[\s\S]*?margin-top: 58px;/.test(APP);
+  console.log(fixedAppNav
+    ? "✓ 顶部页签固定在全局栏，切换页面不改变位置"
+    : "✗ 顶部页签未使用统一的全局位置");
+  if (!fixedAppNav) process.exit(1);
+  const compactHeatmap = APP.includes('class="stats-heat-inline"') &&
+    !APP.includes('<section class="stats-panel stats-panel-wide"><h2>复习热力图</h2>');
+  console.log(compactHeatmap
+    ? "✓ 复习热力图已合并进学习概览卡片"
+    : "✗ 复习热力图仍占用独立大卡片");
+  if (!compactHeatmap) process.exit(1);
 }
 
 /* ---------- DOM 桩 ---------- */
@@ -163,6 +180,14 @@ setTimeout(async () => {
   const txtFiles = totalFiles - mdFiles;
   const firstTxtName = idxJson.files.filter((f) => f.type === "txt")[0].name;
   const firstMdName = idxJson.files.filter((f) => f.type === "md")[0].name;
+  const homeHtml = els["home-page"].innerHTML;
+  check("默认进入统一工作台首页", context.viewMode === "home" &&
+    homeHtml.includes("继续阅读") && homeHtml.includes("学习工作台") && homeHtml.includes("待复习") &&
+    homeHtml.includes("笔记入口"));
+  check("首页为独立全宽工作台，不显示笔记侧栏", documentStub.body.classList.contains("workbench-view"));
+  check("工作台提供首页 / 笔记 / 复习 / 统计同级入口", ["nav-home", "nav-notes", "nav-review", "nav-stats"].every((id) => !!els[id]._handlers.click));
+  els["nav-notes"]._handlers.click({});
+  await new Promise((r) => setTimeout(r, 400));
   const filesHtml = els["file-list"].innerHTML;
   check("文件列表渲染（全部=" + totalFiles + "）", (filesHtml.match(/file-item/g) || []).length === totalFiles,
     (filesHtml.match(/file-item/g) || []).length + " 项");
@@ -174,8 +199,10 @@ setTimeout(async () => {
   check("索引 § 引用可点击（sec-ref）", doc.includes('class="sec-ref"'));
   check("面包屑文件名", els["crumb-file"].textContent === "00_知识索引.md");
   check("本地记忆已写入", localStorageStub._d["mdviewer:last"] === "面试知识整理/00_知识索引.md");
-  check("当前文档进度条渲染（0/9）", !els["file-progress"].classList.contains("hidden") &&
-    els["file-progress"].innerHTML.includes("0/9"),
+  const indexProgress = context.fileProgress("面试知识整理/00_知识索引.md");
+  check("当前文档进度条渲染（掌握率 / 覆盖率）", !els["file-progress"].classList.contains("hidden") &&
+    els["file-progress"].innerHTML.includes("掌握 0/" + indexProgress.total) &&
+    els["file-progress"].innerHTML.includes("覆盖 0%"),
     els["file-progress"].innerHTML.replace(/<[^>]+>/g, "").slice(0, 30));
 
   // 目录与知识点双分区（不再切换，同时可见）
@@ -304,12 +331,21 @@ setTimeout(async () => {
   badge.dataset.path = "面试知识整理/01_CSharp.md";
   badge.dataset.anchor = "1.1.2";
   badge.closest = function (selector) { return selector === ".mark-badge" ? this : null; };
-  const marksState = () => JSON.parse(localStorageStub._d["mdviewer:marks"]);
+  const marksState = () => JSON.parse(localStorageStub._d["mdviewer:marks"] || "{}");
+  els["mark-menu"].classList.add("hidden");
   els["tab-toc"]._handlers.click({ target: badge });
-  check("第一次点击标记为 已掌握", marksState()["面试知识整理/01_CSharp.md|1.1.2"] === "done");
-  els["tab-toc"]._handlers.click({ target: badge });
-  els["tab-toc"]._handlers.click({ target: badge });
-  check("循环标记到 薄弱", marksState()["面试知识整理/01_CSharp.md|1.1.2"] === "weak");
+  check("点击标记打开状态菜单", !els["mark-menu"].classList.contains("hidden"));
+  context.setMark("面试知识整理/01_CSharp.md", "1.1.2", "weak");
+  check("显式标记为 薄弱", marksState()["面试知识整理/01_CSharp.md|1.1.2"] === "weak");
+  const reviewEvents = JSON.parse(localStorageStub._d["mdviewer:review-events"] || "[]");
+  check("标记动作写入复习记录", reviewEvents.length === 1 &&
+    reviewEvents[0].key === "面试知识整理/01_CSharp.md|1.1.2" && reviewEvents[0].state === "weak");
+  const statsData = context.collectStatsData();
+  const expectedLeafTotal = idxJson.files.reduce((sum, f) => sum + context.leafHeadings(f.headings || []).length, 0);
+  check("统计仅计算末级标题知识点", statsData.total === expectedLeafTotal,
+    "统计=" + statsData.total + "，末级标题=" + expectedLeafTotal);
+  check("统计汇总复习次数", statsData.reviewActions === 1 &&
+    statsData.categories.some((c) => c.path === "面试知识整理/01_CSharp.md" && c.reviewActions === 1));
   check("待复习计数徽标更新", els["toc-review-count"].textContent === "1",
     "实际=" + els["toc-review-count"].textContent);
   els["toc-tab-review"]._handlers.click({});
@@ -319,6 +355,30 @@ setTimeout(async () => {
   els["toc-tab-all"]._handlers.click({});
   check("切回目录列表", (els["tab-toc"].innerHTML.match(/toc-link/g) || []).length > 0,
     (els["tab-toc"].innerHTML.match(/toc-link/g) || []).length + " 条标题");
+
+  // 复习工作台：与笔记、统计同级，而不是侧栏内的临时标签
+  els["nav-review"]._handlers.click({});
+  const reviewPageHtml = els["review-page"].innerHTML;
+  check("复习工作台可从顶部导航进入", context.viewMode === "review" &&
+    reviewPageHtml.includes("待复习清单") && els["nav-review"].classList.contains("active") &&
+    documentStub.body.classList.contains("workbench-view"));
+
+  // 学习统计页：总览看板 + 环形概览 + 复习热力图，并可返回文档
+  console.log("学习统计页检查");
+  els["stats-page"].classList.add("hidden");
+  els["nav-stats"]._handlers.click({});
+  const statsPageHtml = els["stats-page"].innerHTML;
+  check("点击统计入口切换到统计页", context.viewMode === "stats" &&
+    !els["stats-page"].classList.contains("hidden") && els["nav-stats"].classList.contains("active") &&
+    documentStub.body.classList.contains("workbench-view"));
+  check("统计页渲染总览、环形概览与热力图", statsPageHtml.includes("知识点类型分布") &&
+    statsPageHtml.includes("stats-category-grid") && statsPageHtml.includes("stats-ring") &&
+    statsPageHtml.includes("stats-status-breakdown") && statsPageHtml.includes("stats-heat-cell") &&
+    statsPageHtml.includes("stats-table"));
+  await context.openFile("面试知识整理/06_Unity引擎.md");
+  check("从统计页打开笔记后回到文档视图", context.viewMode === "document" &&
+    els["stats-page"].classList.contains("hidden") && els["crumb"].classList.contains("hidden") === false &&
+    !documentStub.body.classList.contains("workbench-view"));
 
   // 滚动位置记忆
   console.log("滚动位置记忆检查");
@@ -338,13 +398,15 @@ setTimeout(async () => {
     "当前文件=" + els["crumb-file"].textContent);
   // 显式打开 01_CSharp（含 1 个薄弱标记），验证标记后当前文档进度实时更新
   await context.openFile("面试知识整理/01_CSharp.md");
-  check("标记后当前文档进度更新（1/55）", els["file-progress"].innerHTML.includes("1/55"),
+  const csharpProgress = context.fileProgress("面试知识整理/01_CSharp.md");
+  check("标记后当前文档进度更新（掌握率 / 覆盖率）", els["file-progress"].innerHTML.includes("掌握 0/" + csharpProgress.total) &&
+    els["file-progress"].innerHTML.includes("覆盖"),
     els["file-progress"].innerHTML.replace(/<[^>]+>/g, "").slice(0, 40));
 
   // 快速定位：按标题顺序的第一个未标记小标题（当前文档 01_CSharp.md，含 1 个薄弱 + 54 个未标记）
   console.log("未复习定位检查");
   context.jumpToNextUnmarked();
-  check("定位到未标记知识点（toast 提示）", els["toast"].textContent.includes("定位到未标记知识点"),
+  check("定位到下个未标记知识点（toast 提示）", els["toast"].textContent.includes("定位到下个未标记知识点"),
     els["toast"].textContent.slice(0, 40));
   // 全部标记后应提示已完成
   const f01 = idxJson.files.filter((f) => f.path === "面试知识整理/01_CSharp.md")[0];
