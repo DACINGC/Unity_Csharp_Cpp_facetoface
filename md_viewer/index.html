@@ -741,6 +741,14 @@
   .progress-stats .ps-item.st-done .dot { background: var(--success); }
   .progress-stats .ps-item.st-review .dot { background: var(--warning); }
   .progress-stats .ps-item.st-weak .dot { background: var(--error); }
+  /* 复习进度导入 / 导出 */
+  .ps-tools { display: flex; gap: 6px; margin: 0 12px 10px; }
+  .ps-btn {
+    flex: 1; padding: 4px 0; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--panel); color: var(--muted); font-size: 11px; cursor: pointer;
+  }
+  .ps-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  #progress-import-file.hidden { display: none; }
 
   /* ---------- 滚动跟随 / 阅读进度 / 文档内查找 ---------- */
   .toc-link.active { color: var(--text-strong); background: var(--accent-soft); }
@@ -851,6 +859,11 @@
     <aside id="sidebar">
       <nav class="side-nav" aria-label="学习进度">
         <div class="progress-stats" id="progress-stats"></div>
+        <div class="ps-tools">
+          <button id="progress-export" class="ps-btn" title="导出复习进度（下载 JSON 文件，用于跨设备同步）">⇩ 导出</button>
+          <button id="progress-import" class="ps-btn" title="导入复习进度（选择 JSON 文件，合并到本地）">⇧ 导入</button>
+          <input id="progress-import-file" type="file" accept=".json,application/json" class="hidden" aria-label="选择进度备份文件">
+        </div>
       </nav>
 
       <div class="side-split" id="side-split">
@@ -1932,6 +1945,115 @@ function renderStats() {
       '<span class="ps-item st-weak"><span class="dot"></span>薄弱 <b>' + weak + '</b></span>' +
     '</div>';
 }
+
+/* ============================== 复习进度导入 / 导出（跨设备同步） ============================== */
+/* 合并导入的进度：有效状态覆盖/新增，空值清除，非法值忽略；返回统计 */
+function mergeMarks(incoming) {
+  var added = 0, updated = 0, cleared = 0, invalid = 0;
+  if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+    return { ok: false, added: 0, updated: 0, cleared: 0, invalid: 1 };
+  }
+  Object.keys(incoming).forEach(function (k) {
+    var v = incoming[k];
+    if (MARK_STATES.indexOf(v) >= 0) {
+      if (marks[k] !== v) {
+        if (marks[k]) updated++; else added++;
+        marks[k] = v;
+      }
+    } else if (v === "" || v === null) {
+      if (marks[k]) { delete marks[k]; cleared++; }
+    } else {
+      invalid++;
+    }
+  });
+  try { localStorage.setItem("mdviewer:marks", JSON.stringify(marks)); } catch (e) {}
+  return { ok: true, added: added, updated: updated, cleared: cleared, invalid: invalid };
+}
+/* 合并复习事件（热力图数据）：按 ts+key+state 去重，按时间排序，截断上限 */
+function mergeReviewEvents(incomingEvents) {
+  if (!Array.isArray(incomingEvents)) return { added: 0, invalid: 0 };
+  var seen = {};
+  var added = 0, invalid = 0;
+  reviewEvents.forEach(function (ev) { seen[ev.ts + "|" + ev.key + "|" + ev.state] = true; });
+  incomingEvents.forEach(function (ev) {
+    if (!ev || typeof ev.ts !== "number" || typeof ev.key !== "string" || MARK_STATES.indexOf(ev.state) < 0) { invalid++; return; }
+    var id = ev.ts + "|" + ev.key + "|" + ev.state;
+    if (seen[id]) return;
+    seen[id] = true;
+    reviewEvents.push({ ts: ev.ts, key: ev.key, state: ev.state });
+    added++;
+  });
+  reviewEvents.sort(function (a, b) { return a.ts - b.ts; });
+  if (reviewEvents.length > REVIEW_EVENT_LIMIT) reviewEvents = reviewEvents.slice(-REVIEW_EVENT_LIMIT);
+  try { localStorage.setItem("mdviewer:review-events", JSON.stringify(reviewEvents)); } catch (e) {}
+  return { added: added, invalid: invalid };
+}
+/* 导入后统一刷新全部进度相关视图（与 setMark 的刷新链一致） */
+function refreshProgressViews() {
+  refreshTocMarks();
+  refreshNodeProgress();
+  renderReviewTab();
+  renderStats();
+  renderStatsPage();
+  renderHomePage();
+  renderReviewPage();
+  updateFileProgress();
+}
+function exportProgress() {
+  var payload = {
+    app: "mdviewer",
+    type: "review-progress",
+    version: 1,
+    exported_at: new Date().toISOString(),
+    count: Object.keys(marks).length,
+    events_count: reviewEvents.length,
+    marks: marks,
+    events: reviewEvents
+  };
+  var json = JSON.stringify(payload, null, 2);
+  if (typeof Blob === "undefined" || typeof URL === "undefined") { toast("当前环境不支持文件导出"); return; }
+  var blob = new Blob([json], { type: "application/json" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  var d = new Date();
+  var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  a.download = "复习进度-" + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + ".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  toast("已导出 " + payload.count + " 条标记 · " + payload.events_count + " 条复习事件");
+}
+function importProgressFile(file) {
+  if (!file) return;
+  if (typeof FileReader === "undefined") { toast("当前环境不支持文件导入"); return; }
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      var data = JSON.parse(String(reader.result));
+      var incoming = (data && data.marks && typeof data.marks === "object" && !Array.isArray(data.marks)) ? data.marks : data;
+      var r = mergeMarks(incoming);
+      if (!r.ok) { toast("导入失败：文件格式不正确"); return; }
+      var er = (data && Array.isArray(data.events)) ? mergeReviewEvents(data.events) : { added: 0, invalid: 0 };
+      refreshProgressViews();
+      toast("导入完成：新增 " + r.added + " · 更新 " + r.updated +
+        (r.cleared ? " · 清除 " + r.cleared : "") +
+        (r.invalid ? " · 忽略 " + r.invalid : "") +
+        " · 复习事件 +" + er.added);
+    } catch (err) {
+      toast("导入失败：不是有效的 JSON 文件");
+    }
+  };
+  reader.onerror = function () { toast("导入失败：文件读取错误"); };
+  reader.readAsText(file, "utf-8");
+}
+$("progress-export").addEventListener("click", exportProgress);
+$("progress-import").addEventListener("click", function () { $("progress-import-file").click(); });
+$("progress-import-file").addEventListener("change", function (e) {
+  var f = e.target && e.target.files && e.target.files[0];
+  if (f) importProgressFile(f);
+  e.target.value = "";
+});
 
 /* ============================== 学习统计页：总览 + 环形概览 + 复习热力图 ============================== */
 function statsPercent(value, total) { return total ? Math.round(value / total * 100) : 0; }
