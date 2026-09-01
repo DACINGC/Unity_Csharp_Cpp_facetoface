@@ -424,6 +424,24 @@ setTimeout(async () => {
     els["progress-stats"].innerHTML.includes("/"),
     els["progress-stats"].innerHTML.slice(0, 50));
 
+  // 复习进度导入/导出（合并逻辑）
+  console.log("进度导入导出检查");
+  const mr1 = context.mergeMarks({
+    "面试知识整理/01_CSharp.md|1.1.1": "done",
+    "面试知识整理/01_CSharp.md|1.1.2": "weak",
+    "面试知识整理/01_CSharp.md|9.9.9": "bogus"
+  });
+  check("导入合并：新增有效标记", mr1.ok === true && mr1.added === 2 &&
+    context.marks["面试知识整理/01_CSharp.md|1.1.1"] === "done");
+  check("导入合并：非法状态忽略", mr1.invalid === 1);
+  const mr2 = context.mergeMarks({ "面试知识整理/01_CSharp.md|1.1.1": "review" });
+  check("导入合并：覆盖已有标记", mr2.updated === 1 &&
+    context.marks["面试知识整理/01_CSharp.md|1.1.1"] === "review");
+  const mr3 = context.mergeMarks({ "面试知识整理/01_CSharp.md|1.1.1": "" });
+  check("导入合并：空值清除标记", mr3.cleared === 1 &&
+    !context.marks["面试知识整理/01_CSharp.md|1.1.1"]);
+  context.marks = {}; // 还原，避免影响后续检查
+
   console.log("编辑模式检查");
   els["edit-btn"]._handlers.click({});
   check("进入编辑模式", !els["edit-bar"].classList.contains("hidden") &&
