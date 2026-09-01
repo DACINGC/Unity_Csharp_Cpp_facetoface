@@ -351,12 +351,11 @@
   .stats-card-label { color: var(--muted-2); font-size: 11px; }
   .stats-card-value { margin-top: 3px; color: var(--text-strong); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stats-card-note { margin-top: 1px; color: var(--muted); font-size: 10px; }
-  .stats-dashboard { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(360px, .92fr); align-items: start; gap: 10px; }
+  .stats-dashboard { display: grid; grid-template-columns: 1fr; gap: 10px; }
   .stats-panel { padding: 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--panel); }
-  .stats-panel-wide { grid-column: 1 / -1; }
   .stats-panel h2 { margin: 0; color: var(--text-strong); font-size: 13px; font-weight: 650; }
   .stats-panel-note { margin: 3px 0 9px; color: var(--muted-2); font-size: 10.5px; }
-  .stats-category-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .stats-category-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .stats-category-card { min-width: 0; padding: 7px 8px 6px; border: 1px solid var(--border-soft); border-radius: 7px; background: var(--panel-soft); }
   .stats-category-head, .stats-category-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
   .stats-category-name { overflow: hidden; color: var(--text); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
@@ -368,37 +367,47 @@
   .stats-done { background: var(--success); }
   .stats-review { background: var(--warning); }
   .stats-weak { background: var(--error); }
-  .stats-ring-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .stats-ring-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .stats-ring-wrap { min-width: 0; text-align: center; }
   .stats-ring { --pct: 0; --ring: var(--accent); display: grid; place-items: center; width: 72px; height: 72px; margin: 0 auto; border-radius: 50%; background: conic-gradient(var(--ring) calc(var(--pct) * 1%), var(--border) 0); }
   .stats-ring::after { content: attr(data-value); display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; color: var(--text-strong); background: var(--panel); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .stats-ring-label { display: block; overflow: hidden; margin-top: 5px; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
   .stats-overview-panel { display: block; }
-  .stats-status-breakdown { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
+  .stats-overview-main { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; }
+  .stats-status-breakdown { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .stats-status-item { min-width: 0; padding: 7px; border: 1px solid var(--border-soft); border-radius: 7px; background: var(--panel-soft); }
   .stats-status-label { display: flex; align-items: center; gap: 4px; overflow: hidden; color: var(--muted); font-size: 9.5px; white-space: nowrap; }
   .stats-status-label i { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; }
   .stats-status-item strong { display: block; overflow: hidden; margin-top: 4px; color: var(--text-strong); font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .stats-heat-inline { margin-top: 13px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
-  .stats-heat-inline-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
-  .stats-heat-inline-head strong { color: var(--text); font-size: 11px; font-weight: 650; }
-  .stats-heat-inline-head span { color: var(--muted-2); font-size: 10px; }
-  .stats-heatmap { display: grid; grid-template-columns: repeat(14, minmax(12px, 1fr)); gap: 5px; }
-  .stats-heat-cell { height: 26px; min-width: 12px; border-radius: 3px; background: var(--panel-soft); }
-  .stats-heat-cell.l1 { background: rgba(53,184,255,.24); }
-  .stats-heat-cell.l2 { background: rgba(53,184,255,.45); }
-  .stats-heat-cell.l3 { background: rgba(53,184,255,.70); }
-  .stats-heat-cell.l4 { background: var(--accent); }
-  .stats-heat-axis { display: flex; justify-content: space-between; margin-top: 5px; color: var(--muted-2); font-size: 9.5px; }
+  .stats-heat-total { margin-top: 2px; color: var(--text-strong); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stats-heat-widget { max-width: 818px; margin: 0 auto; }
+  .stats-heat-scroll { margin-top: 6px; overflow-x: auto; }
+  .stats-heat-zone { position: relative; min-width: 818px; }
+  .stats-heat-months { position: relative; height: 16px; margin-left: 26px; margin-bottom: 4px; }
+  .stats-heat-months span { position: absolute; top: 0; transform: translateX(-50%); color: var(--muted-2); font-size: 9.5px; white-space: nowrap; }
+  .stats-heat-body { display: flex; }
+  .stats-heat-days { display: grid; width: 26px; grid-template-rows: repeat(7, 12px); row-gap: 3px; align-items: center; color: var(--muted-2); font-size: 9.5px; text-align: center; }
+  .stats-heat-grid { display: grid; grid-auto-flow: column; grid-auto-columns: 12px; grid-template-rows: repeat(7, 12px); gap: 3px; }
+  .stats-heat-cell { width: 12px; height: 12px; border-radius: 3px; background: var(--panel-soft); }
+  .stats-heat-cell:hover { box-shadow: 0 0 0 1px var(--text-strong); }
+  .stats-heat-cell.is-future { visibility: hidden; }
+  .stats-heat-cell.l1, .stats-heat-legend .l1 { background: rgba(93,204,145,.28); }
+  .stats-heat-cell.l2, .stats-heat-legend .l2 { background: rgba(93,204,145,.55); }
+  .stats-heat-cell.l3, .stats-heat-legend .l3 { background: rgba(93,204,145,.78); }
+  .stats-heat-cell.l4, .stats-heat-legend .l4 { background: #43b878; }
+  .stats-heat-tip { position: absolute; z-index: 90; visibility: hidden; min-width: 130px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-raised); box-shadow: var(--shadow); color: var(--text); font-size: 11px; line-height: 1.5; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .12s; }
+  .stats-heat-tip.show { visibility: visible; opacity: 1; }
+  .stats-heat-tip-date { color: var(--text-strong); font-weight: 650; }
+  .stats-heat-tip-main { margin-top: 3px; color: var(--success); }
+  .stats-heat-tip-none { color: var(--muted); }
+  .stats-heat-tip-sub { margin-top: 2px; color: var(--muted-2); }
+  .stats-heat-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  .stats-heat-summary span { display: block; color: var(--muted-2); font-size: 10.5px; }
+  .stats-heat-summary b { display: block; margin-top: 3px; color: var(--text-strong); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stats-heat-legend { display: flex; align-items: center; gap: 4px; margin-top: 12px; color: var(--muted-2); font-size: 10px; }
+  .stats-heat-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; background: var(--panel-soft); }
   .stats-history-note { margin-top: 12px; padding: 9px 10px; border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; color: var(--muted); background: var(--accent-soft); font-size: 11px; line-height: 1.55; }
   .stats-empty { padding: 28px 14px; color: var(--muted); font-size: 12px; text-align: center; }
-  .stats-table-wrap { overflow-x: auto; }
-  .stats-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .stats-table th { padding: 8px 7px; border-bottom: 1px solid var(--border); color: var(--muted-2); font-size: 11px; font-weight: 600; text-align: right; white-space: nowrap; }
-  .stats-table th:first-child, .stats-table td:first-child { text-align: left; }
-  .stats-table td { padding: 9px 7px; border-bottom: 1px solid var(--border-soft); color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
-  .stats-table tr:last-child td { border-bottom: 0; }
-  .stats-table .stats-table-name { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ---------- Markdown ---------- */
   .doc h1 { margin: 0 0 22px; padding-bottom: 16px; border-bottom: 1px solid var(--border); color: var(--text-strong); font-size: 29px; font-weight: 700; letter-spacing: -.02em; }
@@ -537,8 +546,8 @@
     aside { flex-basis: var(--sidebar-w, 420px); }
     .doc { padding-left: 34px; padding-right: 34px; }
     .app-nav button { padding-left: 7px; padding-right: 7px; }
-    .stats-dashboard { grid-template-columns: 1fr; }
-    .stats-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats-category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .stats-heat-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .home-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 700px) {
@@ -561,6 +570,8 @@
     .workbench-hero { align-items: flex-start; flex-direction: column; gap: 10px; }
     .stats-head { align-items: flex-start; flex-direction: column; gap: 6px; }
     .stats-summary, .home-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats-overview-main { grid-template-columns: 1fr; gap: 12px; }
   }
   @media (max-width: 520px) {
     body.sidebar-collapsed aside { flex-basis: 0; }
@@ -1962,24 +1973,150 @@ function collectStatsData() {
     marked: done + review + weak, reviewActions: events.length, events: events
   };
 }
+/* GitHub 风格复习热力图：近 12 个月，悬停查看当日详情 */
+var statsWeekNames = ["日", "一", "二", "三", "四", "五", "六"];
 function statsHeatmapHtml(events) {
-  var counts = {}, today = new Date();
-  today.setHours(0, 0, 0, 0);
+  var CELL = 12, GAP = 3, PITCH = CELL + GAP;
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var start = new Date(today.getTime()); start.setDate(today.getDate() - 364);
+  start.setDate(start.getDate() - start.getDay());
+  var dayMap = {};
   events.forEach(function (event) {
-    var key = statsDayKey(new Date(event.ts));
-    counts[key] = (counts[key] || 0) + 1;
+    var ts = new Date(event.ts);
+    if (ts.getTime() < start.getTime() || ts.getTime() > today.getTime()) return;
+    var key = statsDayKey(ts);
+    var d = dayMap[key] || (dayMap[key] = { count: 0, done: 0, review: 0, weak: 0 });
+    d.count++;
+    if (event.state === "done") d.done++;
+    else if (event.state === "review") d.review++;
+    else if (event.state === "weak") d.weak++;
   });
-  var cells = "", days = 84;
-  for (var offset = days - 1; offset >= 0; offset--) {
-    var date = new Date(today.getTime());
-    date.setDate(today.getDate() - offset);
-    var day = statsDayKey(date), count = counts[day] || 0;
-    var level = count === 0 ? "" : (count === 1 ? " l1" : (count <= 3 ? " l2" : (count <= 5 ? " l3" : " l4")));
-    cells += '<span class="stats-heat-cell' + level + '" role="img" aria-label="' + day + '，复习 ' + count + ' 次" title="' + day + ' · 复习 ' + count + ' 次"></span>';
+  var weeks = Math.floor((today.getTime() - start.getTime()) / (7 * 864e5)) + 1;
+  var monthLabels = [], cells = "", w, dow;
+  for (w = 0; w < weeks; w++) {
+    var ws = new Date(start.getTime()); ws.setDate(start.getDate() + w * 7);
+    var first = new Date(ws.getFullYear(), ws.getMonth() + (ws.getDate() === 1 ? 0 : 1), 1);
+    if (first.getTime() >= ws.getTime() && first.getTime() < ws.getTime() + 7 * 864e5) {
+      monthLabels.push({ col: w, label: (first.getMonth() + 1) + "月" });
+    }
+    for (dow = 0; dow < 7; dow++) {
+      var date = new Date(ws.getTime()); date.setDate(ws.getDate() + dow);
+      var key = statsDayKey(date), day = dayMap[key];
+      var count = day ? day.count : 0;
+      var level = count === 0 ? "" : (count === 1 ? " l1" : (count <= 3 ? " l2" : (count <= 5 ? " l3" : " l4")));
+      cells += '<span class="stats-heat-cell' + level + (date.getTime() > today.getTime() ? " is-future" : "") +
+        '" data-date="' + key + '" data-count="' + count + '"' +
+        (day ? ' data-done="' + day.done + '" data-review="' + day.review + '" data-weak="' + day.weak + '"' : "") + '></span>';
+    }
   }
-  var start = new Date(today.getTime()); start.setDate(today.getDate() - days + 1);
-  return '<div class="stats-heatmap" role="img" aria-label="近 84 天复习热力图">' + cells + '</div>' +
-    '<div class="stats-heat-axis"><span>' + (start.getMonth() + 1) + ' 月 ' + start.getDate() + ' 日</span><span>今天</span></div>';
+  var labels = [];
+  monthLabels.forEach(function (m) {
+    if (labels.length && m.col - labels[labels.length - 1].col < 3) labels[labels.length - 1] = m;
+    else labels.push(m);
+  });
+  var monthHtml = labels.map(function (m) {
+    return '<span style="left:' + (m.col * PITCH + 6) + 'px">' + m.label + '</span>';
+  }).join("");
+  var dayHtml = ["", "一", "", "三", "", "五", ""].map(function (t) {
+    return '<span>' + t + '</span>';
+  }).join("");
+  var monthCounts = {}, topMonth = null, topDay = null;
+  Object.keys(dayMap).forEach(function (key) {
+    var d = dayMap[key], mo = key.slice(0, 7);
+    monthCounts[mo] = (monthCounts[mo] || 0) + d.count;
+    if (!topDay || d.count > dayMap[topDay].count || (d.count === dayMap[topDay].count && key < topDay)) topDay = key;
+  });
+  Object.keys(monthCounts).forEach(function (mo) {
+    if (!topMonth || monthCounts[mo] > monthCounts[topMonth] || (monthCounts[mo] === monthCounts[topMonth] && mo < topMonth)) topMonth = mo;
+  });
+  var longest = 0, run = 0;
+  for (w = 0; w < weeks; w++) {
+    var ws2 = new Date(start.getTime()); ws2.setDate(start.getDate() + w * 7);
+    for (dow = 0; dow < 7; dow++) {
+      var date2 = new Date(ws2.getTime()); date2.setDate(ws2.getDate() + dow);
+      if (date2.getTime() > today.getTime()) continue;
+      run = dayMap[statsDayKey(date2)] ? run + 1 : 0;
+      if (run > longest) longest = run;
+    }
+  }
+  var cursor = new Date(today.getTime()), current = 0;
+  while (cursor.getTime() >= start.getTime()) {
+    var cd = dayMap[statsDayKey(cursor)];
+    if (!cd || cd.count === 0) break;
+    current++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  function fmtMonth(key) { return parseInt(key.slice(5, 7), 10) + "月"; }
+  function fmtDate(key) { var p = key.split("-"); return p[0] + "年" + parseInt(p[1], 10) + "月" + parseInt(p[2], 10) + "日"; }
+  return '<div class="stats-heat-widget">' +
+    '<div class="stats-heat-scroll"><div class="stats-heat-zone">' +
+      '<div class="stats-heat-months" aria-hidden="true">' + monthHtml + '</div>' +
+      '<div class="stats-heat-body">' +
+        '<div class="stats-heat-days" aria-hidden="true">' + dayHtml + '</div>' +
+        '<div class="stats-heat-grid" role="img" aria-label="近 12 个月复习热力图：' + statsDayKey(start) + ' 至 ' + statsDayKey(today) + '，悬停查看当日详情">' + cells + '</div>' +
+      '</div>' +
+      '<div class="stats-heat-tip" role="tooltip"></div>' +
+    '</div></div>' +
+    '<div class="stats-heat-summary">' +
+      '<div><span>最活跃月份</span><b>' + (topMonth ? fmtMonth(topMonth) : "—") + '</b></div>' +
+      '<div><span>最活跃日期</span><b>' + (topDay ? fmtDate(topDay) : "—") + '</b></div>' +
+      '<div><span>最长连续</span><b>' + longest + ' 天</b></div>' +
+      '<div><span>当前连续</span><b>' + current + ' 天</b></div>' +
+    '</div>' +
+    '<div class="stats-heat-legend" aria-hidden="true"><span>更少</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>更多</span></div>' +
+  '</div>';
+}
+function statsHeatTipHtml(cell) {
+  var key = cell.getAttribute("data-date"), p = key.split("-");
+  var date = new Date(+p[0], +p[1] - 1, +p[2]);
+  var count = +(cell.getAttribute("data-count") || 0);
+  var html = '<div class="stats-heat-tip-date">' + date.getFullYear() + "年" + (date.getMonth() + 1) + "月" + date.getDate() + "日 星期" + statsWeekNames[date.getDay()] + '</div>';
+  if (count) {
+    html += '<div class="stats-heat-tip-main">复习 ' + count + ' 次</div>' +
+      '<div class="stats-heat-tip-sub">已掌握 ' + (+(cell.getAttribute("data-done") || 0)) + ' · 待复习 ' + (+(cell.getAttribute("data-review") || 0)) + ' · 薄弱 ' + (+(cell.getAttribute("data-weak") || 0)) + '</div>';
+  } else {
+    html += '<div class="stats-heat-tip-main stats-heat-tip-none">当日无复习记录</div>';
+  }
+  return html;
+}
+function bindHeatmapTooltip(root) {
+  if (!root || root.__heatTipBound) return;
+  root.__heatTipBound = true;
+  function positionTip(tip, clientX, clientY) {
+    var tw = tip.__w || (tip.__w = tip.offsetWidth || 150);
+    var th = tip.__h || (tip.__h = tip.offsetHeight || 50);
+    var vw = window.innerWidth || document.documentElement.clientWidth || 1200;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 800;
+    var left = clientX + 14, top = clientY + 12;
+    if (left + tw > vw - 4) left = clientX - tw - 14;
+    if (top + th > vh - 4) top = clientY - th - 12;
+    tip.style.position = "fixed";
+    tip.style.left = Math.max(4, left) + "px";
+    tip.style.top = Math.max(4, top) + "px";
+  }
+  root.addEventListener("mouseover", function (event) {
+    var cell = event.target && event.target.closest ? event.target.closest(".stats-heat-cell") : null;
+    if (!cell) return;
+    var tip = root.querySelector ? root.querySelector(".stats-heat-tip") : null;
+    if (!tip) return;
+    tip.innerHTML = statsHeatTipHtml(cell);
+    tip.__w = tip.__h = 0;
+    tip.__date = cell.getAttribute("data-date");
+    positionTip(tip, event.clientX, event.clientY);
+    tip.classList.add("show");
+  });
+  root.addEventListener("mousemove", function (event) {
+    var cell = event.target && event.target.closest ? event.target.closest(".stats-heat-cell") : null;
+    var tip = root.querySelector ? root.querySelector(".stats-heat-tip") : null;
+    if (!tip || !tip.classList.contains("show") || !cell || tip.__date !== cell.getAttribute("data-date")) return;
+    positionTip(tip, event.clientX, event.clientY);
+  });
+  root.addEventListener("mouseout", function (event) {
+    var tip = root.querySelector ? root.querySelector(".stats-heat-tip") : null;
+    if (!tip) return;
+    var to = event.relatedTarget;
+    if (!to || !root.contains(to)) tip.classList.remove("show");
+  });
 }
 function renderStatsPage() {
   var el = $("stats-page");
@@ -2020,22 +2157,23 @@ function renderStatsPage() {
   ].map(function (item) {
     return '<div class="stats-status-item"><span class="stats-status-label"><i class="' + item.tone + '"></i>' + item.label + '</span><strong>' + item.value + ' 项 · ' + item.percent + '%</strong></div>';
   }).join("");
-  var rows = data.categories.map(function (category) {
-    return '<tr><td class="stats-table-name" title="' + escAttr(category.name) + '">' + esc(category.name) + '</td><td>' + category.total + '</td><td>' + category.done + '</td><td>' + category.review + '</td><td>' + category.weak + '</td><td>' + category.reviewActions + '</td></tr>';
-  }).join("");
   el.innerHTML =
     '<div class="stats-head"><div><h1 id="stats-title" class="stats-title">学习统计</h1><p class="stats-sub">总览知识点覆盖、掌握程度与复习活跃度。</p></div></div>' +
     summary +
     '<div class="stats-dashboard">' +
+      '<section class="stats-panel stats-overview-panel"><h2>学习概览</h2><p class="stats-panel-note">掌握与覆盖分开计算，避免把已标记误当作已掌握。</p>' +
+        '<div class="stats-overview-main">' +
+          '<div class="stats-ring-row">' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + mastery + ';--ring:var(--success)" data-value="' + mastery + '%"></div><span class="stats-ring-label">掌握率</span></div>' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + coverage + ';--ring:var(--accent)" data-value="' + coverage + '%"></div><span class="stats-ring-label">覆盖率</span></div>' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + weakRate + ';--ring:var(--error)" data-value="' + weakRate + '%"></div><span class="stats-ring-label">薄弱占比</span></div>' +
+          '</div>' +
+          '<div class="stats-status-breakdown">' + statusBreakdown + '</div>' +
+        '</div></section>' +
       '<section class="stats-panel stats-distribution-panel"><h2>知识点类型分布</h2><p class="stats-panel-note">按笔记类型汇总；色条依次表示已掌握、待复习与薄弱。</p><div class="stats-category-grid">' + bars + '</div></section>' +
-      '<section class="stats-panel stats-overview-panel"><div class="stats-overview-main"><h2>学习概览</h2><p class="stats-panel-note">掌握与覆盖分开计算，避免把已标记误当作已掌握。</p>' +
-        '<div class="stats-ring-row">' +
-          '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + mastery + ';--ring:var(--success)" data-value="' + mastery + '%"></div><span class="stats-ring-label">掌握率</span></div>' +
-          '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + coverage + ';--ring:var(--accent)" data-value="' + coverage + '%"></div><span class="stats-ring-label">覆盖率</span></div>' +
-          '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + weakRate + ';--ring:var(--error)" data-value="' + weakRate + '%"></div><span class="stats-ring-label">薄弱占比</span></div>' +
-        '</div><div class="stats-status-breakdown">' + statusBreakdown + '</div></div><div class="stats-heat-inline"><div class="stats-heat-inline-head"><strong>复习热力</strong><span>近 84 日，颜色越深表示复习越集中</span></div>' + statsHeatmapHtml(data.events) + '</div></section>' +
-      '<section class="stats-panel stats-panel-wide"><h2>按知识点类型统计</h2><p class="stats-panel-note">复习次数为该类型下各知识点的状态标记累计。</p><div class="stats-table-wrap"><table class="stats-table"><thead><tr><th>类型（笔记）</th><th>知识点</th><th>已掌握</th><th>待复习</th><th>薄弱</th><th>复习次数</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>' +
+      '<section class="stats-panel stats-heat-panel"><h2>复习热力图</h2><div class="stats-heat-total">' + data.reviewActions + ' 次</div>' + statsHeatmapHtml(data.events) + '</section>' +
     '</div>';
+  bindHeatmapTooltip(el);
 }
 /* ============================== 统一工作台：首页 / 笔记 / 复习 / 统计 ============================== */
 function workspaceUrl(view) { return "?view=" + encodeURIComponent(view); }

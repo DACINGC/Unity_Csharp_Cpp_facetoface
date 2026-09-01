@@ -68,7 +68,8 @@ for (const fn of files) {
   })();
   const expFences = count(text, /^```/gm) / 2;
   const expHeadings = count(text, /^(#{1,4})\s/gm);
-  const expSecRefs = count(text, /§\d+(?:\.\d+)+/g);
+  // 期望 § 链接数：与渲染器同规则 —— 代码围栏内的 § 不会转为链接
+  const expSecRefs = count(text.replace(/```[\s\S]*?```/g, ""), /§\d+(?:\.\d+)+/g);
 
   const html = R.renderMarkdown(text);
 
@@ -152,6 +153,19 @@ const detHtml = R.renderMarkdown("<details>\n<summary>题目</summary>\n答案�
 if (detHtml.includes("<details>") && detHtml.includes("<summary>题目</summary>") &&
   detHtml.includes("<p>答案在折叠内</p>") && !detHtml.includes("&lt;details")) ok("折叠块渲染");
 else fail("折叠块未渲染: " + detHtml);
+
+/* ---------- 表格内转义竖线 \| ---------- */
+console.log("\n表格转义竖线检查");
+const escTableHtml = R.renderMarkdown(
+  "| 距离 | 公式 | 适用 |\n| --- | --- | --- |\n" +
+  "| 曼哈顿距离 | H = \\|x1-x2\\| + \\|y1-y2\\| | 四方向移动 |\n" +
+  "| 对角距离 | dx = \\|x1-x2\\|，dy = \\|y1-y2\\|；H = 14×min(dx,dy) + 10×\\|dx-dy\\| | 八方向移动 |\n" +
+  "| 双反斜杠 | a \\\\ b | 字面反斜杠 |");
+const escTd = (escTableHtml.match(/<td>/g) || []).length;
+if (escTd === 9 && escTableHtml.includes("H = |x1-x2| + |y1-y2|") &&
+    escTableHtml.includes("10×|dx-dy|") && escTableHtml.includes("a \\ b") && !escTableHtml.includes("\\|")) {
+  ok("表格内 \\| 转义正确（未拆列，渲染为字面 |；\\\\ 渲染为单个 \\）");
+} else fail("表格转义竖线异常: " + escTableHtml);
 
 console.log(failures ? `\n共 ${failures} 项失败` : "\n全部通过 ✔");
 process.exit(failures ? 1 : 0);
