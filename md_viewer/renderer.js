@@ -114,9 +114,23 @@
   /* ---------------- 块级 ---------------- */
 
   function renderTable(rows) {
+    /* 按「未转义的 |」拆列：单元格内的 \| 视为字面竖线（\\ 视为字面反斜杠），
+     * 避免公式（如 H = \|x1-x2\| + \|y1-y2\|）中的 | 被误当作列分隔符 */
     function cells(row) {
-      return row.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|")
-        .map(function (c) { return renderInline(c.trim()); });
+      var s = row.replace(/^\s*\|/, "").replace(/\|\s*$/, "");
+      var parts = [""], i;
+      for (i = 0; i < s.length; i++) {
+        var ch = s.charAt(i);
+        if (ch === "\\" && (s.charAt(i + 1) === "|" || s.charAt(i + 1) === "\\")) {
+          parts[parts.length - 1] += s.charAt(i + 1);
+          i++;
+        } else if (ch === "|") {
+          parts.push("");
+        } else {
+          parts[parts.length - 1] += ch;
+        }
+      }
+      return parts.map(function (c) { return renderInline(c.trim()); });
     }
     var header = cells(rows[0]);
     var body = rows.slice(2).map(cells);

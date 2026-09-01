@@ -63,12 +63,15 @@ const APP_JS = m[1];
     ? "✓ 顶部页签固定在全局栏，切换页面不改变位置"
     : "✗ 顶部页签未使用统一的全局位置");
   if (!fixedAppNav) process.exit(1);
-  const compactHeatmap = APP.includes('class="stats-heat-inline"') &&
-    !APP.includes('<section class="stats-panel stats-panel-wide"><h2>复习热力图</h2>');
-  console.log(compactHeatmap
-    ? "✓ 复习热力图已合并进学习概览卡片"
-    : "✗ 复习热力图仍占用独立大卡片");
-  if (!compactHeatmap) process.exit(1);
+  const githubHeatmap = APP.includes('class="stats-heat-widget"') &&
+    APP.includes('class="stats-heat-scroll"') &&
+    APP.includes('class="stats-heat-months"') && APP.includes('class="stats-heat-days"') &&
+    APP.includes('class="stats-heat-tip"') && APP.includes('class="stats-heat-summary"') &&
+    APP.includes('class="stats-heat-legend"') && APP.includes('data-date="');
+  console.log(githubHeatmap
+    ? "✓ 复习热力图为 GitHub 风格（月份/星期/悬停提示/汇总/图例）"
+    : "✗ 复习热力图未升级为 GitHub 风格");
+  if (!githubHeatmap) process.exit(1);
 }
 
 /* ---------- DOM 桩 ---------- */
@@ -374,7 +377,7 @@ setTimeout(async () => {
   check("统计页渲染总览、环形概览与热力图", statsPageHtml.includes("知识点类型分布") &&
     statsPageHtml.includes("stats-category-grid") && statsPageHtml.includes("stats-ring") &&
     statsPageHtml.includes("stats-status-breakdown") && statsPageHtml.includes("stats-heat-cell") &&
-    statsPageHtml.includes("stats-table"));
+    statsPageHtml.includes("stats-heat-months") && statsPageHtml.includes("最活跃月份"));
   await context.openFile("面试知识整理/06_Unity引擎.md");
   check("从统计页打开笔记后回到文档视图", context.viewMode === "document" &&
     els["stats-page"].classList.contains("hidden") && els["crumb"].classList.contains("hidden") === false &&
