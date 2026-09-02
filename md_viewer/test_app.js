@@ -186,9 +186,12 @@ setTimeout(async () => {
   const homeHtml = els["home-page"].innerHTML;
   check("默认进入统一工作台首页", context.viewMode === "home" &&
     homeHtml.includes("继续阅读") && homeHtml.includes("学习工作台") && homeHtml.includes("待复习") &&
-    homeHtml.includes("笔记入口"));
+    homeHtml.includes("笔记入口") && homeHtml.includes("学习概览"));
+  check("统计内容并入首页（分布/环形/热力图）", homeHtml.includes("知识点类型分布") &&
+    homeHtml.includes("stats-category-grid") && homeHtml.includes("stats-ring") &&
+    homeHtml.includes("stats-heat-cell") && homeHtml.includes("最活跃月份"));
   check("首页为独立全宽工作台，不显示笔记侧栏", documentStub.body.classList.contains("workbench-view"));
-  check("工作台提供首页 / 笔记 / 复习 / 统计同级入口", ["nav-home", "nav-notes", "nav-review", "nav-stats"].every((id) => !!els[id]._handlers.click));
+  check("工作台提供首页 / 笔记 / 复习同级入口（统计已并入首页）", ["nav-home", "nav-notes", "nav-review"].every((id) => !!els[id]._handlers.click));
   els["nav-notes"]._handlers.click({});
   await new Promise((r) => setTimeout(r, 400));
   const filesHtml = els["file-list"].innerHTML;
@@ -366,21 +369,17 @@ setTimeout(async () => {
     reviewPageHtml.includes("待复习清单") && els["nav-review"].classList.contains("active") &&
     documentStub.body.classList.contains("workbench-view"));
 
-  // 学习统计页：总览看板 + 环形概览 + 复习热力图，并可返回文档
-  console.log("学习统计页检查");
-  els["stats-page"].classList.add("hidden");
-  els["nav-stats"]._handlers.click({});
-  const statsPageHtml = els["stats-page"].innerHTML;
-  check("点击统计入口切换到统计页", context.viewMode === "stats" &&
-    !els["stats-page"].classList.contains("hidden") && els["nav-stats"].classList.contains("active") &&
-    documentStub.body.classList.contains("workbench-view"));
-  check("统计页渲染总览、环形概览与热力图", statsPageHtml.includes("知识点类型分布") &&
-    statsPageHtml.includes("stats-category-grid") && statsPageHtml.includes("stats-ring") &&
-    statsPageHtml.includes("stats-status-breakdown") && statsPageHtml.includes("stats-heat-cell") &&
-    statsPageHtml.includes("stats-heat-months") && statsPageHtml.includes("最活跃月份"));
+  // 学习统计已并入首页：环形概览与热力图随首页渲染，并可返回文档
+  console.log("统计并入首页检查");
+  els["nav-home"]._handlers.click({});
+  const mergedHomeHtml = els["home-page"].innerHTML;
+  check("统计内容并入首页", context.viewMode === "home" &&
+    mergedHomeHtml.includes("知识点类型分布") && mergedHomeHtml.includes("stats-category-grid") &&
+    mergedHomeHtml.includes("stats-ring") && mergedHomeHtml.includes("stats-heat-cell") &&
+    els["nav-home"].classList.contains("active"));
   await context.openFile("面试知识整理/06_Unity引擎.md");
-  check("从统计页打开笔记后回到文档视图", context.viewMode === "document" &&
-    els["stats-page"].classList.contains("hidden") && els["crumb"].classList.contains("hidden") === false &&
+  check("从首页打开笔记后回到文档视图", context.viewMode === "document" &&
+    els["home-page"].classList.contains("hidden") && els["crumb"].classList.contains("hidden") === false &&
     !documentStub.body.classList.contains("workbench-view"));
 
   // 滚动位置记忆

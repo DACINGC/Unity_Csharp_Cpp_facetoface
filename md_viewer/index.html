@@ -317,7 +317,7 @@
   .home-resume-label { color: var(--accent); font-size: 10px; font-weight: 650; }
   .home-resume-title { overflow: hidden; margin-top: 3px; color: var(--text-strong); font-size: 14px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
   .home-resume-note { overflow: hidden; margin-top: 2px; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
-  .home-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+  .home-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
   .home-summary-card { min-height: 64px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
   .home-summary-label { color: var(--muted-2); font-size: 11px; }
   .home-summary-value { margin-top: 3px; color: var(--text-strong); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -340,9 +340,7 @@
   .review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .review-page-list { margin-top: 10px; }
 
-  /* ---------- 学习统计页 ---------- */
-  .stats-page { width: 100%; max-width: 1360px; box-sizing: border-box; margin: 14px auto 38px; padding: 0 22px 38px; }
-  .stats-page.hidden { display: none; }
+  /* ---------- 学习统计组件（并入首页） ---------- */
   .stats-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin: 10px 0 12px; }
   .stats-title { margin: 0; color: var(--text-strong); font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
   .stats-sub { margin: 3px 0 0; color: var(--muted-2); font-size: 11px; }
@@ -565,7 +563,6 @@
     #file-progress .fp-bar { display: none; }
     #crumb { padding-left: 16px; padding-right: 16px; }
     .doc { margin-top: 9px; padding: 25px 22px 55px; border-right: 0; border-left: 0; border-radius: 0; }
-    .stats-page { margin-top: 12px; padding-left: 16px; padding-right: 16px; }
     .workbench-page { margin-top: 12px; padding-left: 16px; padding-right: 16px; }
     .workbench-hero { align-items: flex-start; flex-direction: column; gap: 10px; }
     .stats-head { align-items: flex-start; flex-direction: column; gap: 6px; }
@@ -897,13 +894,12 @@
       <header id="topbar">
         <div class="topbar-title">
           <span class="topbar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
-          <div><div class="topbar-name">本地知识空间</div><div class="topbar-sub">阅读 · 复习 · 统计</div></div>
+          <div><div class="topbar-name">本地知识空间</div><div class="topbar-sub">阅读 · 复习 · 概览</div></div>
         </div>
         <nav id="app-nav" class="app-nav" aria-label="工作台导航">
           <button id="nav-home" type="button" data-view="home" aria-current="page">首页</button>
           <button id="nav-notes" type="button" data-view="document">笔记</button>
           <button id="nav-review" type="button" data-view="review">复习</button>
-          <button id="nav-stats" type="button" data-view="stats">统计</button>
         </nav>
         <div class="search-wrap">
           <span class="search-symbol"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
@@ -944,7 +940,6 @@
               <button type="button" role="menuitem" data-mobile-action="notes">笔记</button>
               <button type="button" role="menuitem" data-mobile-action="review">复习</button>
               <button type="button" role="menuitem" data-mobile-action="share">复制定位链接</button>
-              <button type="button" role="menuitem" data-mobile-action="stats">学习统计</button>
               <button type="button" role="menuitem" data-mobile-action="edit">编辑当前文档</button>
               <button type="button" role="menuitem" data-mobile-action="reveal">在文件管理器中定位</button>
               <button type="button" role="menuitem" data-mobile-action="random-all">随机抽题</button>
@@ -986,7 +981,6 @@
         <textarea id="edit-source" class="edit-source hidden" spellcheck="false" aria-label="编辑区"></textarea>
         <section id="home-page" class="workbench-page hidden" aria-live="polite" aria-labelledby="home-title"></section>
         <section id="review-page" class="workbench-page hidden" aria-live="polite" aria-labelledby="review-page-title"></section>
-        <section id="stats-page" class="stats-page hidden" aria-live="polite" aria-labelledby="stats-title"></section>
       </main>
     </section>
   </div>
@@ -1052,7 +1046,7 @@ var index = null;      // /api/index 数据
 var current = null;    // 当前打开文件 {path,name,type,content,headings}
 var searchPool = [];
 var fileFilter = "all"; // all | md | txt
-var viewMode = "home"; // home | document | review | stats
+var viewMode = "home"; // home | document | review（统计已并入首页）
 
 var $ = function (id) { return document.getElementById(id); };
 var contentEl = $("content");
@@ -1086,11 +1080,10 @@ function loadIndex() {
     var list = filteredFiles();
     if (qpath && list.some(function (f) { return f.path === qpath; })) {
       openFile(qpath, qanchor, false);
-    } else if (qview === "stats") {
-      showStats({ replaceHistory: true });
     } else if (qview === "review") {
       showReview({ replaceHistory: true });
     } else {
+      // 默认首页；旧链接 ?view=stats 一并回到首页（统计已并入首页）
       showHome({ replaceHistory: true });
     }
     // 首次加载成功：隐藏「服务正在启动中」覆盖层
@@ -1386,7 +1379,6 @@ function setMark(path, anchor, next) {
   refreshNodeProgress();
   renderReviewTab();
   renderStats();
-  renderStatsPage();
   renderHomePage();
   renderReviewPage();
   updateFileProgress();
@@ -1848,16 +1840,12 @@ if (typeof window !== "undefined" && window.addEventListener) {
     if (histReady && i >= 0 && i < histStack.length && i !== histIndex) {
       var entry = histStack[i];
       histIndex = i;
-      if (entry && entry.view === "home") {
+      if (entry && (entry.view === "home" || entry.view === "stats")) {
         showHome({ pushHistory: false });
         return;
       }
       if (entry && entry.view === "review") {
         showReview({ pushHistory: false });
-        return;
-      }
-      if (entry && entry.view === "stats") {
-        showStats({ pushHistory: false });
         return;
       }
       openFile(entry.path, entry.anchor, false, { skipRestore: true, pushHistory: false }).then(function () {
@@ -1876,9 +1864,8 @@ if (typeof window !== "undefined" && window.addEventListener) {
         qview = ps.get("view") || "";
       }
     } catch (err) {}
-    if (qview === "home") { showHome({ pushHistory: false }); return; }
+    if (qview === "home" || qview === "stats") { showHome({ pushHistory: false }); return; }
     if (qview === "review") { showReview({ pushHistory: false }); return; }
-    if (qview === "stats") { showStats({ pushHistory: false }); return; }
     if (qp && (!current || qp !== current.path)) {
       openFile(qp, qa, false, { skipRestore: true, pushHistory: false });
     }
@@ -1994,7 +1981,6 @@ function refreshProgressViews() {
   refreshNodeProgress();
   renderReviewTab();
   renderStats();
-  renderStatsPage();
   renderHomePage();
   renderReviewPage();
   updateFileProgress();
@@ -2240,70 +2226,12 @@ function bindHeatmapTooltip(root) {
     if (!to || !root.contains(to)) tip.classList.remove("show");
   });
 }
-function renderStatsPage() {
-  var el = $("stats-page");
-  if (!el || !index) return;
-  var data = collectStatsData();
-  var mastery = statsPercent(data.done, data.total);
-  var coverage = statsPercent(data.marked, data.total);
-  var weakRate = statsPercent(data.weak, data.total);
-  var esc = Renderer.esc, escAttr = Renderer.escAttr;
-  var summary =
-    '<div class="stats-summary">' +
-      '<div class="stats-card"><div class="stats-card-label">知识点总数</div><div class="stats-card-value">' + data.total + '</div><div class="stats-card-note">按末级标题统计</div></div>' +
-      '<div class="stats-card"><div class="stats-card-label">知识点类型</div><div class="stats-card-value">' + data.categories.length + '</div><div class="stats-card-note">按笔记文档归类</div></div>' +
-      '<div class="stats-card"><div class="stats-card-label">掌握率</div><div class="stats-card-value">' + mastery + '%</div><div class="stats-card-note">已掌握 ' + data.done + ' / ' + data.total + '</div></div>' +
-      '<div class="stats-card"><div class="stats-card-label">复习次数</div><div class="stats-card-value">' + data.reviewActions + '</div><div class="stats-card-note">从启用统计后开始记录</div></div>' +
-    '</div>';
-  if (!data.total) {
-    el.innerHTML = '<div class="stats-head"><div><h1 id="stats-title" class="stats-title">学习统计</h1><p class="stats-sub">统计以笔记中的末级标题作为知识点。</p></div></div>' + summary +
-      '<div class="stats-panel stats-empty">当前笔记中还没有可统计的末级标题。</div>';
-    return;
-  }
-  var bars = data.categories.map(function (category) {
-    var doneWidth = statsPercent(category.done, category.total);
-    var reviewWidth = statsPercent(category.review, category.total);
-    var weakWidth = statsPercent(category.weak, category.total);
-    return '<div class="stats-category-card" title="' + escAttr(category.name) + '：共 ' + category.total + ' 个知识点，复习 ' + category.reviewActions + ' 次">' +
-      '<div class="stats-category-head"><span class="stats-category-name">' + esc(category.name) + '</span><span class="stats-category-total">' + category.total + ' 项</span></div>' +
-      '<span class="stats-bar-track" role="img" aria-label="已掌握 ' + category.done + '，待复习 ' + category.review + '，薄弱 ' + category.weak + '">' +
-        '<span class="stats-bar-seg stats-done" style="width:' + doneWidth + '%"></span>' +
-        '<span class="stats-bar-seg stats-review" style="width:' + reviewWidth + '%"></span>' +
-        '<span class="stats-bar-seg stats-weak" style="width:' + weakWidth + '%"></span>' +
-      '</span><div class="stats-category-foot"><span>掌握 ' + category.done + ' · 待复 ' + category.review + ' · 薄弱 ' + category.weak + '</span><span>' + category.reviewActions + ' 次</span></div></div>';
-  }).join("");
-  var statusBreakdown = [
-    { tone: "stats-done", label: "已掌握", value: data.done, percent: mastery },
-    { tone: "stats-review", label: "待复习", value: data.review, percent: statsPercent(data.review, data.total) },
-    { tone: "stats-weak", label: "薄弱", value: data.weak, percent: weakRate }
-  ].map(function (item) {
-    return '<div class="stats-status-item"><span class="stats-status-label"><i class="' + item.tone + '"></i>' + item.label + '</span><strong>' + item.value + ' 项 · ' + item.percent + '%</strong></div>';
-  }).join("");
-  el.innerHTML =
-    '<div class="stats-head"><div><h1 id="stats-title" class="stats-title">学习统计</h1><p class="stats-sub">总览知识点覆盖、掌握程度与复习活跃度。</p></div></div>' +
-    summary +
-    '<div class="stats-dashboard">' +
-      '<section class="stats-panel stats-overview-panel"><h2>学习概览</h2><p class="stats-panel-note">掌握与覆盖分开计算，避免把已标记误当作已掌握。</p>' +
-        '<div class="stats-overview-main">' +
-          '<div class="stats-ring-row">' +
-            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + mastery + ';--ring:var(--success)" data-value="' + mastery + '%"></div><span class="stats-ring-label">掌握率</span></div>' +
-            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + coverage + ';--ring:var(--accent)" data-value="' + coverage + '%"></div><span class="stats-ring-label">覆盖率</span></div>' +
-            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + weakRate + ';--ring:var(--error)" data-value="' + weakRate + '%"></div><span class="stats-ring-label">薄弱占比</span></div>' +
-          '</div>' +
-          '<div class="stats-status-breakdown">' + statusBreakdown + '</div>' +
-        '</div></section>' +
-      '<section class="stats-panel stats-distribution-panel"><h2>知识点类型分布</h2><p class="stats-panel-note">按笔记类型汇总；色条依次表示已掌握、待复习与薄弱。</p><div class="stats-category-grid">' + bars + '</div></section>' +
-      '<section class="stats-panel stats-heat-panel"><h2>复习热力图</h2><div class="stats-heat-total">' + data.reviewActions + ' 次</div>' + statsHeatmapHtml(data.events) + '</section>' +
-    '</div>';
-  bindHeatmapTooltip(el);
-}
-/* ============================== 统一工作台：首页 / 笔记 / 复习 / 统计 ============================== */
+/* ============================== 统一工作台：首页 / 笔记 / 复习（统计已并入首页） ============================== */
 function workspaceUrl(view) { return "?view=" + encodeURIComponent(view); }
-function statsUrl() { return workspaceUrl("stats"); }
 function syncAppNav() {
   // 首页、复习和统计是独立工作台；只有笔记阅读保留学习进度与目录侧栏。
   document.body.classList.toggle("workbench-view", viewMode !== "document");
-  var navs = { home: "nav-home", document: "nav-notes", review: "nav-review", stats: "nav-stats" };
+  var navs = { home: "nav-home", document: "nav-notes", review: "nav-review" };
   Object.keys(navs).forEach(function (view) {
     var btn = $(navs[view]);
     var active = view === viewMode;
@@ -2315,7 +2243,6 @@ function syncAppNav() {
 function hideWorkbenchPages() {
   $("home-page").classList.add("hidden");
   $("review-page").classList.add("hidden");
-  $("stats-page").classList.add("hidden");
 }
 function showDocumentView() {
   hideWorkbenchPages();
@@ -2378,6 +2305,9 @@ function renderHomePage() {
   if (!el || !index) return;
   var data = collectStatsData(), pending = reviewItems(), resume = homeResumeFile();
   var esc = Renderer.esc, escAttr = Renderer.escAttr;
+  var mastery = statsPercent(data.done, data.total);
+  var coverage = statsPercent(data.marked, data.total);
+  var weakRate = statsPercent(data.weak, data.total);
   var resumeProgress = resume ? fileProgress(resume.path) : { total: 0, done: 0 };
   var recent = index.files.slice(0, 6).map(function (file) {
     var progress = fileProgress(file.path);
@@ -2390,15 +2320,64 @@ function renderHomePage() {
   }).join("") || '<div class="workbench-empty">暂无待复习项目，开始浏览笔记吧。</div>';
   var resumeName = resume ? esc(resume.title || resume.name) : "选择一份笔记开始";
   var resumeMeta = resume ? (resumeProgress.done + " / " + resumeProgress.total + " 已掌握") : "本地笔记会显示在这里";
+  // 原独立统计页内容并入首页：环形学习概览 →（待复习/笔记入口）→ 类型分布 → 复习热力图
+  var overviewSection = "", tailSection = "";
+  if (data.total) {
+    var statusBreakdown = [
+      { tone: "stats-done", label: "已掌握", value: data.done, percent: mastery },
+      { tone: "stats-review", label: "待复习", value: data.review, percent: statsPercent(data.review, data.total) },
+      { tone: "stats-weak", label: "薄弱", value: data.weak, percent: weakRate }
+    ].map(function (item) {
+      return '<div class="stats-status-item"><span class="stats-status-label"><i class="' + item.tone + '"></i>' + item.label + '</span><strong>' + item.value + ' 项 · ' + item.percent + '%</strong></div>';
+    }).join("");
+    overviewSection =
+      '<section class="stats-panel stats-overview-panel" style="margin-top:10px"><h2>学习概览</h2><p class="stats-panel-note">掌握与覆盖分开计算，避免把已标记误当作已掌握。</p>' +
+        '<div class="stats-overview-main">' +
+          '<div class="stats-ring-row">' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + mastery + ';--ring:var(--success)" data-value="' + mastery + '%"></div><span class="stats-ring-label">掌握率</span></div>' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + coverage + ';--ring:var(--accent)" data-value="' + coverage + '%"></div><span class="stats-ring-label">覆盖率</span></div>' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + weakRate + ';--ring:var(--error)" data-value="' + weakRate + '%"></div><span class="stats-ring-label">薄弱占比</span></div>' +
+          '</div>' +
+          '<div class="stats-status-breakdown">' + statusBreakdown + '</div>' +
+        '</div></section>';
+    var bars = data.categories.map(function (category) {
+      var doneWidth = statsPercent(category.done, category.total);
+      var reviewWidth = statsPercent(category.review, category.total);
+      var weakWidth = statsPercent(category.weak, category.total);
+      return '<div class="stats-category-card" title="' + escAttr(category.name) + '：共 ' + category.total + ' 个知识点，复习 ' + category.reviewActions + ' 次">' +
+        '<div class="stats-category-head"><span class="stats-category-name">' + esc(category.name) + '</span><span class="stats-category-total">' + category.total + ' 项</span></div>' +
+        '<span class="stats-bar-track" role="img" aria-label="已掌握 ' + category.done + '，待复习 ' + category.review + '，薄弱 ' + category.weak + '">' +
+          '<span class="stats-bar-seg stats-done" style="width:' + doneWidth + '%"></span>' +
+          '<span class="stats-bar-seg stats-review" style="width:' + reviewWidth + '%"></span>' +
+          '<span class="stats-bar-seg stats-weak" style="width:' + weakWidth + '%"></span>' +
+        '</span><div class="stats-category-foot"><span>掌握 ' + category.done + ' · 待复 ' + category.review + ' · 薄弱 ' + category.weak + '</span><span>' + category.reviewActions + ' 次</span></div></div>';
+    }).join("");
+    tailSection =
+      '<div class="stats-dashboard" style="margin-top:10px">' +
+        '<section class="stats-panel stats-distribution-panel"><h2>知识点类型分布</h2><p class="stats-panel-note">按笔记类型汇总；色条依次表示已掌握、待复习与薄弱。</p><div class="stats-category-grid">' + bars + '</div></section>' +
+        '<section class="stats-panel stats-heat-panel"><h2>复习热力图</h2><div class="stats-heat-total">' + data.reviewActions + ' 次</div>' + statsHeatmapHtml(data.events) + '</section>' +
+      '</div>';
+  } else {
+    overviewSection = '<section class="stats-panel stats-empty" style="margin-top:10px">当前笔记中还没有可统计的末级标题。</section>';
+  }
   el.innerHTML =
-    '<div class="workbench-hero"><div><p class="workbench-kicker">学习概览</p><h1 id="home-title" class="workbench-title">学习工作台</h1><p class="workbench-sub">继续阅读、待复习与笔记入口集中在一屏内。</p></div></div>' +
+    '<div class="workbench-hero"><div><p class="workbench-kicker">学习概览</p><h1 id="home-title" class="workbench-title">学习工作台</h1><p class="workbench-sub">进度总览、继续阅读、待复习与笔记入口集中在一屏内。</p></div><div class="review-actions"><button type="button" class="workbench-action primary" data-home-action="random">随机复习</button></div></div>' +
+    '<section class="home-summary">' +
+      '<div class="home-summary-card"><div class="home-summary-label">知识点</div><div class="home-summary-value">' + data.total + '</div><div class="home-summary-note">按末级标题统计</div></div>' +
+      '<div class="home-summary-card"><div class="home-summary-label">掌握率</div><div class="home-summary-value">' + mastery + '%</div><div class="home-summary-note">已掌握 ' + data.done + ' 项</div></div>' +
+      '<div class="home-summary-card"><div class="home-summary-label">待处理</div><div class="home-summary-value">' + pending.length + '</div><div class="home-summary-note">待复习与薄弱知识点</div></div>' +
+      '<div class="home-summary-card"><div class="home-summary-label">复习次数</div><div class="home-summary-value">' + data.reviewActions + '</div><div class="home-summary-note">从启用统计后记录</div></div>' +
+    '</section>' +
     '<section class="home-resume"><div><div class="home-resume-label">继续阅读</div><div class="home-resume-title">' + resumeName + '</div><div class="home-resume-note">' + resumeMeta + '</div></div><button type="button" class="workbench-action primary" data-home-action="resume"' + (resume ? ' data-path="' + escAttr(resume.path) + '"' : "") + '>继续学习 →</button></section>' +
-    '<section class="home-summary"><div class="home-summary-card"><div class="home-summary-label">知识点</div><div class="home-summary-value">' + data.total + '</div><div class="home-summary-note">按末级标题统计</div></div><div class="home-summary-card"><div class="home-summary-label">掌握率</div><div class="home-summary-value">' + statsPercent(data.done, data.total) + '%</div><div class="home-summary-note">已掌握 ' + data.done + ' 项</div></div><div class="home-summary-card"><div class="home-summary-label">待处理</div><div class="home-summary-value">' + pending.length + '</div><div class="home-summary-note">待复习与薄弱知识点</div></div></section>' +
-    '<div class="home-grid"><section class="workbench-panel"><h2>待复习</h2><p class="workbench-panel-note">优先处理薄弱项与待复习项，点击即可回到原文。</p><div class="workbench-list">' + pendingHtml + '</div></section><section class="workbench-panel"><h2>笔记入口</h2><p class="workbench-panel-note">打开常用主题；完整目录位于笔记页面。</p><div class="workbench-list">' + recent + '</div></section></div>';
+    overviewSection +
+    '<div class="home-grid" style="margin-top:10px"><section class="workbench-panel"><h2>待复习</h2><p class="workbench-panel-note">优先处理薄弱项与待复习项，点击即可回到原文。</p><div class="workbench-list">' + pendingHtml + '</div></section><section class="workbench-panel"><h2>笔记入口</h2><p class="workbench-panel-note">打开常用主题；完整目录位于笔记页面。</p><div class="workbench-list">' + recent + '</div></section></div>' +
+    tailSection;
+  bindHeatmapTooltip(el);
   el.onclick = function (event) {
-    var button = event.target && event.target.closest ? event.target.closest("button[data-home-action]") : null;
+    var button = event.target && event.target.closest ? event.target.closest("[data-home-action]") : null;
     if (!button) return;
     var action = button.dataset.homeAction;
+    if (action === "random") { randomPick(true); return; }
     if ((action === "resume" || action === "open") && button.dataset.path) openFile(button.dataset.path, button.dataset.anchor || "");
   };
 }
@@ -2419,7 +2398,6 @@ function renderReviewPage() {
 }
 function showHome(options) { return activateWorkbenchView("home", "home-page", renderHomePage, options); }
 function showReview(options) { return activateWorkbenchView("review", "review-page", renderReviewPage, options); }
-function showStats(options) { return activateWorkbenchView("stats", "stats-page", renderStatsPage, options); }
 function openNotesView() {
   if (!index) { toast("索引尚未加载"); return Promise.resolve(null); }
   var target = current && index.files.filter(function (file) { return file.path === current.path; })[0];
@@ -2429,7 +2407,6 @@ function openNotesView() {
 $("nav-home").addEventListener("click", function () { showHome(); });
 $("nav-notes").addEventListener("click", openNotesView);
 $("nav-review").addEventListener("click", function () { showReview(); });
-$("nav-stats").addEventListener("click", function () { showStats(); });
 
 function randomPick(fromReview) {
   if (!index) { toast("索引尚未加载"); return; }
@@ -3139,7 +3116,6 @@ $("mobile-more-menu").addEventListener("click", function (e) {
   else if (action === "notes") openNotesView();
   else if (action === "review") showReview();
   else if (action === "share") shareCurrent();
-  else if (action === "stats") showStats();
   else if (action === "edit") enterEditMode();
   else if (action === "reveal") revealCurrent();
   else if (action === "random-all") randomPick(false);
