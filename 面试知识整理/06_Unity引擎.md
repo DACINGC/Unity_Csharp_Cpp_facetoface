@@ -26,15 +26,35 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 - 顺序记忆：`Awake → OnEnable → Start`；其中 **OnEnable 可以在同一对象生命周期中反复发生**（每次 SetActive(true)）。
 - **OnBecameVisible / OnBecameInvisible**：当物体"是否可见"状态切换时触发；用于只在物体可见时才进行的计算（如相机剔除）。
 
-### 6.1.2 Unity 的本质与脚本
+### 6.1.2 Unity 的本质：场景、预制体与脚本
 
-- Unity 的本质（常见面试说法）：场景和预制体本质都是**配置文件**，运行时解析配置创建对象；脚本类名必须与文件名一致（引擎按文件名/类型名查找 Type）。
-- 更严谨的表述：Unity 底层是原生（C++）引擎，场景数据通过**序列化系统**加载，C# 侧通过脚本绑定（wrapper）与引擎对象互操作；"反射"是其中类型查找/绑定机制的简化说法。
+**场景与预制体的本质（高频面试）**：
+
+- 场景（Scene）与预制体（Prefab）在磁盘上都是**序列化数据**（YAML 文本，编辑器可见）；运行时 Unity 把它们**反序列化**成内存里的对象图（GameObject/Component 树），而不是"逐行解析执行"的配置脚本。
+- 预制体 = **可复用的对象模板**：把一个对象树连同组件及序列化字段值保存为资产，`Instantiate()` 即按该数据反序列化出副本；场景则保存整棵世界对象树。二者本质是**同一套序列化机制**，区别只在规模与复用方式。
+- C# 序列化/反序列化的通用概念见 §1.10.3。
+
+**为什么脚本类名必须与文件名一致（常被追问"为什么"）**：
+
+- 每个 `.cs` 文件对应一个 MonoBehaviour 类型，引擎按**文件名定位脚本类型**：挂载组件时编辑器生成 MonoScript（记录程序集、命名空间、类名），并靠文件名在编译结果中解析到该类。
+- 类名与文件名不一致 → 解析失败，组件无法挂载（显示 Missing Script）；一个文件可含多个类，但通常只有与文件名同名的类能作为组件挂载。
+
+**脚本与引擎的互操作机制**：
+
+- Unity 底层是原生（C++）引擎；C# 脚本经 Mono/IL2CPP 编译后通过**脚本绑定层**调用原生接口，原生引擎再按生命周期回调 C# 方法（Awake/Update…）。
+- 场景加载**不是运行时反射扫描**：组件对脚本的持久化引用靠序列化保存的 `m_Script`（**GUID + fileID**）恢复，类型查找发生在**编译/挂载期**（按程序集与类名解析）；两种脚本后端差异见 §6.1.3。
+
+**脚本工程速记**：
+
 - 支持语言：早期支持 C# / JavaScript / Boo，现**仅支持 C#**。
-- 编辑器类（Editor 脚本）存放路径：工程目录下 `Assets/Editor` 文件夹（或 Editor 子目录）。
+- Editor 扩展代码须放在名为 `Editor` 的文件夹（含子目录），不会打包进正式版本。
 - 调试输出：`Debug.Log()` / `Debug.LogWarning()` / `Debug.LogError()`。
 - 切换场景：`SceneManager.LoadScene("场景名")`（`Application.loadLevel` 已弃用）。
-- 常用编辑器特性：`[ContextMenu]` 在组件右键菜单添加回调；`[MenuItem("菜单名")]` 添加顶部菜单栏（需静态方法）；`[ExecuteInEditMode]` 编辑模式下执行 Update；`[Header]`、`[SerializeField]` 等序列化特性。
+- 常用编辑器特性：`[ContextMenu]`（组件右键菜单，作用于方法）、`[MenuItem("菜单")]`（顶部菜单，需静态方法）、`[ExecuteInEditMode]`（编辑模式下执行 Update）、`[Header]`/`[SerializeField]`（Inspector 分组显示与强制序列化）。
+
+**面试话术**：
+
+> 场景和预制体本质都是序列化数据资产（YAML），运行时由引擎反序列化为 GameObject/Component 对象树；预制体是可复用模板，Instantiate 即复制实例化。脚本类名必须与文件名一致，是因为引擎按文件名定位 MonoBehaviour 类型；组件挂载靠 `m_Script` 的 GUID + fileID 引用在加载时恢复——整个过程依赖序列化与类型解析，而非运行时反射。
 
 ### 6.1.3 Mono 与 IL2CPP 的区别
 
