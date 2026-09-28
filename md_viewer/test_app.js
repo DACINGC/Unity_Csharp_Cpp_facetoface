@@ -11,9 +11,10 @@ const vm = require("vm");
 
 const APP = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const ROOT = path.join(__dirname, "..");
-const m = /<script>\r?\n([\s\S]*?)\r?\n<\/script>\s*<\/body>/.exec(APP); // 兼容 LF / CRLF 行尾
-if (!m) { console.error("无法提取应用脚本"); process.exit(1); }
-const APP_JS = m[1];
+// 取最后一个内联 <script>（页面里还有 head 中的主题防闪烁脚本与 renderer.js 外链）
+const inlineScripts = [...APP.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+if (!inlineScripts.length) { console.error("无法提取应用脚本"); process.exit(1); }
+const APP_JS = inlineScripts[inlineScripts.length - 1][1];
 
 /* ---------- 静态校验：JS 中 $("id") 引用的元素必须存在于 HTML ---------- */
 {
@@ -54,8 +55,8 @@ const APP_JS = m[1];
   if (!compactToggle) process.exit(1);
   const workbenchFullscreen = /body\.workbench-view \.workspace-rail[\s\S]*?body\.workbench-view aside[\s\S]*?body\.workbench-view #resizer/.test(APP);
   console.log(workbenchFullscreen
-    ? "✓ 工作台页会隐藏笔记工具轨、侧栏与分隔条"
-    : "✗ 工作台页未完整隐藏笔记侧栏区域");
+    ? "✓ 工作台页保留工具轨、隐藏笔记侧栏与分隔条"
+    : "✗ 工作台页未按约定处理工具轨与笔记侧栏");
   if (!workbenchFullscreen) process.exit(1);
   const fixedAppNav = /header\s*\{[\s\S]*?position: fixed; inset: 0 0 auto; height: 58px;/.test(APP) &&
     /\.layout\s*\{[\s\S]*?margin-top: 58px;/.test(APP);
@@ -72,6 +73,46 @@ const APP_JS = m[1];
     ? "✓ 复习热力图为 GitHub 风格（月份/星期/悬停提示/汇总/图例）"
     : "✗ 复习热力图未升级为 GitHub 风格");
   if (!githubHeatmap) process.exit(1);
+
+  /* 去冗余与死代码回归：这些入口/类名/函数不应再出现 */
+  const removedTokens = ["toc-tab-review", "toc-review-count", "toc-tabs", "renderReviewTab",
+    "reviewTabActive", "markBadgeHtml", "cycleMark", "rail-logo", "rail-divider",
+    "stats-card", "stats-head", "stats-history-note", "stats-status-item", "review-item"];
+  const resurrected = removedTokens.filter((t) => APP.includes(t));
+  console.log(resurrected.length
+    ? "✗ 已删除的冗余入口/死代码重新出现: " + resurrected.join(", ")
+    : "✓ 冗余入口与死代码已清理（侧栏待复习标签、旧统计卡、rail 品牌残留等 " + removedTokens.length + " 项）");
+  if (resurrected.length) process.exit(1);
+
+  /* 每个能力一个主入口：随机抽题只在工具轨菜单 + 移动端「更多操作」 */
+  const randomEntryPoints = (APP.match(/data-mode="(all|review|weak)"/g) || []).length;
+  const workspaceRandomButtons = /data-home-action="random"|data-review-action="random"/.test(APP);
+  console.log(randomEntryPoints === 3 && !workspaceRandomButtons
+    ? "✓ 随机抽题收敛为工具轨菜单（全部/待复习/薄弱），工作台内不再重复放置按钮"
+    : "✗ 随机抽题入口未收敛（菜单项 " + randomEntryPoints + " 个，工作台残留=" + workspaceRandomButtons + "）");
+  if (!(randomEntryPoints === 3 && !workspaceRandomButtons)) process.exit(1);
+
+  /* 设计令牌与可访问性契约 */
+  const tokenContract = ["--focus-ring", "--shadow-2", "--r-md", "--ease", "--doc-measure",
+    "--bg-glass", "--hairline", "--accent-line"].every((t) => APP.includes(t + ":"));
+  const focusVisible = /\.rail-btn:focus-visible/.test(APP) && /\.workbench-list-item:focus-visible/.test(APP) &&
+    /\.toc-link:focus-visible/.test(APP) && /\.file-item:focus-visible/.test(APP);
+  const reducedMotion = /@media \(prefers-reduced-motion: reduce\)/.test(APP);
+  const themeBoot = /prefers-color-scheme: light/.test(APP) &&
+    APP.indexOf('setAttribute("data-theme"') < APP.indexOf("<style>");
+  console.log(tokenContract && focusVisible && reducedMotion && themeBoot
+    ? "✓ 设计令牌 / 焦点环 / 动效降级 / 主题防闪烁齐备"
+    : "✗ 设计令牌或可访问性契约缺失（令牌=" + tokenContract + " 焦点=" + focusVisible +
+      " 降级=" + reducedMotion + " 防闪烁=" + themeBoot + "）");
+  if (!(tokenContract && focusVisible && reducedMotion && themeBoot)) process.exit(1);
+
+  /* 全局快捷键只有一处 window 挂载，避免 document / window 双监听重复处理 */
+  const singleKeyHandler = /window\.addEventListener\("keydown", handleGlobalKey\)/.test(APP) &&
+    !/document\.addEventListener\("keydown"/.test(APP);
+  console.log(singleKeyHandler
+    ? "✓ 全局快捷键统一由 window 上的 handleGlobalKey 处理"
+    : "✗ 全局快捷键存在多处挂载");
+  if (!singleKeyHandler) process.exit(1);
 }
 
 /* ---------- DOM 桩 ---------- */
@@ -108,16 +149,34 @@ function makeEl(id) {
   });
   return el;
 }
+/* 从 HTML 标记里读出各 id 的初始 class（如 hidden / loading），
+   让 DOM 桩的初始状态与真实页面一致，避免「弹层分层关闭」等逻辑被桩的空 classList 误导。 */
+const idClasses = {};
+for (const tag of APP.match(/<[a-zA-Z][^>]*>/g) || []) {
+  const idm = /\bid="([^"]+)"/.exec(tag);
+  if (!idm) continue;
+  const cm = /\bclass="([^"]*)"/.exec(tag);
+  idClasses[idm[1]] = cm ? cm[1].split(/\s+/).filter(Boolean) : [];
+}
 const IDS = ["search", "search-results", "tab-files", "toggle-sidebar",
   "tab-toc", "btn-prev", "btn-next", "crumb-path", "crumb-file", "content", "main", "toast"];
 const els = {};
-IDS.forEach((id) => { els[id] = makeEl(id); });
+IDS.forEach((id) => {
+  els[id] = makeEl(id);
+  (idClasses[id] || []).forEach((c) => els[id].classList.add(c));
+});
 
 const styleProps = {};
 const bodyStub = makeEl("body");
 const documentStub = {
   body: bodyStub,
-  getElementById(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; },
+  getElementById(id) {
+    if (!els[id]) {
+      els[id] = makeEl(id);
+      (idClasses[id] || []).forEach((c) => els[id].classList.add(c));
+    }
+    return els[id];
+  },
   createElement(tag) { return makeEl(tag); },
   querySelectorAll() { return []; },
   addEventListener() {},
@@ -352,22 +411,25 @@ setTimeout(async () => {
     "统计=" + statsData.total + "，末级标题=" + expectedLeafTotal);
   check("统计汇总复习次数", statsData.reviewActions === 1 &&
     statsData.categories.some((c) => c.path === "面试知识整理/01_CSharp.md" && c.reviewActions === 1));
-  check("待复习计数徽标更新", els["toc-review-count"].textContent === "1",
-    "实际=" + els["toc-review-count"].textContent);
-  els["toc-tab-review"]._handlers.click({});
-  check("待复习列表渲染", els["tab-toc"].innerHTML.includes("review-item") &&
-    els["tab-toc"].innerHTML.includes("装箱与拆箱"),
-    "…" + els["tab-toc"].innerHTML.slice(0, 60));
-  els["toc-tab-all"]._handlers.click({});
-  check("切回目录列表", (els["tab-toc"].innerHTML.match(/toc-link/g) || []).length > 0,
+  check("复习导航徽标显示待处理数量", els["nav-review-count"].textContent === "1" &&
+    !els["nav-review-count"].classList.contains("hidden"),
+    "实际=" + els["nav-review-count"].textContent);
+  check("侧栏知识点列只渲染目录树（待复习清单已并入复习工作台）",
+    (els["tab-toc"].innerHTML.match(/toc-link/g) || []).length > 0 &&
+    !els["tab-toc"].innerHTML.includes("review-item"),
     (els["tab-toc"].innerHTML.match(/toc-link/g) || []).length + " 条标题");
+  check("知识点列头显示当前文档知识点数量", /个知识点/.test(els["toc-count"].textContent),
+    "实际=" + els["toc-count"].textContent);
 
-  // 复习工作台：与笔记、统计同级，而不是侧栏内的临时标签
+  // 复习工作台：唯一的完整清单入口（侧栏不再重复一份）
   els["nav-review"]._handlers.click({});
   const reviewPageHtml = els["review-page"].innerHTML;
   check("复习工作台可从顶部导航进入", context.viewMode === "review" &&
-    reviewPageHtml.includes("待复习清单") && els["nav-review"].classList.contains("active") &&
+    reviewPageHtml.includes("待复习清单") && reviewPageHtml.includes("装箱与拆箱") &&
+    els["nav-review"].classList.contains("active") &&
     documentStub.body.classList.contains("workbench-view"));
+  check("复习工作台不再重复放置随机抽题按钮（改用工具轨 🎲 / 快捷键 R）",
+    !reviewPageHtml.includes('data-review-action="random"'));
 
   // 学习统计已并入首页：环形概览与热力图随首页渲染，并可返回文档
   console.log("统计并入首页检查");
@@ -377,6 +439,11 @@ setTimeout(async () => {
     mergedHomeHtml.includes("知识点类型分布") && mergedHomeHtml.includes("stats-category-grid") &&
     mergedHomeHtml.includes("stats-ring") && mergedHomeHtml.includes("stats-heat-cell") &&
     els["nav-home"].classList.contains("active"));
+  check("首页同一数字不再重复出现（掌握率=环，知识点/待处理/复习次数=KPI）",
+    (mergedHomeHtml.match(/掌握率/g) || []).length === 1 &&
+    (mergedHomeHtml.match(/复习次数/g) || []).length === 1 &&
+    !mergedHomeHtml.includes("stats-status-item") && !mergedHomeHtml.includes("stats-heat-total"),
+    "掌握率 x" + (mergedHomeHtml.match(/掌握率/g) || []).length);
   await context.openFile("面试知识整理/06_Unity引擎.md");
   check("从首页打开笔记后回到文档视图", context.viewMode === "document" &&
     els["home-page"].classList.contains("hidden") && els["crumb"].classList.contains("hidden") === false &&
@@ -422,6 +489,94 @@ setTimeout(async () => {
   check("进度统计渲染", els["progress-stats"].innerHTML.includes("进度") &&
     els["progress-stats"].innerHTML.includes("/"),
     els["progress-stats"].innerHTML.slice(0, 50));
+
+  // 全局快捷键（统一由 window 上的 handleGlobalKey 处理；document 不再挂 keydown）
+  console.log("全局快捷键检查");
+  const key = (k, extra) => {
+    let prevented = false;
+    windowHandlers["keydown"] && windowHandlers["keydown"](Object.assign({
+      key: k, preventDefault() { prevented = true; }, target: null
+    }, extra || {}));
+    return prevented;
+  };
+  await context.openFile("面试知识整理/01_CSharp.md");
+  context.currentAnchor = "";
+  context.spyHeadings = [{ id: "1.1.1" }, { id: "1.1.2" }, { id: "1.1.3" }];
+  key("]");
+  check("] 跳到下一节", context.currentAnchor === "1.1.1", "当前=" + context.currentAnchor);
+  key("]");
+  check("] 连续跳到再下一节", context.currentAnchor === "1.1.2", "当前=" + context.currentAnchor);
+  key("[");
+  check("[ 回到上一节", context.currentAnchor === "1.1.1", "当前=" + context.currentAnchor);
+  // Esc 分层：先关掌握度菜单（前一步遗留的弹层），再关随机抽题菜单
+  context.hideMarkMenu();
+  key("r");
+  check("R 打开随机抽题菜单", !els["random-menu"].classList.contains("hidden"));
+  key("Escape");
+  check("Esc 收起随机抽题菜单", els["random-menu"].classList.contains("hidden"));
+  key("1");
+  check("1 标记当前小节为已掌握",
+    JSON.parse(localStorageStub._d["mdviewer:marks"] || "{}")["面试知识整理/01_CSharp.md|1.1.1"] === "done");
+  key("0");
+  check("0 清除当前小节标记",
+    !JSON.parse(localStorageStub._d["mdviewer:marks"] || "{}")["面试知识整理/01_CSharp.md|1.1.1"]);
+  let typingPrevented = key("r", { target: { tagName: "INPUT" } });
+  check("输入态不拦截单键快捷键", typingPrevented === false);
+  context.spyHeadings = [];
+
+  // 右键圆点：直接清除标记
+  console.log("圆点右键清除检查");
+  context.setMark("面试知识整理/01_CSharp.md", "1.1.2", "review");
+  const dotEl = makeEl("mark-badge");
+  dotEl.dataset.path = "面试知识整理/01_CSharp.md";
+  dotEl.dataset.anchor = "1.1.2";
+  dotEl.closest = function (selector) { return selector === ".mark-badge" ? this : null; };
+  els["tab-toc"]._handlers["contextmenu"]({ target: dotEl, preventDefault() {} });
+  check("右键圆点清除标记",
+    !JSON.parse(localStorageStub._d["mdviewer:marks"] || "{}")["面试知识整理/01_CSharp.md|1.1.2"]);
+
+  // 最近打开：首页右栏由「笔记入口」切换为「最近打开」
+  console.log("最近打开检查");
+  context.rememberRecent("面试知识整理/01_CSharp.md");
+  context.rememberRecent("面试知识整理/06_Unity引擎.md");
+  check("最近打开去重且最新在前",
+    JSON.parse(localStorageStub._d["mdviewer:recent"])[0] === "面试知识整理/06_Unity引擎.md");
+  context.renderHomePage();
+  check("首页右栏显示最近打开", els["home-page"].innerHTML.includes("最近打开") &&
+    !els["home-page"].innerHTML.includes("笔记入口"));
+
+  // 磁盘变更感知：只比对当前文件，用户点击「已更新」才重新载入
+  console.log("磁盘变更感知检查");
+  const tmpDoc = "mdviewer_test_tmp_" + Date.now() + ".txt";
+  fs.writeFileSync(path.join(ROOT, tmpDoc), "第一版\n", "utf8");
+  await context.loadIndex({ silent: true });
+  await context.openFile(tmpDoc);
+  check("无声刷新索引后可打开新增文档", context.current && context.current.path === tmpDoc,
+    "当前=" + (context.current && context.current.path));
+  check("打开时清除「已更新」提示", els["update-chip"].classList.contains("hidden"));
+  check("磁盘未变化时不上报", (await context.checkDiskChanges()) === false);
+  fs.writeFileSync(path.join(ROOT, tmpDoc), "第二版\n", "utf8");
+  const diskChanged = await context.checkDiskChanges();
+  check("检测到磁盘更新并提示", diskChanged === true &&
+    !els["update-chip"].classList.contains("hidden") &&
+    els["toast"].textContent.includes("磁盘上的文件已更新"),
+    els["toast"].textContent);
+  await context.refreshCurrentDocument();
+  check("点击已更新后载入最新内容", els["content"].innerHTML.includes("第二版") &&
+    els["update-chip"].classList.contains("hidden"),
+    els["content"].innerHTML.slice(0, 40));
+  try { fs.unlinkSync(path.join(ROOT, tmpDoc)); } catch (e) {}
+  await context.loadIndex({ silent: true });
+
+  // 窄屏抽屉分段切换（桌面两列布局不受影响）
+  console.log("窄屏抽屉切换检查");
+  context.setSidePane("toc");
+  check("切换到知识点分段", els["side-split"].classList.contains("pane-toc") &&
+    !els["side-split"].classList.contains("pane-files") &&
+    els["side-switch-toc"].getAttribute("aria-selected") === "true");
+  els["side-switch"]._handlers.click({ target: { closest: (s) => (s === "button[data-pane]" ? { dataset: { pane: "files" } } : null) } });
+  check("点击分段按钮切回文件列表", els["side-split"].classList.contains("pane-files") &&
+    localStorageStub._d["mdviewer:side-pane"] === "files");
 
   // 复习进度导入/导出（合并逻辑）
   console.log("进度导入导出检查");
