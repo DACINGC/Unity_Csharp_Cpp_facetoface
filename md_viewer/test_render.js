@@ -15,7 +15,26 @@ const R = require("./renderer.js");
 const ROOT = path.join(__dirname, "..");
 const NOTES = path.join(ROOT, "面试知识整理");
 
+/** 递归收集全部 md（与服务端 iter_docs 同口径：跳过 . 开头目录、md_viewer 与 README.md） */
+function collectMd(dir) {
+  const out = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (e.name.startsWith(".")) continue;
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      if (e.name === "md_viewer") continue;
+      out.push(...collectMd(full));
+    } else if (e.name.endsWith(".md") && e.name !== "README.md") {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+// 逐文件渲染校验仍只覆盖 面试知识整理/（首个文档的断言被 test_app.js 依赖）
 const files = fs.readdirSync(NOTES).filter((f) => f.endsWith(".md")).sort();
+// 章节索引必须覆盖全库：跨层引用（如 01_CSharp 里的 §8.9.1 → 项目知识整理）只靠本目录会误报
+const allMd = collectMd(ROOT);
 let failures = 0;
 
 function fail(msg) { failures++; console.log("  ✗ " + msg); }
@@ -48,6 +67,8 @@ function resolveSec(sec) {
     const parts = sec.split(".");
     while (parts.length > 1 && !hit) { parts.pop(); hit = sections[parts.join(".")]; }
   }
+  // 裸章号兜底：§9 这类引用落到"第 9 篇文档"的首页标题（见下方 docChapters）
+  if (!hit && /^\d+$/.test(sec) && docChapters[sec]) hit = docChapters[sec];
   return hit;
 }
 
@@ -66,8 +87,26 @@ for (const fn of files) {
     }
     return c;
   })();
-  const expFences = count(text, /^```/gm) / 2;
-  const expHeadings = count(text, /^(#{1,4})\s/gm);
+  // 期望代码块数：按围栏状态机统计开合配对，而不是 `数 ``` 再除以 2`。
+  // 后者一旦围栏数不成对（例如行内出现 ``` 或正文里的示例围栏）就会算出小数，
+  // 属于测试自身的缺陷（曾把 3 个块算成 2 个）。
+  const expFences = (() => {
+    let c = 0, open = false;
+    for (const l of lines) {
+      if (/^```/.test(l.trim())) { if (!open) c++; open = !open; }
+    }
+    return c;
+  })();
+  // 期望标题数：**排除代码围栏内**的 `#` 行。原实现直接数原文里的 `^#{1,4}\s`，
+  // 笔记里一旦出现围栏内的注释标题（如 ```sh 里的 `# 注释`）就会误报——错的是测试不是渲染器。
+  const expHeadings = (() => {
+    let c = 0, open = false;
+    for (const l of lines) {
+      if (/^```/.test(l.trim())) { open = !open; continue; }
+      if (!open && /^#{1,4}\s/.test(l)) c++;
+    }
+    return c;
+  })();
   // 期望 § 链接数：与渲染器同规则 —— 代码围栏内的 § 不会转为链接
   const expSecRefs = count(text.replace(/```[\s\S]*?```/g, ""), /§\d+(?:\.\d+)+/g);
 
@@ -94,6 +133,32 @@ for (const fn of files) {
     fileOk = false;
   } else ok("HTML 转义正确（无裸 <）");
 
+  // P3-6：属性上下文检查。原来的"无裸 <"只看文本，看不见属性里被塞进引号或事件属性。
+  const attrInjection = [];
+  const attrRe = /\s(?:id|class|title|href|data-[a-z-]+|aria-[a-z-]+)="([^"]*)"/g;
+  let am;
+  while ((am = attrRe.exec(html)) !== null) {
+    if (/["'<>]|^\s*javascript:/i.test(am[1])) attrInjection.push(am[1].slice(0, 40));
+  }
+  if (attrInjection.length) {
+    fail(`属性值中出现未转义的引号/尖括号或危险 scheme：${attrInjection.slice(0, 3).join(" | ")}`);
+    fileOk = false;
+  } else ok("属性上下文转义正确（无引号闭合/危险 scheme）");
+  // 只检查**真实标签内部**是否出现内联事件属性。
+  // 注意：不能直接用 /\son\w+=/ 扫全文——正文里出现 "onerror=" 这类字样（本笔记讲安全时就有）
+  // 会被误判为注入。所以先切出标签内的属性区，再看属性名是否为 on*。
+  const eventAttrs = [];
+  const tagRe = /<([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
+  let tm;
+  while ((tm = tagRe.exec(html)) !== null) {
+    const attrs = tm[2];
+    for (const am2 of attrs.matchAll(/(^|\s)(on[a-z]+)\s*=/gi)) eventAttrs.push(tm[1] + " " + am2[2]);
+  }
+  if (eventAttrs.length) {
+    fail(`渲染结果中出现内联事件属性：${[...new Set(eventAttrs)].slice(0, 3).join(", ")}`);
+    fileOk = false;
+  } else ok("无内联事件属性（on*）");
+
   // 标题锚点存在性
   let anchorMiss = 0;
   for (const h of fileHeadings[fn]) {
@@ -108,19 +173,78 @@ for (const fn of files) {
 
 /* ---------- 全库 § 引用可解析性（含跨文件跳转） ---------- */
 console.log("\n§ 引用可解析性检查");
+// 索引重建为"全库"：上面的 fileHeadings 只登记了 面试知识整理/，
+// 跨层引用（如 01_CSharp §8.9.1 → 项目知识整理/08）必须也能解析。
+for (const k of Object.keys(sections)) delete sections[k];
+for (const full of allMd) {
+  let t = fs.readFileSync(full, "utf8");
+  if (t.charCodeAt(0) === 0xFEFF) t = t.slice(1);
+  for (const line of t.split(/\r?\n/)) {
+    const m = /^(#{1,4})\s+(.+?)\s*$/.exec(line);
+    if (!m) continue;
+    const clean = m[2].replace(/[`*_~>]/g, "").trim();
+    const nm = /^(\d+(?:\.\d+)*)/.exec(clean);
+    if (nm && !(nm[1] in sections)) sections[nm[1]] = { file: path.relative(ROOT, full), anchor: nm[1] };
+  }
+}
+console.log(`  索引覆盖全库 ${allMd.length} 个 md 文件，${Object.keys(sections).length} 个章节编号`);
+// 文档级章号（与服务端 build_index 一致）：文件名前导序号 -> 该篇第一个标题，
+// 用于解析 §9 这类"指向整篇"的裸章号引用。
+const docChapters = {};
+for (const full of allMd) {
+  const nm = /^(\d+)_/.exec(path.basename(full));
+  if (!nm || docChapters[String(parseInt(nm[1], 10))]) continue;
+  let t = fs.readFileSync(full, "utf8");
+  if (t.charCodeAt(0) === 0xFEFF) t = t.slice(1);
+  const first = /^(#{1,4})\s+(.+?)\s*$/m.exec(t);
+  if (!first) continue;
+  const clean = first[2].replace(/[`*_~>]/g, "").trim();
+  const numM = /^(\d+(?:\.\d+)*)/.exec(clean);
+  docChapters[String(parseInt(nm[1], 10))] = { anchor: numM ? numM[1] : null };
+}
 let total = 0, unresolvable = 0;
-for (const fn of files) {
-  let text = fs.readFileSync(path.join(NOTES, fn), "utf8");
+for (const full of allMd) {
+  const fn = path.relative(ROOT, full);
+  let text = fs.readFileSync(full, "utf8");
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-  const refs = text.match(/§\d+(?:\.\d+)+/g) || [];
+  const refs = text.match(/§\s*\d+(?:\.\d+)*/g) || [];
   total += refs.length;
   for (const ref of refs) {
-    const hit = resolveSec(ref.slice(1));
-    if (!hit) { unresolvable++; fail(`${fn}: §${ref.slice(1)} 无法解析`); }
+    const hit = resolveSec(ref.replace(/[§\s]/g, ""));
+    if (!hit) { unresolvable++; fail(`${fn}: ${ref} 无法解析`); }
   }
 }
 if (unresolvable === 0) ok(`全部 ${total} 处 § 引用均可解析（${Object.keys(sections).length} 个章节编号可跳转）`);
 else fail(`${unresolvable}/${total} 处 § 引用无法解析`);
+
+/* ---------- 链接 scheme 白名单（P2-7） ---------- */
+console.log("\n链接 scheme 白名单检查");
+const safeLinks = [
+  ["https 链接放行", "[x](https://example.com/a)", 'href="https://example.com/a"'],
+  ["http 链接放行", "[x](http://example.com)", 'href="http://example.com"'],
+  ["mailto 放行", "[x](mailto:a@b.com)", 'href="mailto:a@b.com"'],
+  ["tel 放行", "[x](tel:+8613800000000)", 'href="tel:+8613800000000"'],
+  // 注意：以 .md/.txt 结尾的目标会被识别为"跨文件跳转"，走 data-file-link 而非普通 href
+  ["相对路径（非 md）放行", "[x](images/a.png)", 'href="images/a.png"']
+];
+for (const [label, src, expect] of safeLinks) {
+  const got = R.renderInline(src);
+  if (got.includes(expect)) ok(label);
+  else fail(`${label} 未放行: ${got}`);
+}
+const blockedLinks = [
+  ["javascript: 被拦", "[x](javascript:alert(1))"],
+  ["data:text/html 被拦", "[x](data:text/html;base64,PHNjcmlwdD4=)"],
+  ["vbscript: 被拦", "[x](vbscript:msgbox)"],
+  ["file: 被拦", "[x](file:///C:/Windows/win.ini)"]
+];
+for (const [label, src] of blockedLinks) {
+  const got = R.renderInline(src);
+  // 必须是不可点击的 span，且绝无 javascript:/data: 之类进入 href
+  if (got.includes("<span") && got.includes("link-blocked") && !/href=/.test(got) &&
+      !/javascript:/i.test(got) && !/data:text/i.test(got)) ok(label);
+  else fail(`${label} 未拦下: ${got}`);
+}
 
 /* ---------- 嵌套列表（渲染器直测，不依赖笔记内容） ---------- */
 console.log("\n嵌套列表检查");

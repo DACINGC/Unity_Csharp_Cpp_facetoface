@@ -1,7 +1,9 @@
 /* 前端应用冒烟测试（Node VM + DOM 桩 + 真实 HTTP）
  * 用法: node md_viewer/test_app.js   （需先启动 python mdviewer.py）
- * 验证: 页面脚本可启动、文件列表渲染 25 项、首个文档正确渲染、
- *       全局搜索出结果、§ 跨文件跳转触发加载目标文件
+ * 验证: 页面脚本可启动、文件列表渲染（当前 38 个文件：22 md + 16 txt，随语料变化）、
+ *       首个文档正确渲染、全局搜索出结果、§ 跨文件跳转触发加载目标文件、
+ *       以及一批"静态契约 + 行为"断言（CSRF、深链、并发导航、阅读位置、
+ *       搜索缓存失效、备份轮转、拖拽收尾、弹层让路、aria-busy 等）
  */
 "use strict";
 
@@ -113,6 +115,97 @@ const APP_JS = inlineScripts[inlineScripts.length - 1][1];
     ? "✓ 全局快捷键统一由 window 上的 handleGlobalKey 处理"
     : "✗ 全局快捷键存在多处挂载");
   if (!singleKeyHandler) process.exit(1);
+
+  /* 目录父标题进度药丸：必须只排除"标题自身那一行"的圆点。
+   * 父标题行里放的是 .node-prog（叶子才放 .mark-badge），若用不限层级的
+   * querySelector(".toc-row .mark-badge") 会命中第一个子知识点的圆点并误跳过，
+   * 导致每次标记后父标题数字整体少 1（单子节点时药丸整条消失）。
+   * DOM 桩无法覆盖 DOM 遍历，这里用静态契约锁住选择器。 */
+  const ownBadgeScoped = /item\.querySelector\(":scope > \.toc-row \.mark-badge"\)/.test(APP_JS);
+  const ownBadgeUnscoped = /item\.querySelector\("\.toc-row \.mark-badge"\)/.test(APP_JS);
+  console.log(ownBadgeScoped && !ownBadgeUnscoped
+    ? "✓ 目录进度药丸只排除标题自身行的圆点（:scope > .toc-row）"
+    : "✗ 目录进度药丸的\"自身圆点\"判定未限定层级，会少算第一个子知识点");
+  if (!(ownBadgeScoped && !ownBadgeUnscoped)) process.exit(1);
+
+  /* P2-3：锚点跳转必须精确匹配 id，不得用"标题文本包含 anchor"的兜底——
+   * 后者会把错误锚点变成一次错误跳转（?anchor=C 命中第一个含 C 的标题），并掩盖真失败。 */
+  const anchorExact = /var target = document\.getElementById\(anchor\);/.test(APP_JS) &&
+    !/hd\[i\]\.textContent\.replace\(\/\\s\+\/g, ""\)\.indexOf\(anchor\)/.test(APP_JS);
+  console.log(anchorExact
+    ? "✓ 锚点跳转只按 id 精确匹配（无子串兜底）"
+    : "✗ 锚点跳转仍存在子串兜底，可能跳到错误小节");
+  if (!anchorExact) process.exit(1);
+
+  /* P2-4：openFile 必须用请求序号丢弃过期响应，否则快速连点时"先发后到者"会覆盖后点的文件。 */
+  const openSeqGuard = /var seq = \+\+openSeq;/.test(APP_JS) &&
+    /if \(seq !== openSeq\) return null;/.test(APP_JS);
+  console.log(openSeqGuard
+    ? "✓ openFile 用请求序号丢弃过期响应（并发导航不再后到者胜）"
+    : "✗ openFile 缺少请求序号守卫，并发导航可能打开错误的文件");
+  if (!openSeqGuard) process.exit(1);
+
+  /* P2-5：加载骨架期间不得写阅读位置，否则骨架把 scrollTop 钳到 0 会覆盖旧文件的记忆位置。 */
+  const loadingGuard = /function saveScrollPos\(\) \{\s*\n\s*if \(loadingDoc\) return;/.test(APP_JS) &&
+    /loadingDoc = true;/.test(APP_JS);
+  console.log(loadingGuard
+    ? "✓ 骨架屏加载期间不写阅读位置（避免旧文件位置被写成 0）"
+    : "✗ saveScrollPos 未在加载期间设防，骨架屏会覆盖阅读位置记忆");
+  if (!loadingGuard) process.exit(1);
+
+  /* P2-2：?path= 深链被本地筛选器挡住时，必须放宽筛选而不是静默回首页。 */
+  const deepLinkFallback = /index\.files\.some\(function \(f\) \{ return f\.path === qpath; \}\)/.test(APP_JS);
+  console.log(deepLinkFallback
+    ? "✓ 深链被筛选器挡住时先放宽筛选再打开（不再静默回首页）"
+    : "✗ 深链仍只按当前筛选判定，可能静默丢失目标文档");
+  if (!deepLinkFallback) process.exit(1);
+
+  /* P2-6：历史栈 shift() 后必须用"绝对序号 - histBase"还原下标，
+   * 否则浏览器里已压入的旧 state.i 会指向相邻的另一个条目。 */
+  const histBaseFix = /var histBase = 0;/.test(APP_JS) &&
+    /var i = abs >= 0 \? abs - histBase : -1;/.test(APP_JS) &&
+    /histStack\.shift\(\); histIndex--; histBase\+\+;/.test(APP_JS) &&
+    !/history\.pushState\(\{ i: histIndex \}/.test(APP_JS);
+  console.log(histBaseFix
+    ? "✓ 历史栈溢出用绝对序号还原（不再错位到相邻条目）"
+    : "✗ 历史栈仍以数组下标写入 state，超过 200 次导航后会错位");
+  if (!histBaseFix) process.exit(1);
+
+  /* P2-9：首页/复习页在隐藏时只置脏，不重建 DOM。 */
+  const dirtyDefer = /if \(viewMode !== "home"\) \{ homeDirty = true; return; \}/.test(APP_JS) &&
+    /if \(viewMode !== "review"\) \{ reviewDirty = true; return; \}/.test(APP_JS);
+  console.log(dirtyDefer
+    ? "✓ 首页/复习页隐藏时不重绘（只置脏，切过去再渲染）"
+    : "✗ 隐藏页面仍在每次标记时全量重建 DOM");
+  if (!dirtyDefer) process.exit(1);
+
+  /* P2-11：拖拽必须用统一的 beginDrag（含 pointercancel / setPointerCapture / buttons 兜底），
+   * 否则窗口外松开会让 body.resizing 与监听器永久残留。 */
+  const dragFixed = /function beginDrag\(handle, handlers\)/.test(APP_JS) &&
+    /window\.addEventListener\("pointercancel", cleanup\)/.test(APP_JS) &&
+    /ev\.buttons === 0/.test(APP_JS) &&
+    /beginDrag\(\$\("resizer"\)/.test(APP_JS) &&
+    /beginDrag\(\$\("col-resizer"\)/.test(APP_JS);
+  console.log(dragFixed
+    ? "✓ 拖拽监听统一收尾（pointercancel + 指针捕获 + buttons 兜底）"
+    : "✗ 拖拽监听仍可能泄漏，body.resizing 会卡住");
+  if (!dragFixed) process.exit(1);
+
+  /* P2-16：弹层打开时单键快捷键必须让路。 */
+  const overlayGuard = /function anyOverlayOpen\(\)/.test(APP_JS) &&
+    /if \(anyOverlayOpen\(\)\) return;/.test(APP_JS);
+  console.log(overlayGuard
+    ? "✓ 弹层打开时单键快捷键不作用到背后页面"
+    : "✗ 弹层打开时单键快捷键仍会触发");
+  if (!overlayGuard) process.exit(1);
+
+  /* P2-17：aria-busy 必须成对复位。 */
+  const ariaBusyPaired = /setAttribute\("aria-busy", "true"\)/.test(APP_JS) &&
+    /setAttribute\("aria-busy", "false"\)/.test(APP_JS);
+  console.log(ariaBusyPaired
+    ? "✓ aria-busy 成对设置与复位（屏幕阅读器不再一直以为在加载）"
+    : "✗ aria-busy 只置位不复位");
+  if (!ariaBusyPaired) process.exit(1);
 
   /* 动效层：令牌 / 关键帧 / 可插值属性 / 降级开关 / 零依赖 */
   const motionTokens = ["--ease-expo:", "--ease-spring:", "--dur-base:", "--dur-enter:", "--stagger:",
@@ -641,6 +734,38 @@ setTimeout(async () => {
     !context.marks["面试知识整理/01_CSharp.md|1.1.1"]);
   context.marks = {}; // 还原，避免影响后续检查
 
+  // P2-8：导入信封校验（原先只判断 data.marks 是否为对象，任意 JSON 都能污染 marks）
+  console.log("导入信封校验检查");
+  const vp = context.validateProgressPayload;
+  const goodEnvelope = vp({ app: "mdviewer", type: "review-progress", version: 1,
+    marks: { "面试知识整理/01_CSharp.md|1.1.1": "done" }, events: [] });
+  check("合法导出信封通过", goodEnvelope.ok === true &&
+    Object.keys(goodEnvelope.marks).length === 1, goodEnvelope.why || "");
+  const bareMarks = vp({ "面试知识整理/01_CSharp.md|1.1.1": "done" });
+  check("裸 marks 映射（无信封）仍兼容", bareMarks.ok === true && bareMarks.events.length === 0);
+  check("拒绝其它应用的导出文件",
+    vp({ app: "other-app", type: "review-progress", marks: {} }).ok === false);
+  check("拒绝类型不符的信封",
+    vp({ app: "mdviewer", type: "something-else", marks: {} }).ok === false);
+  check("拒绝 marks 类型错误的信封",
+    vp({ app: "mdviewer", type: "review-progress", marks: [] }).ok === false);
+  check("拒绝数组/空值等非法根对象",
+    vp([]).ok === false && vp(null).ok === false && vp("x").ok === false);
+
+  // P2-8：孤儿标记回收（指向已删除文件 / 已不存在小节的键）
+  console.log("孤儿标记回收检查");
+  context.marks = {
+    "面试知识整理/01_CSharp.md|1.1.1": "done",   // 有效
+    "已删除的文件.md|1.1": "weak",                 // 文件不存在
+    "面试知识整理/01_CSharp.md|9.9.9": "review"    // 小节不存在
+  };
+  const pruned = context.pruneMarks();
+  check("pruneMarks 只删孤儿、保留有效标记",
+    pruned === 2 && context.marks["面试知识整理/01_CSharp.md|1.1.1"] === "done" &&
+    Object.keys(context.marks).length === 1,
+    "回收=" + pruned + " 剩余=" + Object.keys(context.marks).length);
+  context.marks = {}; // 还原
+
   console.log("编辑模式检查");
   els["edit-btn"]._handlers.click({});
   check("进入编辑模式", !els["edit-bar"].classList.contains("hidden") &&
@@ -650,25 +775,174 @@ setTimeout(async () => {
     !els["edit-btn"].classList.contains("active"));
 
   console.log("保存/定位接口检查（临时文件，用后即删）");
+  // 浏览器发起的 POST 一定带 Origin（同源也会带），而 Node 的 fetch 不会自动加。
+  // 服务端新增了 CSRF 校验（P2-1），所以这里必须显式模拟浏览器请求头。
+  const SAME_ORIGIN = { "Content-Type": "application/json", "Origin": SERVER_BASE };
   const tmpRel = "mdviewer_test_tmp_" + Date.now() + ".txt";
   fs.writeFileSync(path.join(ROOT, tmpRel), "hello\n", "utf8");
   const saveR = await (await fetch(new URL("/api/save", SERVER_BASE), {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: SAME_ORIGIN,
     body: JSON.stringify({ path: tmpRel, content: "你好 world\n第二行" })
   })).json();
   check("保存接口返回 ok", saveR.ok === true, "encoding=" + (saveR.encoding || "?"));
   check("保存内容按原编码回写", fs.readFileSync(path.join(ROOT, tmpRel), "utf8") === "你好 world\n第二行");
   check("保存前生成 .bak 备份", fs.existsSync(path.join(ROOT, tmpRel) + ".bak"));
   const saveBad = await (await fetch(new URL("/api/save", SERVER_BASE), {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: SAME_ORIGIN,
     body: JSON.stringify({ path: "../../../Windows/win.ini", content: "x" })
   })).json();
   check("保存接口拒绝路径穿越", saveBad.error !== undefined);
   const openBad = await (await fetch(new URL("/api/open", SERVER_BASE), {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: SAME_ORIGIN,
     body: JSON.stringify({ path: "../../../etc/passwd" })
   })).json();
   check("定位接口拒绝非法路径", openBad.error !== undefined);
+
+  /* CSRF 防护（P2-1）：写接口只接受本机页面发起的 JSON 请求 */
+  const csrfCases = [
+    ["跨站 Origin 被拒", { "Content-Type": "application/json", "Origin": "http://evil.example.com" }, { path: tmpRel, content: "x" }],
+    ["缺少 Origin/Referer 被拒", { "Content-Type": "application/json" }, { path: tmpRel, content: "x" }],
+    ["跨站表单 Content-Type 被拒", { "Content-Type": "application/x-www-form-urlencoded", "Origin": "http://evil.example.com" }, "path=x"],
+    ["text/plain 简单请求被拒", { "Content-Type": "text/plain", "Origin": "http://evil.example.com" }, JSON.stringify({ path: tmpRel, content: "x" })],
+    ["本机但端口不符被拒", { "Content-Type": "application/json", "Origin": "http://127.0.0.1:9999" }, { path: tmpRel, content: "x" }]
+  ];
+  for (const [label, headers, body] of csrfCases) {
+    const r = await fetch(new URL("/api/save", SERVER_BASE), { method: "POST", headers, body });
+    const j = await r.json().catch(() => ({}));
+    check(label, r.status === 403 && !!j.error, "status=" + r.status);
+  }
+  // 被拒的请求不能改动文件（确认 403 发生在写盘之前）
+  check("被拒请求未改动文件", fs.readFileSync(path.join(ROOT, tmpRel), "utf8") === "你好 world\n第二行");
+
+  /* P3-8：历史栈溢出的行为验证（P2-6 的修复）。
+   * 桩没有 history / location，但 pushHistory 只依赖 histStack / histIndex / histBase，
+   * 因此可以直接在 VM 里驱动真实函数，检验"绝对序号"在 shift 之后仍然自洽。 */
+  console.log("历史栈（pushHistory）行为检查");
+  {
+    const { pushHistory } = context;
+    const reset = () => { context.histStack = [{ path: "a.md", anchor: "" }]; context.histIndex = 0; context.histBase = 0; };
+    reset();
+    pushHistory("a.md", 0, "b.md", "");
+    check("pushHistory 追加条目并推进下标",
+      context.histStack.length === 2 && context.histIndex === 1 &&
+      context.histStack[1].path === "b.md", "len=" + context.histStack.length + " idx=" + context.histIndex);
+    context.histIndex = 0;
+    context.histStack.length = 1;
+    pushHistory("a.md", 0, "b.md", "");
+    pushHistory("b.md", 0, "c.md", "1.1");
+    check("pushHistory 截断前进分支后再追加",
+      context.histStack.length === 3 && context.histStack[2].anchor === "1.1");
+    // 溢出：把栈顶到上限再压一条，检查 histBase 与下标同步
+    reset();
+    for (let i = 0; i < 199; i++) pushHistory(context.histStack[context.histIndex].path, 0, "f" + i + ".md", "");
+    check("未溢出时 histBase 保持 0", context.histBase === 0 && context.histStack.length === 200,
+      "len=" + context.histStack.length + " base=" + context.histBase);
+    pushHistory(context.histStack[context.histIndex].path, 0, "overflow.md", "");
+    check("溢出后 histBase 递增、下标仍指向栈顶",
+      context.histBase === 1 && context.histStack.length === 200 &&
+      context.histStack[context.histIndex].path === "overflow.md",
+      "base=" + context.histBase + " idx=" + context.histIndex + " len=" + context.histStack.length);
+    check("溢出后绝对序号 = histBase + histIndex（popstate 用它还原下标）",
+      context.histBase + context.histIndex === 200, "abs=" + (context.histBase + context.histIndex));
+    reset();
+  }
+
+  /* P3-1：目录父标题进度药丸的计数（真实 DOM 夹具）。
+   * 背景：父标题行里放的是 .node-prog，叶子才放 .mark-badge。若 refreshNodeProgress
+   * 用不限层级的 querySelector(".toc-row .mark-badge") 找"自身圆点"，会命中第一个
+   * 子知识点的圆点并误跳过 → 分子分母同时少 1。DOM 桩默认 querySelectorAll 恒返回 []，
+   * 这条路径此前测不到，所以这里手工搭出应用真实生成的 DOM 形状来直测。 */
+  console.log("父标题进度药丸计数检查");
+  {
+    const mk = (cls) => {
+      const e = makeEl(cls);
+      e.className = cls;
+      return e;
+    };
+    const withClasses = (el, ...cs) => { cs.forEach((c) => el.classList.add(c)); return el; };
+    // 叶子：<div.toc-item><div.toc-row>…<button.mark-badge data-state=X>
+    const leaf = (anchor, state) => {
+      const item = withClasses(mk("toc-item"), "toc-item");
+      const row = withClasses(mk("toc-row"), "toc-row");
+      const badge = withClasses(mk("mark-badge"), "mark-badge");
+      badge.dataset = { anchor: anchor, state: state };
+      row.querySelectorAll = (sel) => (sel === ".mark-badge" ? [badge] : []);
+      row.querySelector = (sel) => (sel === ":scope > .toc-row .mark-badge" || sel === ".mark-badge" ? badge : null);
+      item.appendChild(row);
+      item.querySelectorAll = (sel) => (sel === ".mark-badge" ? [badge] : []);
+      item.querySelector = (sel) => (sel === ":scope > .toc-row .mark-badge" ? null : null); // 父行没有圆点
+      item.closest = () => item;
+      return item;
+    };
+    // 父标题：行里有 .node-prog，**没有** .mark-badge
+    const parent = (progEl, leaves) => {
+      const item = withClasses(mk("toc-item"), "toc-item");
+      const row = withClasses(mk("toc-row"), "toc-row");
+      row.appendChild(progEl);
+      item.appendChild(row);
+      leaves.forEach((lf) => item.appendChild(lf));
+      item.querySelectorAll = (sel) => {
+        if (sel === ".mark-badge") return leaves.map((lf) => lf.querySelectorAll(".mark-badge")[0]);
+        if (sel === ".node-prog") return [progEl];
+        return [];
+      };
+      // 父行没有圆点，所以"自身圆点"必须为 null
+      item.querySelector = (sel) => (sel === ":scope > .toc-row .mark-badge" ? null : null);
+      item.closest = () => item;
+      return item;
+    };
+    const progA = withClasses(mk("node-prog"), "node-prog");
+    progA.textContent = "0/0";
+    progA.style = { display: "" };
+    const pA = parent(progA, [leaf("1.1", "done"), leaf("1.2", "weak"), leaf("1.3", "")]);
+    progA.closest = (sel) => (sel === ".toc-item" ? pA : null);
+    const progB = withClasses(mk("node-prog"), "node-prog");
+    progB.textContent = "0/0";
+    progB.style = { display: "" };
+    const pB = parent(progB, [leaf("2.1", "done")]);   // 只有一个子节点
+    progB.closest = (sel) => (sel === ".toc-item" ? pB : null);
+    const progs = [progA, progB];
+    els["tab-toc"].querySelectorAll = (sel) => (sel === ".node-prog" ? progs : []);
+    context.refreshNodeProgress();
+    check("3 个子知识点 → 药丸显示 1/3（不吞掉第一个）",
+      progA.textContent === "1/3", "实际=" + progA.textContent);
+    check("单子节点父标题 → 药丸显示 1/1 且未被隐藏",
+      progB.textContent === "1/1" && progB.style.display !== "none",
+      "实际=" + progB.textContent + " display=" + progB.style.display);
+  }
+
+  /* P2-10：搜索正文缓存必须按 mtime 失效——否则改了笔记搜不到新内容。
+   * 这里用真实文件走一遍：写入 → 搜到 → 改写 → 搜到新内容 → 删除 → 搜不到。 */
+  const cacheRel = "mdviewer_test_cache_" + Date.now() + ".txt";
+  const cacheFull = path.join(ROOT, cacheRel);
+  fs.writeFileSync(cacheFull, "ZQXPROBE alpha\n", "utf8");
+  const s1 = await (await fetch(new URL("/api/search?q=ZQXPROBE", SERVER_BASE))).json();
+  check("搜索缓存：能搜到新写入的文件", (s1.results || []).length === 1);
+  await new Promise((r) => setTimeout(r, 1100)); // 确保 mtime 变化
+  fs.writeFileSync(cacheFull, "ZQXPROBE beta-changed\n", "utf8");
+  const s2 = await (await fetch(new URL("/api/search?q=beta-changed", SERVER_BASE))).json();
+  check("搜索缓存：文件改动后能搜到新内容", (s2.results || []).length === 1);
+  try { fs.unlinkSync(cacheFull); } catch (e) {}
+  await new Promise((r) => setTimeout(r, 300));
+  const s3 = await (await fetch(new URL("/api/search?q=ZQXPROBE", SERVER_BASE))).json();
+  check("搜索缓存：文件删除后不再命中", (s3.results || []).length === 0);
+
+  /* P2-14：备份必须轮转（不再互相覆盖）。连续保存两次后，
+   * .bak 应是"上一次保存前"的内容、.bak.1 是"上上次"的内容。 */
+  const bakRel = "mdviewer_test_bak_" + Date.now() + ".txt";
+  const bakFull = path.join(ROOT, bakRel);
+  fs.writeFileSync(bakFull, "gen0\n", "utf8");
+  for (const txt of ["gen1\n", "gen2\n"]) {
+    await fetch(new URL("/api/save", SERVER_BASE), {
+      method: "POST", headers: SAME_ORIGIN, body: JSON.stringify({ path: bakRel, content: txt })
+    });
+  }
+  const bak0 = fs.existsSync(bakFull + ".bak") ? fs.readFileSync(bakFull + ".bak", "utf8") : "";
+  const bak1 = fs.existsSync(bakFull + ".bak.1") ? fs.readFileSync(bakFull + ".bak.1", "utf8") : "";
+  check("备份轮转：.bak 保存上一版、.bak.1 保存更早版本",
+    bak0 === "gen1\n" && bak1 === "gen0\n", `.bak=${JSON.stringify(bak0)} .bak.1=${JSON.stringify(bak1)}`);
+  ["", ".1", ".2", ".3"].forEach((s) => { try { fs.unlinkSync(bakFull + ".bak" + s); } catch (e) {} });
+  try { fs.unlinkSync(bakFull); } catch (e) {}
   try { fs.unlinkSync(path.join(ROOT, tmpRel)); fs.unlinkSync(path.join(ROOT, tmpRel) + ".bak"); } catch (e) {}
 
   // 服务控制接口（status 只读，不触发 restart/shutdown 以免停掉测试服务）

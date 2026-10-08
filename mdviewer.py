@@ -85,6 +85,54 @@ def read_text(path):
     return read_text_enc(path)[0]
 
 
+# ---------- 搜索用正文缓存：按 mtime 失效，避免每次搜索全量重读磁盘 ----------
+_search_cache = {}       # 绝对路径 -> (mtime, 内容)
+_SEARCH_CACHE_MAX = 400  # 上限，防止长期运行下无界增长
+
+
+def read_text_cached(path):
+    """带 mtime 校验的 read_text：文件被改动（mtime 变化）时自动重读。
+
+    搜索是"每次按键都可能触发"的接口，原实现每个请求都会把所有 .md/.txt 重读一遍；
+    本库语料不到 1 MB，缓存全部正文的代价可忽略，收益是搜索几乎不再碰磁盘。
+    """
+    try:
+        mt = os.path.getmtime(path)
+    except OSError:
+        return ""
+    hit = _search_cache.get(path)
+    if hit is not None and hit[0] == mt:
+        return hit[1]
+    content = read_text(path)
+    if len(_search_cache) >= _SEARCH_CACHE_MAX:
+        _search_cache.clear()   # 语料很小，整体清空比做 LRU 更简单可靠
+    _search_cache[path] = (mt, content)
+    return content
+
+
+def rotate_backup(full, keep=3):
+    """写前备份并轮转：`x.md.bak` → `x.md.bak.1` → `x.md.bak.2` …
+
+    原实现是覆盖式（`copy2(full, full + ".bak")`）：连续保存两次，第一次的内容就被冲掉了，
+    等于只有"最后一次之前"这一个还原点。改为轮转后保留最近 keep 个版本。
+    """
+    try:
+        for i in range(keep - 1, 0, -1):
+            older, newer = f"{full}.bak.{i}", f"{full}.bak.{i + 1}"
+            if os.path.exists(older):
+                if os.path.exists(newer):
+                    os.remove(newer)
+                os.rename(older, newer)
+        if os.path.exists(full + ".bak"):
+            top = f"{full}.bak.1"
+            if os.path.exists(top):
+                os.remove(top)
+            os.rename(full + ".bak", top)
+        shutil.copy2(full, full + ".bak")
+    except OSError:
+        pass
+
+
 def slugify(text):
     """把标题文本转成可用于锚点的字符串（保留中文与数字字母，其余转连字符）。"""
     text = re.sub(r"[`*_~>#]", "", text).strip()
@@ -93,15 +141,19 @@ def slugify(text):
     return text or "section"
 
 
-def extract_headings(text):
-    """提取 md 文本中的 # ~ #### 标题，返回 [{level, text, number, anchor}]。"""
-    headings = []
-    used = set()
-    for line in text.splitlines():
+def clean_headings(text):
+    """扫描 md 文本，按行产出标题记录 [{level, number, text, base, line}]。
+
+    `base` 是未经去重的候选锚点：带编号的标题用编号（`1.1`），
+    无编号的用标题文本 slug。锚点去重交给 assign_anchors，
+    保证同一文件内 id 唯一（与前端 renderer 同规则）。
+    `line` 是 1 起的行号，供全文搜索定位"该行所属小节"。
+    """
+    out = []
+    for line_no, line in enumerate(text.splitlines(), 1):
         m = HEADING_RE.match(line)
         if not m:
             continue
-        level = len(m.group(1))
         raw = m.group(2).strip()
         # 去掉行内强调标记（保留 #，如 "C#"），得到干净的标题文本
         text_clean = re.sub(r"[`*_~>]", "", raw).strip()
@@ -110,15 +162,33 @@ def extract_headings(text):
         if number:
             # 编号单独存到 number 字段，正文不再重复带编号
             text_clean = text_clean[len(number):].strip()
-        anchor = number if number else slugify(text_clean)
-        base, i = anchor, 2
-        while anchor in used:
-            anchor = f"{base}-{i}"
-            i += 1
-        used.add(anchor)
-        headings.append({"level": level, "text": text_clean,
-                         "number": number, "anchor": anchor})
-    return headings
+        out.append({"level": len(m.group(1)), "number": number,
+                    "text": text_clean, "base": number or slugify(text_clean),
+                    "line": line_no})
+    return out
+
+
+def assign_anchors(headings):
+    """给 clean_headings 的结果补文件内唯一的 anchor，返回新列表。
+
+    重复候选锚点依次追加 -2 / -3 …；带编号的标题在编号后追加（`1.1-2`），
+    锚点里仍保留编号信息。前端 renderer 用同一规则生成 DOM id。
+    """
+    used = {}
+    fixed = []
+    for h in headings:
+        base = h["base"]
+        n = used.get(base, 0)
+        used[base] = n + 1
+        item = dict(h)
+        item["anchor"] = base if n == 0 else f"{base}-{n + 1}"
+        fixed.append(item)
+    return fixed
+
+
+def extract_headings(text):
+    """提取 md 文本中的 # ~ #### 标题，返回 [{level, text, number, anchor}]。"""
+    return assign_anchors(clean_headings(text))
 
 
 def file_title(content, fallback):
@@ -131,18 +201,53 @@ def file_title(content, fallback):
 
 
 def build_index(root):
-    """扫描根目录下所有 .md / .txt，构建前端所需的索引。"""
+    """扫描根目录下所有 .md / .txt，构建前端所需的索引。
+
+    三级章节映射，用于解析 `§x.y.z` 引用：
+      sections_by_file   path  -> {编号 -> anchor}    本文件内唯一
+      sections_by_layer  顶层目录 -> {编号 -> {path,anchor}}  同层合并（本层内唯一）
+      sections           全局   -> {编号 -> {path,anchor}}    跨层重号时首现优先
+
+    两套笔记（面试知识整理 / 项目知识整理）并行使用 1.x~8.x 编号，
+    94 个编号在两层重复。前端解析 § 的顺序为
+    **本文件 → 本层 → 全局**：项目层的 § 引用通常指向同层的另一篇，
+    只查"本文件"会漏，只查"全局"会被通用层同号抢先。
+
+    层映射里额外登记**文档级章号**：把 `x` 映射到该层第 x 篇的第一个标题。
+    这样 `§9` 这类"指向整篇"的引用（项目索引"设计模式 §9"）不会因为
+    层里没有名为 `9` 的标题而落到通用层。
+    """
     files = []
-    sections = {}  # 章节编号 -> {path, anchor}，重复编号首现优先
+    sections = {}           # 章节编号 -> {path, anchor}（首现优先，跨层兜底）
+    sections_by_file = {}   # 相对路径 -> {章节编号 -> anchor}
+    sections_by_layer = {}  # 顶层目录 -> {章节编号 -> {path, anchor}}
+    doc_chapters = {}       # 顶层目录 -> {文件名前导序号 -> {path, anchor}}
     for rel in iter_docs(root):
         full = os.path.join(root, rel)
         ext = os.path.splitext(rel)[1].lower()
         content = read_text(full)
         if ext == ".md":
             headings = extract_headings(content)
+            layer = rel.split("/")[0] if "/" in rel else ""
+            local = sections_by_layer.setdefault(layer, {})
+            by_file = {}
             for h in headings:
-                if h["number"] and h["number"] not in sections:
-                    sections[h["number"]] = {"path": rel, "anchor": h["anchor"]}
+                if not h["number"]:
+                    continue
+                # 同文件/同层的重复编号只记第一次，与 DOM 里首个同名 id 一致
+                by_file.setdefault(h["number"], h["anchor"])
+                local.setdefault(h["number"], {"path": rel, "anchor": h["anchor"]})
+                sections.setdefault(h["number"], {"path": rel, "anchor": h["anchor"]})
+            sections_by_file[rel] = by_file
+            # 文档级章号：文件名 `06_Unity引擎.md` -> 章号 "6" -> 该篇第一个标题
+            name_m = re.match(r"^(\d+)_", os.path.basename(rel))
+            if name_m and headings:
+                chap = str(int(name_m.group(1)))
+                target = {"path": rel, "anchor": headings[0]["anchor"]}
+                doc_chapters.setdefault(layer, {}).setdefault(chap, target)
+                # 裸章号（§9）作为整篇引用，各层文档序号唯一，可安全进全局映射，
+                # 供"引用了另一层某篇"的场景兜底（如项目索引 → §9 设计模式）。
+                sections.setdefault(chap, target)
             files.append({
                 "type": "md",
                 "path": rel,
@@ -159,7 +264,14 @@ def build_index(root):
                 "headings": [],
             })
     files.sort(key=lambda f: (f["type"] != "md", f["path"]))
-    return {"files": files, "sections": sections}
+    # 文档级章号并入层映射：显式的小节编号优先，文档级只做兜底
+    for layer, chapters in doc_chapters.items():
+        local = sections_by_layer.setdefault(layer, {})
+        for num, target in chapters.items():
+            local.setdefault(num, target)
+    return {"files": files, "sections": sections,
+            "sectionsByFile": sections_by_file,
+            "sectionsByLayer": sections_by_layer}
 
 
 # ---------- 索引缓存：文件数 + 最大 mtime 做失效签名，避免每次请求全量重读 ----------
@@ -223,20 +335,20 @@ def search_text(root, query, per_file=5, max_files=30):
     results = []
     for rel in iter_docs(root):
         full = os.path.join(root, rel)
-        content = read_text(full)
+        content = read_text_cached(full)   # 搜索走缓存：按 mtime 失效，不再每次重读磁盘
         if q not in content.lower():
             continue
         ext = os.path.splitext(rel)[1].lower()
         is_md = ext == ".md"
         matches = []
         anchor = ""  # 当前行所属的最近小节锚点
+        # 锚点算法与 build_index 完全一致（含文件内去重）：按行号推进当前小节
+        heads = assign_anchors(clean_headings(content)) if is_md else []
+        head_i = 0
         for idx, line in enumerate(content.splitlines(), 1):
-            if is_md:
-                m = HEADING_RE.match(line)
-                if m:
-                    clean = re.sub(r"[`*_~>]", "", m.group(2)).strip()
-                    num_m = NUMBER_RE.match(clean)
-                    anchor = num_m.group(1) if num_m else slugify(clean)
+            while head_i < len(heads) and heads[head_i]["line"] <= idx:
+                anchor = heads[head_i]["anchor"]
+                head_i += 1
             if q in line.lower():
                 matches.append({"line": idx, "text": line.strip()[:200], "anchor": anchor})
                 if len(matches) >= per_file:
@@ -437,9 +549,45 @@ class ViewerHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+    def _origin_allowed(self):
+        """CSRF 防护：只接受本服务自身的页面发起的写请求。
+
+        服务虽只监听 127.0.0.1，但**浏览器里的任意网页都能向 localhost 发请求**，
+        因此必须校验 Origin / Referer；否则"一边看笔记一边逛别的站点"就可能被：
+        覆写笔记、弹出文件管理器、重启或关闭本服务（重启还能通过 --root 改写执行目录）。
+        三个条件全部满足才放行：
+          1. Origin（或 Referer）存在且其为 http://127.0.0.1:<本机端口> / localhost 同端口；
+          2. Content-Type 为 application/json —— 浏览器对简单请求（form/text/plain）
+             不会发预检，限定 JSON 可把"跨站表单提交"直接挡掉；
+          3. 非 GET 的写接口一律不接受无 Origin 的请求（老式浏览器同样挡住）。
+        """
+        origin = self.headers.get("Origin")
+        referer = self.headers.get("Referer")
+        src = origin or referer
+        if not src:
+            return False, "缺少 Origin/Referer"
+        try:
+            u = urlparse(src)
+        except ValueError:
+            return False, "Origin 无法解析"
+        host = (u.hostname or "").lower()
+        if host not in ("127.0.0.1", "localhost", "::1"):
+            return False, "来源不是本机"
+        if u.port is not None and u.port != _PORT:
+            return False, "来源端口不匹配"
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype and ctype != "application/json":
+            return False, "Content-Type 必须是 application/json"
+        return True, ""
+
     def do_POST(self):
         parsed = urlparse(self.path)
         try:
+            ok, why = self._origin_allowed()
+            if not ok:
+                self._send_json(
+                    {"error": f"拒绝写请求（{why}）：本服务仅接受本机页面发起的 JSON 请求"}, 403)
+                return
             if parsed.path == "/api/save":
                 self._save_file()
             elif parsed.path == "/api/open":
@@ -470,7 +618,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
             return {}
 
     def _save_file(self):
-        """保存文件：按原编码回写（保持行尾），写前覆盖式备份 .bak。"""
+        """保存文件：按原编码回写（保持行尾），写前轮转备份 .bak / .bak.1 / .bak.2。"""
         payload = self._read_json_body()
         rel = str(payload.get("path", ""))
         content = payload.get("content")
@@ -490,7 +638,7 @@ class ViewerHandler(BaseHTTPRequestHandler):
             return
         _, enc = read_text_enc(full)
         try:
-            shutil.copy2(full, full + ".bak")  # 写前备份
+            rotate_backup(full)  # 写前备份（保留最近 3 个版本，不再互相覆盖）
         except OSError:
             pass
         try:

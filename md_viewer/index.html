@@ -663,6 +663,8 @@
   .doc table code { white-space: nowrap; }
   .sec-ref { padding: 0 2px; border-bottom: 1px dashed var(--accent); color: var(--accent); cursor: pointer; text-decoration: none; }
   .sec-ref:hover { border-bottom-style: solid; background: var(--accent-soft); }
+  /* 被 scheme 白名单拦下的链接（renderer.js isSafeUrl）：显示为不可点击的文本 */
+  .link-blocked { color: var(--muted); text-decoration: line-through; cursor: not-allowed; }
   .flash-target { animation: flashbg 1.6s ease-out; border-radius: 4px; }
   @keyframes flashbg { 0% { background: var(--hl); } 100% { background: transparent; } }
 
@@ -1185,6 +1187,11 @@
     .doc pre { break-inside: avoid; white-space: pre-wrap; }
     .doc a { color: #0366d6; text-decoration: underline; }
     .doc details { break-inside: avoid; }
+    /* 打印时强制展开所有 <details>：否则折叠着的答案会被整段丢掉（打印/导出 PDF 的主要用途就是留档，
+     * 漏掉答案等于内容缺失）。`display: block` 覆盖浏览器对未展开 details 的默认隐藏。 */
+    .doc details > summary { list-style: none; }
+    .doc details:not([open]) > *:not(summary) { display: block !important; }
+    .doc details > *:not(summary) { display: block !important; }
   }
 </style>
 </head>
@@ -1463,6 +1470,16 @@ function loadIndex(opts) {
     var list = filteredFiles();
     if (qpath && list.some(function (f) { return f.path === qpath; })) {
       openFile(qpath, qanchor, false);
+    } else if (qpath && index.files.some(function (f) { return f.path === qpath; })) {
+      // 分享链接指向的文件被本地记住的筛选器挡在外面（如上次停在「MD」，链接是 txt）。
+      // 不能静默回首页——直接把筛选放宽到「全部」再打开，保证链接可达。
+      // 这里不用 setFilter()：它会在"当前文件被筛掉"时自动打开筛选后第一个文件，与本次直达冲突。
+      fileFilter = "all";
+      try { localStorage.setItem("mdviewer:filter", "all"); } catch (e) {}
+      syncFilterButtons();
+      renderFiles();
+      toast("该笔记不在当前筛选范围内，已切换为「全部」");
+      openFile(qpath, qanchor, false);
     } else if (qview === "review") {
       showReview({ replaceHistory: true });
     } else {
@@ -1615,16 +1632,28 @@ var currentHeadings = []; // 当前文件的标题树（tab 切换时复用）
 /* 加载骨架（请求期间的占位，避免白屏等待） */
 function showLoadingSkeleton() {
   if (!contentEl) return;
+  loadingDoc = true;   // 期间不写阅读位置（见 saveScrollPos 说明）
+  // aria-busy 必须成对：原先只在初始 HTML 里写了 aria-busy="true"、从不复位，
+  // 屏幕阅读器会一直以为正文在加载中。
+  if (contentEl.setAttribute) contentEl.setAttribute("aria-busy", "true");
   contentEl.className = "doc loading";
   contentEl.innerHTML = '<div class="sk-bar sk-title"></div><div class="sk-bar"></div><div class="sk-bar sk-mid"></div>' +
     '<div class="sk-bar sk-short"></div><div class="sk-bar sk-mid"></div><div class="sk-bar"></div><div class="sk-bar sk-short"></div>' +
     '<span class="visually-hidden">加载中…</span>';
 }
+/* 注意：loadingDoc / openSeq 在下方「滚动位置记忆」段声明。
+ * 这里是 var 提升（函数级作用域），赋值在首次调用前必然已执行；见 saveScrollPos 上方。 */
+
+/* 打开文件的请求序号：并发导航时丢弃过期响应。
+ * 场景：快速连点两个目录项 → 先发出的请求可能后返回，会把"后点的那个"覆盖掉；
+ * 且 jumpSearch 之类的调用会在 then 里继续高亮/定位，作用到错误的文件上。 */
+var openSeq = 0;
 
 function openFile(path, anchor, flash, opts) {
   var file = index.files.filter(function (f) { return f.path === path; })[0];
   if (!file) return Promise.resolve(null);
   if (editing && !exitEditMode(false)) return Promise.resolve(null); // 有未保存修改时先确认
+  var seq = ++openSeq;
   var wasDocument = viewMode === "document";
   if (!wasDocument) showDocumentView();
   else saveScrollPos(); // 切换前记住当前阅读位置
@@ -1633,6 +1662,8 @@ function openFile(path, anchor, flash, opts) {
   showLoadingSkeleton();
   return fetch("/api/file?path=" + encodeURIComponent(path)).then(function (r) { return r.json(); })
     .then(function (data) {
+      if (seq !== openSeq) return null;   // 已被更晚的请求取代，直接丢弃
+      loadingDoc = false;
       if (data.error) { showError(data.error); return null; }
       current = data;
       try { localStorage.setItem("mdviewer:last", path); } catch (e) {}
@@ -1649,8 +1680,9 @@ function openFile(path, anchor, flash, opts) {
       if (!histReady) {
         histReady = true;
         histStack = [{ path: data.path, anchor: anchor || "", scroll: prevScroll }];
+        histBase = 0;
         histIndex = 0;
-        try { history.replaceState({ i: 0 }, "", histUrl(data.path, anchor)); } catch (e) {}
+        try { history.replaceState({ i: histAbsIndex() }, "", histUrl(data.path, anchor)); } catch (e) {}
       } else if (!(opts && opts.pushHistory === false)) {
         pushHistory(prevPath, prevScroll, data.path, anchor || "");
       }
@@ -1663,9 +1695,15 @@ function openFile(path, anchor, flash, opts) {
       else if (!(opts && opts.skipRestore)) doubleRaf(restoreScrollPos);
       return data;
     })
-    .catch(function (e) { showError(e.message); return null; });
+    .catch(function (e) {
+      if (seq !== openSeq) return null;   // 过期请求的失败同样忽略
+      loadingDoc = false;
+      showError(e.message);
+      return null;
+    });
 }
 function renderContent(data) {
+  if (contentEl && contentEl.setAttribute) contentEl.setAttribute("aria-busy", "false");
   clearHighlights();
   clearFindHighlights();
   if (findBarVisible()) $("find-count").textContent = "";
@@ -1938,7 +1976,10 @@ function refreshNodeProgress() {
     var item = pros[i].closest ? pros[i].closest(".toc-item") : null;
     if (!item) continue;
     var all = item.querySelectorAll(".mark-badge");
-    var own = item.querySelector(".toc-row .mark-badge");
+    // 只排除"标题自身那一行"的圆点（叶子标题才有）。父标题行里放的是 .node-prog，
+    // 所以这里必须限定在当前行的直接子级——否则父节点的 querySelector 会命中
+    // 第一个子知识点的圆点，把它误当"自身"跳过，导致分子分母同时少 1。
+    var own = item.querySelector(":scope > .toc-row .mark-badge");
     var done = 0, review = 0, weak = 0, total = 0;
     for (var j = 0; j < all.length; j++) {
       if (own && all[j] === own) continue; // 排除标题自身（只看子知识点）
@@ -2068,14 +2109,13 @@ $("tab-toc").addEventListener("keydown", function (e) {
   if (chev && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); chev.click(); }
 });
 function scrollToAnchor(anchor, flash) {
+  // 只按 id 精确匹配。原实现有一个"标题文本包含 anchor 子串"的兜底，它会：
+  //   ① 把错误锚点变成一次**错误的跳转**（如 ?anchor=C 会命中第一个含 C 的标题）；
+  //   ② 掩盖真正的失败（锚点失效时不再报错，难以定位）。
+  // 现在服务端的三级解析（本文件 → 本层 → 全局）+ 前后端一致的锚点规则
+  // 已保证 id 一定能匹配上，因此不需要子串兜底，找不到就如实提示。
   var target = document.getElementById(anchor);
-  if (!target) {
-    var hd = document.querySelectorAll(".doc h1,.doc h2,.doc h3,.doc h4");
-    for (var i = 0; i < hd.length; i++) {
-      if (hd[i].textContent.replace(/\s+/g, "").indexOf(anchor) >= 0) { target = hd[i]; break; }
-    }
-  }
-  if (!target) { toast("未找到目标小节"); return; }
+  if (!target) { toast("未找到目标小节：" + anchor); return; }
   expandTocTo(anchor); // 显式导航时展开被折叠的祖先标题
   lockSpyTo(anchor);   // 立即高亮目标并锁定滚动跟随，避免平滑滚动途中逐节跳变
   target.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
@@ -2092,7 +2132,7 @@ function updateCrumb(data) {
   $("crumb-path").textContent = dir;
   $("crumb-file").textContent = data.name;
 }
-function showError(msg) { contentEl.className = "doc error"; contentEl.innerHTML = "<p>加载失败：" + Renderer.esc(msg) + "</p>"; }
+function showError(msg) { contentEl.className = "doc error"; if (contentEl.setAttribute) contentEl.setAttribute("aria-busy", "false"); contentEl.innerHTML = "<p>加载失败：" + Renderer.esc(msg) + "</p>"; }
 function doubleRaf(fn) { requestAnimationFrame(function () { requestAnimationFrame(fn); }); }
 /* 平滑滚动：系统开启「减少动态效果」时退化为瞬时定位 */
 function scrollBehavior() {
@@ -2217,7 +2257,13 @@ function updateTocIndicator() {
 /* ============================== 滚动位置记忆 ============================== */
 var scrollPos = {};
 try { scrollPos = JSON.parse(localStorage.getItem("mdviewer:scroll") || "{}"); } catch (e) { scrollPos = {}; }
+/* 加载骨架期间禁止写阅读位置：
+ * 骨架会让 #main 的 scrollHeight 骤降，浏览器把 scrollTop 钳到 0 并触发 scroll 事件；
+ * 而防抖 250ms 后的 saveScrollPos() 读到的 current 仍是**旧文件**（新内容还没到），
+ * 于是旧文件的记忆位置被写成 0。只要请求慢于 ~250ms 就会发生。 */
+var loadingDoc = false;
 function saveScrollPos() {
+  if (loadingDoc) return;
   if (!current || !mainEl || typeof mainEl.scrollTop !== "number") return;
   scrollPos[current.path] = mainEl.scrollTop;
   try { localStorage.setItem("mdviewer:scroll", JSON.stringify(scrollPos)); } catch (e) {}
@@ -2351,6 +2397,12 @@ if (typeof window !== "undefined" && window.addEventListener) {
 var histStack = [];
 var histIndex = -1;
 var histReady = false;
+/* 历史栈被 shift() 截断时，数组下标会整体左移，而**已经压入浏览器的 state.i 不会跟着变**
+ * → 超过 200 次导航后，popstate 用旧 i 取到的是相邻的另一个文档/小节。
+ * 解法：histBase 记录"已被丢弃的条目数"，state 里存**绝对序号**（histBase + 下标），
+ * popstate 再用 绝对序号 - histBase 还原成当前数组下标。 */
+var histBase = 0;
+function histAbsIndex() { return histBase + histIndex; }
 function histUrl(path, anchor) {
   return "?path=" + encodeURIComponent(path) + (anchor ? "&anchor=" + encodeURIComponent(anchor) : "");
 }
@@ -2359,18 +2411,19 @@ function pushHistory(prevPath, prevScroll, path, anchor) {
   if (top && top.path === prevPath) top.scroll = prevScroll;
   if (top && top.path === path && (top.anchor || "") === (anchor || "")) {
     // 重复导航到同一位置：合并为 replace，避免历史堆叠
-    try { history.replaceState({ i: histIndex }, "", histUrl(path, anchor)); } catch (e) {}
+    try { history.replaceState({ i: histAbsIndex() }, "", histUrl(path, anchor)); } catch (e) {}
     return;
   }
   if (histIndex < histStack.length - 1) histStack.length = histIndex + 1; // 截断前进分支
   histStack.push({ path: path, anchor: anchor || "" });
   histIndex = histStack.length - 1;
-  if (histStack.length > 200) { histStack.shift(); histIndex--; }
-  try { history.pushState({ i: histIndex }, "", histUrl(path, anchor)); } catch (e) {}
+  if (histStack.length > 200) { histStack.shift(); histIndex--; histBase++; }
+  try { history.pushState({ i: histAbsIndex() }, "", histUrl(path, anchor)); } catch (e) {}
 }
 if (typeof window !== "undefined" && window.addEventListener) {
   window.addEventListener("popstate", function (e) {
-    var i = (e && e.state && typeof e.state.i === "number") ? e.state.i : -1;
+    var abs = (e && e.state && typeof e.state.i === "number") ? e.state.i : -1;
+    var i = abs >= 0 ? abs - histBase : -1;   // 绝对序号 -> 当前数组下标
     if (histReady && i >= 0 && i < histStack.length && i !== histIndex) {
       var entry = histStack[i];
       histIndex = i;
@@ -2508,6 +2561,14 @@ function mergeReviewEvents(incomingEvents) {
   return { added: added, invalid: invalid };
 }
 /* 导入后统一刷新全部进度相关视图（与 setMark 的刷新链一致） */
+/* 首页/复习页的"待重绘"标记。
+ * 背景：一次标记（setMark）会调用 8 个刷新函数，其中 renderHomePage 与
+ * renderReviewPage 各自全量扫描"文件 × 标题"并重建整块 DOM（首页还含 371 格热力图）。
+ * 但在文档页标记时这两个页面是**隐藏的**，重绘完全看不见 → 纯浪费。
+ * 现在：隐藏时只置脏标记，等 activateWorkbenchView 真正切过去时再渲染一次。 */
+var homeDirty = false, reviewDirty = false;
+function markWorkbenchDirty() { homeDirty = true; reviewDirty = true; }
+
 function refreshProgressViews() {
   refreshTocMarks();
   refreshNodeProgress();
@@ -2542,25 +2603,73 @@ function exportProgress() {
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   toast("已导出 " + payload.count + " 条标记 · " + payload.events_count + " 条复习事件");
 }
+/* 校验导入文件的"信封"：只接受本查看器导出的格式（或裸 marks 映射）。
+ * 原实现只判断 data.marks 是否为对象，其余一律把整个 data 当 marks →
+ * 任意 JSON（如 {"foo":"done"}）都能写进 marks，堆出一批永不显示也永不回收的垃圾键。 */
+function validateProgressPayload(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { ok: false, why: "不是 JSON 对象" };
+  }
+  var hasEnvelope = data.app !== undefined || data.version !== undefined || data.type !== undefined;
+  if (hasEnvelope) {
+    // 导出格式（见 exportProgress）：{ app:"mdviewer", type:"review-progress", version:1, marks, events }
+    if (data.type !== undefined && data.type !== "review-progress") {
+      return { ok: false, why: "不是本查看器导出的进度文件" };
+    }
+    if (data.app !== undefined && data.app !== "mdviewer") {
+      return { ok: false, why: "文件来自其它应用" };
+    }
+    if (data.marks !== undefined &&
+        (typeof data.marks !== "object" || data.marks === null || Array.isArray(data.marks))) {
+      return { ok: false, why: "marks 字段格式不正确" };
+    }
+  }
+  var marksObj = (data.marks !== undefined) ? data.marks : data;
+  if (!marksObj || typeof marksObj !== "object" || Array.isArray(marksObj)) {
+    return { ok: false, why: "缺少进度数据（marks）" };
+  }
+  return { ok: true, marks: marksObj, events: Array.isArray(data.events) ? data.events : [] };
+}
+
+/* 回收"孤儿标记"：path 已不存在、或该 (path, anchor) 不在当前索引里的键。
+ * 保留已打开但已删除文件的标记没有意义（界面永远看不到），却会长期占用 localStorage。 */
+function pruneMarks() {
+  if (!index || !index.files) return 0;
+  var valid = {};
+  index.files.forEach(function (f) {
+    (f.headings || []).forEach(function (h) { if (h.anchor) valid[f.path + "|" + h.anchor] = 1; });
+  });
+  var removed = 0;
+  Object.keys(marks).forEach(function (k) {
+    if (!valid[k]) { delete marks[k]; removed++; }
+  });
+  return removed;
+}
+
 function importProgressFile(file) {
   if (!file) return;
   if (typeof FileReader === "undefined") { toast("当前环境不支持文件导入"); return; }
   var reader = new FileReader();
   reader.onload = function () {
+    var data;
     try {
-      var data = JSON.parse(String(reader.result));
-      var incoming = (data && data.marks && typeof data.marks === "object" && !Array.isArray(data.marks)) ? data.marks : data;
-      var r = mergeMarks(incoming);
-      if (!r.ok) { toast("导入失败：文件格式不正确"); return; }
-      var er = (data && Array.isArray(data.events)) ? mergeReviewEvents(data.events) : { added: 0, invalid: 0 };
-      refreshProgressViews();
-      toast("导入完成：新增 " + r.added + " · 更新 " + r.updated +
-        (r.cleared ? " · 清除 " + r.cleared : "") +
-        (r.invalid ? " · 忽略 " + r.invalid : "") +
-        " · 复习事件 +" + er.added);
+      data = JSON.parse(String(reader.result));
     } catch (err) {
       toast("导入失败：不是有效的 JSON 文件");
+      return;
     }
+    var v = validateProgressPayload(data);
+    if (!v.ok) { toast("导入失败：" + v.why); return; }
+    var orphan = pruneMarks();   // 先清掉本地的孤儿标记，再合并导入内容
+    var r = mergeMarks(v.marks);
+    if (!r.ok) { toast("导入失败：文件格式不正确"); return; }
+    var er = mergeReviewEvents(v.events);
+    refreshProgressViews();
+    toast("导入完成：新增 " + r.added + " · 更新 " + r.updated +
+      (r.cleared ? " · 清除 " + r.cleared : "") +
+      (r.invalid ? " · 忽略 " + r.invalid : "") +
+      (orphan ? " · 回收孤儿 " + orphan : "") +
+      " · 复习事件 +" + er.added);
   };
   reader.onerror = function () { toast("导入失败：文件读取错误"); };
   reader.readAsText(file, "utf-8");
@@ -2831,14 +2940,15 @@ function activateWorkbenchView(view, pageId, renderer, options) {
   if (options.replaceHistory || !histReady) {
     histReady = true;
     histStack = [{ view: view }];
+    histBase = 0;
     histIndex = 0;
-    try { history.replaceState({ i: 0, view: view }, "", workspaceUrl(view)); } catch (e) {}
+    try { history.replaceState({ i: histAbsIndex(), view: view }, "", workspaceUrl(view)); } catch (e) {}
   } else if (!sameView) {
     if (histIndex < histStack.length - 1) histStack.length = histIndex + 1;
     histStack.push({ view: view });
     histIndex = histStack.length - 1;
-    if (histStack.length > 200) { histStack.shift(); histIndex--; }
-    try { history.pushState({ i: histIndex, view: view }, "", workspaceUrl(view)); } catch (e) {}
+    if (histStack.length > 200) { histStack.shift(); histIndex--; histBase++; }
+    try { history.pushState({ i: histAbsIndex(), view: view }, "", workspaceUrl(view)); } catch (e) {}
   }
   return true;
 }
@@ -2867,6 +2977,9 @@ function homeResumeFile() {
 function renderHomePage() {
   var el = $("home-page");
   if (!el || !index) return;
+  // 隐藏时不重绘，只置脏：切回首页时 activateWorkbenchView 会再调一次本函数
+  if (viewMode !== "home") { homeDirty = true; return; }
+  homeDirty = false;
   var data = collectStatsData(), pending = reviewItems(), resume = homeResumeFile();
   var esc = Renderer.esc, escAttr = Renderer.escAttr;
   var mastery = statsPercent(data.done, data.total);
@@ -2968,6 +3081,9 @@ function renderHomePage() {
 function renderReviewPage() {
   var el = $("review-page");
   if (!el || !index) return;
+  // 同 renderHomePage：隐藏时只置脏，切到复习页时再渲染
+  if (viewMode !== "review") { reviewDirty = true; return; }
+  reviewDirty = false;
   var items = reviewItems(), esc = Renderer.esc, escAttr = Renderer.escAttr;
   var weakCount = items.filter(function (item) { return item.state === "weak"; }).length;
   var rows = items.map(function (item) {
@@ -3189,14 +3305,53 @@ function revealCurrent() {
 $("reveal-btn").addEventListener("click", revealCurrent);
 
 /* ============================== § 跨文件跳转 ============================== */
-function jumpToSection(sec) {
-  var hit = index.sections[sec];
-  if (!hit) {
-    var parts = sec.split(".");
-    while (parts.length > 1 && !hit) { parts.pop(); hit = index.sections[parts.join(".")]; }
+/* 章节编号解析顺序（每层都支持编号前缀回落，如 §2.2.2 → §2.2 → §2）：
+ *   1) 本文件  index.sectionsByFile[当前文件]  —— 同文件内引用
+ *   2) 本层    index.sectionsByLayer[顶层目录] —— 项目层的 § 多指向同层另一篇
+ *   3) 全局    index.sections                  —— 真正的跨层引用（首现优先）
+ * 两套笔记并行使用 1.x~8.x 编号（94 个重号），只查"全局"会让项目层的
+ * § 引用跳到通用层同名编号章节，这正是 P0-1 修复的根因。 */
+function lookupSection(sec, root, allowChapter) {
+  if (!root) return null;
+  var hit = root[sec];
+  if (hit) return hit;
+  var parts = sec.split(".");
+  // 逐级前缀回落：§2.2.2 → §2.2 → §2。
+  // 裸章号（§2）只在 allowChapter 时命中——本文件/本层理解为"本层第 2 篇"，
+  // 全局映射里 §2 会撞上通用层的同号章节，所以全局兜底不允许裸章号。
+  var min = allowChapter ? 1 : 2;
+  while (parts.length > min) {
+    parts.pop();
+    hit = root[parts.join(".")];
+    if (hit) return hit;
   }
-  if (!hit) { toast("未找到 §" + sec); return; }
-  openFile(hit.path, hit.anchor, true);
+  return null;
+}
+function sectionLookupRoots() {
+  var roots = [];
+  var path = current && current.path;
+  if (path) {
+    if (index.sectionsByFile && index.sectionsByFile[path]) roots.push({ root: index.sectionsByFile[path], chapter: true });
+    var layer = path.indexOf("/") >= 0 ? path.split("/")[0] : "";
+    if (index.sectionsByLayer && index.sectionsByLayer[layer]) roots.push({ root: index.sectionsByLayer[layer], chapter: true });
+  }
+  if (index.sections) roots.push({ root: index.sections, chapter: false });
+  // 最后才允许全局裸章号（§9 → 另一层的第 9 篇整篇）
+  if (index.sections) roots.push({ root: index.sections, chapter: true });
+  return roots;
+}
+function jumpToSection(sec) {
+  var roots = sectionLookupRoots();
+  for (var i = 0; i < roots.length; i++) {
+    var hit = lookupSection(sec, roots[i].root, roots[i].chapter);
+    if (!hit) continue;
+    // 本文件命中：sectionsByFile 的值就是锚点字符串
+    if (typeof hit === "string") { navigateAnchor(hit, true); return; }
+    if (current && hit.path === current.path) { navigateAnchor(hit.anchor, true); return; }
+    openFile(hit.path, hit.anchor, true);
+    return;
+  }
+  toast("未找到 §" + sec);
 }
 contentEl.addEventListener("click", function (e) {
   var a = e.target && typeof e.target.closest === "function" ? e.target.closest("a") : null;
@@ -3399,8 +3554,17 @@ function handleEscape() {
   if (helpVisible()) { hideHelp(); return true; }
   return false;
 }
-function handleGlobalKey(e) {
-  if (!e || !e.key) return;
+/* 是否有弹层/下拉/菜单处于打开状态。
+ * 用于让单键快捷键在弹层打开时"让路"，避免操作到背后的页面。 */
+function anyOverlayOpen() {
+  var ids = ["help-overlay", "svc-drop", "mobile-more-menu", "random-menu", "mark-menu"];
+  for (var i = 0; i < ids.length; i++) {
+    var el = $(ids[i]);
+    if (el && el.classList && !el.classList.contains("hidden")) return true;
+  }
+  return false;
+}
+function handleGlobalKey(e) {  if (!e || !e.key) return;
   var target = e.target || document.activeElement;
   var typing = isTypingTarget(target);
   var mod = e.ctrlKey || e.metaKey;
@@ -3448,6 +3612,9 @@ function handleGlobalKey(e) {
   }
   // 以下为无修饰单键：输入态一律不拦截
   if (typing || mod || e.altKey) return;
+  // 弹层打开时不响应单键快捷键（否则在帮助/服务面板/掌握度菜单上按 t、1、r 会操作到背后的页面）。
+  // Esc 已在上方统一分层处理，不受这里影响。
+  if (anyOverlayOpen()) return;
   if (e.key === "/") { e.preventDefault(); searchInput.focus(); return; }
   if (e.key === "?") { e.preventDefault(); helpVisible() ? hideHelp() : showHelp(); return; }
   if (e.key === "[") { e.preventDefault(); jumpAdjacentSection(-1); return; }
@@ -3721,32 +3888,74 @@ var savedW = null;
 try { savedW = parseInt(localStorage.getItem("mdviewer:sidebar-w"), 10); } catch (e) {}
 if (savedW && savedW > 0) applySidebarWidth(savedW);
 
-$("resizer").addEventListener("pointerdown", function (e) {
+/* 统一的拖拽监听：pointerdown 时挂载，pointerup **或 pointercancel** 时摘除。
+ * 原实现只监听 pointerup：在窗口外松开、或触摸/笔被系统取消时，监听器永久驻留，
+ * body.resizing 也不再清除 —— 之后任何鼠标移动都会继续改宽度，再次拖拽还会再叠一对监听。
+ * 这里额外做两件事：
+ *   ① setPointerCapture：把指针事件锁定到该元素，窗口外也能收到 pointerup；
+ *   ② 兜底检查 ev.buttons —— 若按键已释放（说明 pointerup 丢了）就立即收尾。 */
+function beginDrag(handle, handlers) {
+  if (!handle || !handle.addEventListener) return;
+  handle.addEventListener("pointerdown", function (e) {
+    if (e.button !== undefined && e.button !== 0) return;   // 只响应左键/触摸
+    if (e.preventDefault) e.preventDefault();
+    var pid = e.pointerId;
+    var done = false;
+    function cleanup() {
+      if (done) return;
+      done = true;
+      if (typeof window !== "undefined" && window.removeEventListener) {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", cleanup);
+        window.removeEventListener("pointercancel", cleanup);
+      }
+      if (pid !== undefined && handle.releasePointerCapture &&
+          handle.hasPointerCapture && handle.hasPointerCapture(pid)) {
+        try { handle.releasePointerCapture(pid); } catch (err) {}
+      }
+      if (handlers.onEnd) handlers.onEnd();
+    }
+    function onMove(ev) {
+      // 按键已松开却没收到 pointerup（如指针移出窗口）→ 立即收尾，避免"粘住"
+      if (ev.buttons !== undefined && ev.buttons === 0) { cleanup(); return; }
+      handlers.onMove(ev);
+    }
+    if (pid !== undefined && handle.setPointerCapture) {
+      try { handle.setPointerCapture(pid); } catch (err) {}
+    }
+    if (handlers.onStart) handlers.onStart(e);
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", cleanup);
+      window.addEventListener("pointercancel", cleanup);
+    }
+  });
+}
+
+$("resizer").addEventListener("pointerdown", function () {
   if (document.body && document.body.classList) document.body.classList.remove("sidebar-collapsed");
-  if (e.preventDefault) e.preventDefault();
-  var startX = e.clientX;
-  var startW = sidebarEl && typeof sidebarEl.getBoundingClientRect === "function"
-    ? sidebarEl.getBoundingClientRect().width : 480;
-  if (document.body && document.body.classList) document.body.classList.add("resizing");
-  var layoutEl = sidebarEl ? sidebarEl.parentElement : null;
-  function onMove(ev) {
-    var w = startW + (ev.clientX - startX);
-    var layoutW = layoutEl && typeof layoutEl.getBoundingClientRect === "function"
-      ? layoutEl.getBoundingClientRect().width : 0;
-    var maxW = layoutW > 0 ? Math.max(240, Math.min(900, layoutW * 0.75)) : 900;
-    applySidebarWidth(Math.max(240, Math.min(maxW, w)));
-  }
-  function onUp() {
+});
+var resizerOnMove = null;
+beginDrag($("resizer"), {
+  onStart: function (e) {
+    var startX = e.clientX;
+    var startW = sidebarEl && typeof sidebarEl.getBoundingClientRect === "function"
+      ? sidebarEl.getBoundingClientRect().width : 480;
+    var layoutEl = sidebarEl ? sidebarEl.parentElement : null;
+    if (document.body && document.body.classList) document.body.classList.add("resizing");
+    resizerOnMove = function (ev) {
+      var w = startW + (ev.clientX - startX);
+      var layoutW = layoutEl && typeof layoutEl.getBoundingClientRect === "function"
+        ? layoutEl.getBoundingClientRect().width : 0;
+      var maxW = layoutW > 0 ? Math.max(240, Math.min(900, layoutW * 0.75)) : 900;
+      applySidebarWidth(Math.max(240, Math.min(maxW, w)));
+    };
+  },
+  onMove: function (ev) { if (resizerOnMove) resizerOnMove(ev); },
+  onEnd: function () {
+    resizerOnMove = null;
     if (document.body && document.body.classList) document.body.classList.remove("resizing");
     collectHeadingPositions(); // 宽度变化会改变正文换行，重新测量标题偏移
-    if (typeof window !== "undefined" && window.removeEventListener) {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    }
-  }
-  if (typeof window !== "undefined" && window.addEventListener) {
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
   }
 });
 $("resizer").addEventListener("keydown", function (e) {
@@ -3774,28 +3983,24 @@ try { savedSplit = parseInt(localStorage.getItem("mdviewer:col-split"), 10); } c
 /* 旧版默认 54%（目录列偏窄，深层标题被挤成省略号）；存着旧默认值说明用户没自定义过，按新默认 46% 处理 */
 if (savedSplit && savedSplit >= 28 && savedSplit <= 72 && savedSplit !== 54) applyColSplit(savedSplit);
 
-$("col-resizer").addEventListener("pointerdown", function (e) {
-  if (e.preventDefault) e.preventDefault();
-  var startX = e.clientX;
-  var splitW = splitEl && typeof splitEl.getBoundingClientRect === "function"
-    ? splitEl.getBoundingClientRect().width : 1;
-  var startPct = splitW > 0 && colFilesEl && typeof colFilesEl.getBoundingClientRect === "function"
-    ? colFilesEl.getBoundingClientRect().width / splitW * 100 : 54;
-  if (document.body && document.body.classList) document.body.classList.add("resizing");
-  function onMove(ev) {
-    applyColSplit(startPct + (ev.clientX - startX) / splitW * 100);
-  }
-  function onUp() {
+var colOnMove = null;
+beginDrag($("col-resizer"), {
+  onStart: function (e) {
+    var startX = e.clientX;
+    var splitW = splitEl && typeof splitEl.getBoundingClientRect === "function"
+      ? splitEl.getBoundingClientRect().width : 1;
+    var startPct = splitW > 0 && colFilesEl && typeof colFilesEl.getBoundingClientRect === "function"
+      ? colFilesEl.getBoundingClientRect().width / splitW * 100 : 54;
+    if (document.body && document.body.classList) document.body.classList.add("resizing");
+    colOnMove = function (ev) {
+      applyColSplit(startPct + (ev.clientX - startX) / splitW * 100);
+    };
+  },
+  onMove: function (ev) { if (colOnMove) colOnMove(ev); },
+  onEnd: function () {
+    colOnMove = null;
     if (document.body && document.body.classList) document.body.classList.remove("resizing");
     collectHeadingPositions(); // 列宽变化会改变正文换行，重新测量标题偏移
-    if (typeof window !== "undefined" && window.removeEventListener) {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    }
-  }
-  if (typeof window !== "undefined" && window.addEventListener) {
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
   }
 });
 $("col-resizer").addEventListener("keydown", function (e) {
@@ -4006,7 +4211,7 @@ function hideSvcConfirm() {
 function doRestartService() {
   var oldPid = svcStatusCache && svcStatusCache.pid;
   showBoot("loading", "服务正在重启中…", "旧进程正在退出，新服务就绪后页面会自动恢复");
-  fetch("/api/service/restart", { method: "POST" }).then(function (r) { return r.json(); })
+  fetch("/api/service/restart", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then(function (r) { return r.json(); })
     .then(function (data) {
       if (data && data.error) {
         showBoot("error", "重启失败", String(data.error), true);
@@ -4034,7 +4239,7 @@ function doRestartService() {
 }
 function doShutdownService() {
   showBoot("loading", "服务正在关闭…", "正在通知本地服务退出");
-  fetch("/api/service/shutdown", { method: "POST" }).then(function () { showStopped(); })
+  fetch("/api/service/shutdown", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then(function () { showStopped(); })
     .catch(function () { showStopped(); }); // 连接被断开同样说明服务正在退出
 }
 function showStopped() {

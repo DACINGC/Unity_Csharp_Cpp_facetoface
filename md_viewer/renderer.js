@@ -61,7 +61,23 @@
   /* 链接分类：
    *   #锚点        -> 同文件内跳转（data-anchor-link）
    *   *.md / *.txt -> 跨文件跳转（data-file-link + data-anchor-link）
-   *   其余          -> 外部链接（新标签打开） */
+   *   其余          -> 外部链接（新标签打开，仅放行安全 scheme）
+   *
+   * 安全：对链接目标做 **scheme 白名单**。笔记是本地文件，理论上可由同步工具/他人写入，
+   * 若原样放行 `javascript:` / `data:text/html` / `vbscript:` / `file:`，渲染出来就是一个
+   * 可点击的危险链接（`javascript:` + target=_blank 是否执行取决于浏览器，但不值得赌）。
+   * 允许：http、https、mailto、tel 与"无 scheme 的相对路径"；其余一律降级为不可点击的文本。 */
+  var SAFE_SCHEMES = { "http:": 1, "https:": 1, "mailto:": 1, "tel:": 1 };
+  function linkScheme(url) {
+    // 只认"字母开头 + 冒号"的真正 scheme；同时排除 `a:b` 这种被当路径的相对写法里的常见误判
+    var m = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(url);
+    return m ? m[1].toLowerCase() + ":" : "";
+  }
+  function isSafeUrl(url) {
+    var scheme = linkScheme(url);
+    if (!scheme) return true;                       // 相对路径 / 锚点式路径，安全
+    return Object.prototype.hasOwnProperty.call(SAFE_SCHEMES, scheme);
+  }
   function linkHref(url) {
     var u = String(url).trim();
     if (u.charAt(0) === "#") {
@@ -73,6 +89,11 @@
         href: "?path=" + encodeURIComponent(parts[0]) + (parts[1] ? "#" + parts[1] : ""),
         attrs: ' data-file-link="' + escAttr(parts[0]) + '" data-anchor-link="' + escAttr(parts[1] || "") + '"'
       };
+    }
+    if (!isSafeUrl(u)) {
+      // 危险 scheme：标记为不可点击，由 renderInline 渲染成 <span>（不是 <a href="">，
+      // 后者点击会重新加载页面，仍是一次意外跳转）
+      return { href: "", attrs: ' class="link-blocked" title="出于安全考虑，已阻止该链接协议"', blocked: true };
     }
     return { href: escAttr(u), attrs: ' target="_blank" rel="noopener"' };
   }
@@ -104,7 +125,10 @@
       var l = links[+i];
       if (!l) return m;
       var t = linkHref(l.url);
-      return '<a href="' + t.href + '"' + t.attrs + ">" + renderInlineText(l.label, true) + "</a>";
+      var label = renderInlineText(l.label, true);
+      // 危险 scheme：渲染成不可点击的 span，避免 <a href=""> 被点后重新加载页面
+      if (t.blocked) return "<span" + t.attrs + ">" + label + "</span>";
+      return '<a href="' + t.href + '"' + t.attrs + ">" + label + "</a>";
     });
     // 7. 还原行内代码
     html = html.replace(/\uE000(\d+)\uE001/g, function (m, i) { return codes[+i]; });
@@ -175,11 +199,21 @@
   function isSeparatorRow(l) { return /^\|?[\s:|-]+\|?\s*$/.test(l.trim()); }
   function isListLine(l) { return /^(\s*)([-*+]|\d+[.)])\s+/.test(l); }
 
+  /* 文件内唯一的标题 id：重复标题依次追加 -2 / -3 …
+   * 与服务端 mdviewer.assign_anchors 同规则（带编号的标题在编号后追加，如 1.1-2），
+   * 保证目录 data-anchor / § 解析拿到的 id 一定能在文档里找到。 */
+  function uniqueAnchor(used, base) {
+    var n = used[base] || 0;
+    used[base] = n + 1;
+    return n === 0 ? base : base + "-" + (n + 1);
+  }
+
   function renderMarkdown(md) {
     var lines = md.split(/\r\n|\r|\n/);
     var out = [];
     var n = lines.length;
     var i = 0;
+    var idUsed = {}; // 标题 id 去重（见 uniqueAnchor）
 
     while (i < n) {
       var line = lines[i];
@@ -232,7 +266,7 @@
         var raw = hm[2];
         var clean = raw.replace(/[`*_~>]/g, "").trim();
         var numM = /^(\d+(?:\.\d+)*)/.exec(clean);
-        var anchor = numM ? numM[1] : slugify(clean);
+        var anchor = uniqueAnchor(idUsed, numM ? numM[1] : slugify(clean));
         out.push("<h" + level + ' id="' + escAttr(anchor) + '">' + renderInline(raw) + "</h" + level + ">");
         i++;
         continue;
