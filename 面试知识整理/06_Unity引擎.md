@@ -5,19 +5,20 @@
 ### 6.1.1 生命周期函数执行顺序
 
 ```
-Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
+Awake → OnEnable → Start → FixedUpdate → Update → LateUpdate → OnGUI
      → OnDisable → OnDestroy
 ```
 
-（编辑器下还有 Reset，在 Awake 之前；脚本每次进入 Play 模式时执行。）
+- 关键：**每帧先做物理步进（FixedUpdate，一帧 0/1/多次），再执行 Update**。官方执行顺序流程图即 FixedUpdate → Update → LateUpdate。
+- （编辑器下还有 `Reset`：**首次添加组件或 Inspector 右键 Reset 时**触发，用于给出默认值；与进入 Play 模式无关。）
 
 | 函数 | 触发时机与用途 |
 | --- | --- |
 | Awake | 对象实例化时执行一次（用于初始化）；即使脚本未启用也会调用 |
 | OnEnable | 每次对象/脚本启用时调用；同一生命周期中**可反复发生** |
 | Start | 第一次 Update 前调用一次（用于获取初始值、启动协程） |
+| FixedUpdate | 固定时间步长调用（**每帧先于 Update**），适合物理计算 |
 | Update | 每帧调用（与帧率相关），适合逻辑控制 |
-| FixedUpdate | 固定时间步长调用，适合物理计算 |
 | LateUpdate | 所有 Update 之后调用，适合相机跟随等 |
 | OnGUI | 每帧绘制 GUI（效率低） |
 | OnDisable | 对象/脚本失活时调用 |
@@ -32,7 +33,7 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 
 - 场景（Scene）与预制体（Prefab）在磁盘上都是**序列化数据**（YAML 文本，编辑器可见）；运行时 Unity 把它们**反序列化**成内存里的对象图（GameObject/Component 树），而不是"逐行解析执行"的配置脚本。
 - 预制体 = **可复用的对象模板**：把一个对象树连同组件及序列化字段值保存为资产，`Instantiate()` 即按该数据反序列化出副本；场景则保存整棵世界对象树。二者本质是**同一套序列化机制**，区别只在规模与复用方式。
-- C# 序列化/反序列化的通用概念见 §1.10.3。
+- C# 序列化/反序列化的通用概念见 §1.11.3。
 
 **为什么脚本类名必须与文件名一致（常被追问"为什么"）**：
 
@@ -61,7 +62,7 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 | 对比项 | Mono | IL2CPP |
 | --- | --- | --- |
 | 编译流程 | C# → IL（中间语言/CLR 字节码）→ 各平台 Mono 虚拟机解释/编译为机器码 | C# → IL → 转成 **C++ 代码** → 由各平台 C++ 编译器（AOT）编译为机器码 |
-| 性能 | 相对较低（虚拟机运行时开销、GC 更频繁） | 更高（AOT 机器码，更接近原生性能，GC 更可控） |
+| 性能 | 相对较低（虚拟机运行时开销） | 更高（AOT 机器码，更接近原生性能） |
 | 包体/启动 | 需打包 Mono 运行时（跨平台库），包体大 | 不含运行时，包体更小、启动更快 |
 | 反编译 | 可通过 **ILSpy** 等工具反编译 IL，易被破解 | 编译为原生机器码，**难以反编译**（安全性更好） |
 | 兼容性 | 对 C# 特性（如 `System.Reflection.Emit` 动态生成代码）支持更好 | 不支持运行时动态生成 IL/反射 Emit（代码裁剪需处理） |
@@ -117,7 +118,9 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 
 ### 6.2.7 链条关节（Hinge Joint）
 
-- 模拟两个物体间用一根链条/铰链连接的情况：能保持两个物体在一个固定距离内相互移动而不产生作用力，**达到固定距离后产生拉力**（简单理解：像弹簧/铰链）。
+- **HingeJoint（铰链关节）**：把两个刚体约束成**绕同一条共享轴转动**，像门轴/合页。可配置 **Motor**（绕轴施加转速或力矩）、**Limits**（限制转角范围）、**Spring**（绕轴回弹）、**UseLimits/UseMotor/UseSpring** 开关。
+- 别与 **SpringJoint（弹簧关节）** 混淆：后者才是"保持两物体在某个**距离**附近、拉长后产生回拉/拉力"，并可设 `minDistance/maxDistance` 与弹簧刚度。
+- 记忆：**Hinge 管"角度"，Spring 管"距离"，FixedJoint 管"刚性焊死"，ConfigurableJoint 全能。**
 
 ### 6.2.8 高速小物体穿透及避免
 
@@ -214,7 +217,7 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
   1. **分层渲染**：静态与动态 UI 分到不同的 Canvas；
   2. **资源预加载/按需加载**：静态 UI 提前加载，动态 UI 按需加载；
   3. **UI 合批**：合并静态 UI，动态 UI 使用相同材质和纹理；
-  4. **脏矩形技术**：仅重绘发生变化的区域。
+  4. **避免无谓重建**：UGUI **没有**桌面 GUI 那种"脏矩形局部重绘"；它是**脏标记 + 整 Canvas 重建网格**（见 §6.3.15）。所以真正的做法是**限制重建范围**——把会变的元素拆到独立 Canvas，别让一个飘字把整个界面标记为脏。
 
 ### 6.3.5 Image 与 RawImage 的区别
 
@@ -224,9 +227,12 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 
 ### 6.3.6 Text 与 TextMeshPro（TMP）的区别
 
-- `Text`（旧版）：**像素渲染**，放大后会模糊；父物体缩放会影响子物体 Text 清晰度；更换文字消耗小。
-- `TMPText`：**网格渲染**，把字体生成类似贴图的数据，读取贴图坐标获取文字；缩放不模糊；大量文字性能更高；但更换文字、查找字体消耗比 Text 大，字体库很大时更明显。
-- 结论：经常变动的文字用 Text（消耗小），量大且基本不变的文字用 TMP（渲染质量与性能好）。
+- `Text`（UGUI 旧版）：把字形**预渲染成位图字体图集**，按像素取样贴到 UI 上；放大后**会模糊**（本质是位图放大），父物体缩放也会影响清晰度；字符**不消耗额外网格**，但每个不同字号/样式都要额外烘焙一份图集。
+- `TextMeshProUGUI`（TMP，类名不是 `TMPText`）：每个字符是**一个带纹理的四边形**（因此"量大时 DrawCall/顶点更多"），关键区别在于**字体图集存的是 SDF（Signed Distance Field，有向距离场）而不是像素**：
+  - 片元着色器按距离场重建字形轮廓，所以**任意字号放大都不糊**（这是 TMP 清晰度的真正原因，不是"网格渲染 vs 像素渲染"）；
+  - 一份图集可服务多种字号/描边/阴影（描边与阴影是着色器效果，不需要额外烘焙）；
+  - 代价：SDF 采样比直接采样贴图重一点，且**字形复杂/数量极大**时开销上升。
+- 结论：需要**任意缩放不失真、富文本、描边阴影**的 UI 文案用 TMP（新项目默认）；只有极端大量、样式单一且预算紧张时才考虑旧 `Text`。
 
 ### 6.3.7 Mask 与 RectMask2D 的区别
 
@@ -249,7 +255,7 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 1. 图集合并（多张小图 → 一张大图集）；
 2. 减少 Mask 组件使用（打断合批）；
 3. 禁用不必要的 **Raycast Target**；
-4. 合并 Canvas（减少 Canvas 数量，动静分离）。
+4. **按更新频率拆分 Canvas（动静分离）**——注意是**拆**不是"合并"：把每帧变化的元素（血条/倒计时/滚动列表）与静态元素分到不同 Canvas，让脏标记只影响小范围；但**也不要每控件一个 Canvas**（每个 Canvas 都是一次独立的 Batch 提交），详见 §6.3.21。
 
 **布局与层级优化**
 
@@ -260,11 +266,19 @@ Awake → OnEnable → Start → Update → FixedUpdate → LateUpdate → OnGUI
 
 ### 6.3.10 2D 游戏实现方式 / 原生 GUI 替代
 
-- 用 UGUI 实现 UI（Unity 官方 UI 系统）。
+- 用 UGUI / **UI Toolkit** 实现 UI。
 - 摄像机投影改为**正交投影（Orthographic）**，不考虑 Z 轴。
 - 使用 Unity 2D 模式（正交摄像机 + Sprite）。
-- 使用第三方插件：NGUI、2D Toolkit。
-- **为什么移动设备上要替代原生 GUI（OnGUI）**：不美观、OnGUI 每帧调用很耗费时间、使用不方便、DrawCall 高。
+- **现代 2D 制作链（原笔记只列了 NGUI / 2D Toolkit，那是约 2013 年的口径）**：
+  - **Sprite / Sprite Renderer**：基础 2D 渲染；
+  - **Sprite Atlas**：图集打包与变体管理（替代手工拼图）；
+  - **Tilemap + Tilemap Collider 2D + Rule Tile**：瓦片地图（平台跳跃、关卡）；
+  - **Sprite Shape**：程序化生成带厚度的曲线地形；
+  - **2D Animation / IK / PSD Importer**：骨骼式 2D 动画（也可用外部 Spine）；
+  - **URP 2D Renderer + Light2D**：2D 光照与法线贴图效果；
+  - **Cinemachine**：2D 跟随相机与边界约束。
+  - NGUI / 2D Toolkit 属**历史第三方方案**，新项目不再使用。
+- **为什么移动设备上要替代原生 GUI（OnGUI）**：不美观、`OnGUI` 每帧多次调用（还分 Layout/Repaint 两趟）很耗性能、API 难用、**几乎每个控件都产生独立 DrawCall**。
 
 ### 6.3.11 动态字体 vs 静态字体（dynamic font / static font）
 
@@ -456,7 +470,7 @@ protected override void OnPopulateMesh(VertexHelper vh)
 - `Play` / `PlayQueued`：播放 / 排队播放。
 - `IsPlaying`：判断动画是否正在播放。
 - `RemoveClip` / `Sample` / `Stop` 等。
-- **反向旋转动画**：将动画速度调成 -1（`animation.speed = -1`）。
+- **反向旋转动画**：将动画速度调成 -1（`GetComponent<Animation>().speed = -1`）。旧版的 `animation` 便捷访问器已被移除，必须显式 `GetComponent<Animation>()`。
 - `Animation.CrossFade` 的作用：动画淡入淡出（A 动画淡入，其他动画淡出）。
 
 ## 6.5 协程
@@ -501,15 +515,34 @@ protected override void OnPopulateMesh(VertexHelper vh)
 ### 6.5.6 启动与停止协程的 API
 
 ```csharp
-StartCoroutine(方法名(string));            // 通过方法名字符串启动
-StartCoroutine(方法名(string), 参数);       // 带参数字符串启动
-StartCoroutine(IEnumerator routine);       // 通过 IEnumerator 启动（推荐，可带参）
+StartCoroutine(string methodName);              // 字符串重载：只能传 0 个参数
+StartCoroutine(string methodName, object value); // 字符串重载：最多再传 1 个参数
+StartCoroutine(IEnumerator routine);            // IEnumerator 重载（推荐：可传任意参数、可 yield 嵌套）
+StartCoroutine(IEnumerator routine, object value); // 少用
 
-StopCoroutine(string methodName);          // 通过方法名停止
-StopCoroutine(IEnumerator routine);        // 通过 IEnumerator 停止
-StopCoroutine(Coroutine routine);          // 通过 Coroutine 对象停止
-StopAllCoroutines();                       // 停止该脚本启动的所有协程
+StopCoroutine(string methodName);   // 停止由"该字符串"启动的协程
+StopCoroutine(IEnumerator routine); // 注意：匹配不上"用同一个方法新建的枚举器"（见下）
+StopCoroutine(Coroutine routine);   // 最可靠：保存 StartCoroutine 的返回值来停止
+StopAllCoroutines();                // 停止该脚本启动的所有协程
 ```
+
+- **字符串重载的真实限制**（常被追问）：只能传 **0 或 1 个 `object` 参数**（不是伪代码里的"参数列表"）；性能更差（要走反射查方法名）；改名后编译期不报错、运行时才失败。
+- **停止协程的三个坑**：
+  1. `StopCoroutine(IEnumerator)` **不会**停掉"用同一个方法另一次调用"启动的协程——每次 `方法()` 都会新建枚举器对象，比较的是引用；
+  2. 正确做法是**保存返回值**：`var co = StartCoroutine(Routine()); ... StopCoroutine(co);`
+  3. 协程会随 **GameObject 销毁 / `SetActive(false)` / 脚本 `enabled = false`** 而停止（不是只停 Update）。
+- **yield 指令的恢复时机（必答项）**：
+
+| `yield return` | 恢复时机 |
+| --- | --- |
+| `null` / `yield break` | 下一帧的 Update 之后（`yield break` 是直接结束协程） |
+| `WaitForSeconds(t)` | `t` 秒后（受 `Time.timeScale` 影响；`timeScale = 0` 时**永不恢复**） |
+| `WaitForSecondsRealtime(t)` | `t` 秒后（**不受** `timeScale` 影响） |
+| `WaitForFixedUpdate()` | 下一个 `FixedUpdate` 之后（物理相关用） |
+| `WaitForEndOfFrame()` | 本帧渲染结束后（截图、读像素用） |
+| `WaitForCompletion()`（TMP）/ 其它自定义 `IEnumerator` | 嵌套协程：等它整体跑完 |
+| `AsyncOperation`（如 `SceneManager.LoadSceneAsync`） | 该异步操作完成时 |
+
 
 ### 6.5.7 Unity 定时器实现方式
 
@@ -523,9 +556,11 @@ StopAllCoroutines();                       // 停止该脚本启动的所有协�
 
 | API | 路径含义 |
 | --- | --- |
-| `Application.dataPath` | Assets 文件夹的绝对路径（只读） |
-| `Application.streamingAssetsPath` | StreamingAssets 文件夹的绝对路径（只读，需先判断文件夹存在） |
-| `Application.persistentDataPath` | 可读写的持久化数据目录（推荐存档/下载用） |
+| `Application.dataPath` | `Assets` 文件夹的绝对路径（只读） |
+| `Application.streamingAssetsPath` | StreamingAssets 的绝对路径（只读）。**平台差异很大**：Editor/PC/主机是可读文件系统；**Android 上内容在 APK（或 AAB 展开后的 JAR）内部**，路径形如 `jar:file://...!/assets`，**不能用 `File.ReadAllBytes` 读**，必须用 `UnityWebRequest`（旧版 `WWW`）取；iOS/macOS 则是普通可读路径 |
+| `Application.persistentDataPath` | 可读写的持久化目录（推荐存档/下载/热更资源落地用）；随应用卸载而清除 |
+| `Application.temporaryCachePath` | 可读写的**临时**缓存目录（系统可能清理）；适合下载中转 |
+| — | **选哪个**：热更后的正式资源要落 `persistentDataPath`（长期保留，但占用户空间）；下载中的临时文件可放 `temporaryCachePath`（可能被系统回收，丢了可重下） |
 
 - `AssetDatabase`（编辑器 API）：对 Assets 下文件操作——`GetAllAssetPaths()` 获取所有资源（不含 meta）、`GetAssetPath(obj)` 获取相对路径、`Refresh()` 刷新、`GetDependencies(path)` 获取依赖。
 - `Directory`（System.IO）：`Exists` / `CreateDirectory` / `Delete(path, true)` 等文件夹操作。
@@ -538,7 +573,8 @@ StopAllCoroutines();                       // 停止该脚本启动的所有协�
 
 ### 6.6.3 如何安全地在不同工程间迁移 Assets 数据
 
-1. 将 **Assets 目录和 Library 目录**一起迁移；
+1. 将 **Assets 目录连同每个文件的 `.meta`** 一起迁移——**`.meta` 里存的是 GUID**，场景/预制体对资源的引用全靠 GUID 维持；丢了 `.meta` 就会变成"Missing Reference"（引用全断）。
+   - **`Library/` 不要一起迁移**：它是本机生成的导入缓存（平台相关、体积很大），官方建议删除后让 Unity 重新导入；把它拷到另一台机器反而可能引入脏缓存。真正必须走的是 `Assets/` + `ProjectSettings/` + `Packages/`（缺 `ProjectSettings` 会丢项目设置与 Input/Physics 配置）。
 2. 使用 Unity 的**导出包（Export Package）**功能（.unitypackage，含依赖）；
 3. 使用 Unity 自带的 **Asset Server**（历史方案）或 Git 等版本控制工具（现代推荐）。
 
@@ -585,15 +621,18 @@ public class CreateAssetBundles {
 ### 6.6.7 AssetBundle 卸载
 
 - `AssetBundle.Unload(bool)`：
-  - `true`：卸载**所有**资源（包括正在使用的，谨慎使用）；
-  - `false`：只卸载未使用的资源（正在使用的资源与 AB 的依赖关系会丢失），再调用 `Resources.UnloadUnusedAssets()` 释放无引用资源，或等场景切换时自动调用。
+  - `true`：卸载 **AB 自身数据 + 从它加载出来的所有 Asset**——已实例化的对象会丢贴图/材质，引用变空。只在确认这批资源确实不再需要（如切场景）时用。
+  - `false`：**只释放 AB 自身的序列化数据（头部/索引），不卸载已加载的 Asset**。好处是已加载资源继续可用；代价是这些 Asset 仍占内存，需要 `Resources.UnloadUnusedAssets()`（或场景切换时自动调用）来回收真正无引用的部分。
+  - 常见坑：`false` 之后**不能再从这个 AB 加载新资源**（数据已释放）；`true` 之后继续使用其 Asset 会出现"粉红/空白"。
+- 口诀：**"Unload(true) 连资源一起卸，Unload(false) 只卸包壳"**——反过来说都会错。
 
 ### 6.6.8 AB 包压缩算法对比
 
-- **LZ4**：轻量级无损压缩，压缩/解压速度快，占用内存小，适合实时加载和移动端；压缩率一般。
-- **LZMA**：高压缩率，但压缩/解压速度慢、需较多内存（整体解压），适合追求压缩率的发布包。
-- **GZIP**：广泛使用的无损压缩，常用于压缩文本文件。
-- 选择：追求速度与低内存 → LZ4；追求压缩率 → LZMA/GZIP；不需要压缩 → 不压缩。
+- **LZ4（ChunkBasedCompression）**：分块无损压缩，可按需解压单个块，加载快、内存占用小，适合实时加载与移动端；压缩率一般。
+- **LZMA**：高压缩率，但解压慢、需整体解压且占用较多内存，适合发布包（运行时 Unity 会把它转成 LZ4 缓存）。
+- **不压缩（Uncompressed）**：加载最快、包体最大，适合已自行压缩或要求零解压开销的场景。
+- 选择：追求速度与低内存 → LZ4；追求压缩率/包体 → LZMA；不需要压缩 → 不压缩。
+- 注意：`BuildAssetBundleOptions` **没有 GZIP 选项**（GZIP 是 HTTP 传输层常用的压缩，与 AB 打包无关，别混为一谈）。
 
 ### 6.6.9 ScriptableObject
 
@@ -633,9 +672,26 @@ public class CreateAssetBundles {
 
 ### 6.7.2 Unity 中的渲染管道类型
 
-- **内置渲染管道**：早期默认，通用但定制性差。
-- **通用渲染管道（URP）**：基于 SRP（可编程渲染管线），可一定程度自定义，性能好，移动端主流。
-- **高清渲染管道（HDRP）**：面向高端平台，追求超高品质图形（需较强硬件）。
+- **内置渲染管道（Built-in）**：早期默认，通用但定制性差；材质/Shader 生态最老最全，大量老项目仍在用。
+- **通用渲染管道（URP）**：基于 SRP（可编程渲染管线），可自定义 Renderer Feature，性能好、移动端主流。
+- **高清渲染管道（HDRP）**：面向高端平台（PC/主机），追求超高品质图形，需较强硬件。
+- **SRP 的意义**：把渲染流程从引擎 C++ 侧**开放到 C#**（`RenderPipeline` / `ScriptableRenderPass`），才能在管线里插入自定义 Pass；代价是 Built-in 时代的不少 Shader/后处理方案不能直接迁移。
+
+**前向渲染 vs 延迟渲染（★★★★ 必须能讲清）**：
+
+| 对比项 | 前向渲染 Forward | 延迟渲染 Deferred |
+| --- | --- | --- |
+| 核心思路 | 每个物体逐个渲染，**一次遍历内算完该物体的光照** | **先**把所有可见表面写进 G-Buffer（位置/法线/反照率等），**再**统一用这些数据算光照 |
+| 光照复杂度 | 每物体光照开销 × 物体数；受**逐像素灯上限**限制（Built-in 默认 4 个逐像素，其余按顶点/球谐近似） | 光照只与**屏幕像素数**相关，与光源/物体数量解耦，**支持大量实时光源** |
+| 带宽/显存 | 较低（不需要多张 G-Buffer 渲染目标） | 高（多张 RT，移动端带宽吃不消） |
+| 抗锯齿 | **MSAA 可用**（几何信息还在） | **MSAA 不可用**（写进 G-Buffer 后几何信息已丢失），只能 FXAA/TAA 等后处理 |
+| 透明物体 | 天然支持（按排序混合） | G-Buffer 每个像素只能存一个表面，**透明物体仍需回到前向路径**单独渲染 |
+| 移动端 | **主流选择**（Tile-Based GPU 上带宽是瓶颈） | 一般不用（带宽/发热） |
+| 适用 | 光源少、材质多样、需要 MSAA 与大量透明 | 光源多、以不透明为主、PC/主机 |
+
+- **一句话答题**："前向是**按物体**算光照（受逐像素灯上限约束，但支持 MSAA 与透明），延迟是**按屏幕像素**算光照（光源多也不怕，但吃带宽、没 MSAA、透明要回前向）。移动端带宽敏感 → 前向；PC 大量实时光源 → 延迟。"
+- **URP 的实际情况**：URP 官方**只有前向**，另有 **Forward+**（用灯光列表把逐像素灯上限提到很高，接近延迟的"多光源"能力但仍保留 MSAA）；**HDRP** 才同时提供 Forward / Deferred。
+- **项目口径提醒**：本项目技术栈尚未声明使用哪条管线（见项目 §1.1.1 的待补项）。**2D 横版手游**通常用 **Built-in 或 URP 的 2D Renderer**，此时该讨论的是 2D 光照方案（URP 2D 的 `Light2D`），而不是 3D 的 G-Buffer 延迟——被追问时要能区分。
 
 ### 6.7.3 DrawCall 是什么？为什么减少 DrawCall 能提升性能？
 
@@ -654,28 +710,71 @@ public class CreateAssetBundles {
 | --- | --- | --- |
 | 适用对象 | 位置等属性运行时**不变**的对象（静态物体） | 动态移动的对象 |
 | 原理 | 多个静态小模型合并成一个大模型（运行前合并，内存换性能） | 运行时自动把满足条件的对象合并成一次绘制 |
-| 限制 | 对象不能太多；场景中位置不变 | 网格顶点属性总数**小于 900** 才可能被动态批处理；需相同材质 |
+| 限制 | 对象不能太多；场景中位置不变；**多份合并网格会显著增加内存**（不共享的顶点被复制） | 顶点数少（见下）、同材质、**不能有负缩放**、非蒙皮网格、Shader 无逐物体差异 |
 | 内存 | 增加内存 | 每帧 CPU 合并有开销 |
-| 特点 | 限制较少，用内存换性能 | 限制较多，自动处理 |
+| 特点 | 限制较少，用内存换性能 | 限制较多，自动处理（无需手动标记） |
 
-- 共同前提：**使用同一个材质**。
-- 不能合并的情况：材质不同、渲染状态差异过大、动态批处理条件不满足（顶点超限等）。
-- 使用**图集**：把多张小 Sprite 合并成一张大纹理，让不同 UI 共用同一纹理实现合批。
-- 优化建议：多张小纹理合并到大图集（Atlas）；树林草地等大量对象用动态批处理更合适；场景静态物体考虑静态批处理。
+- **动态批处理的完整前提（原笔记只写了"顶点 < 900"，会被追问）**：
+  1. 网格**顶点属性总数 < 900**（Unity 5.5 起从 300 提到 900；指顶点数 × 属性数，含位置/法线/UV/切线等）；
+  2. **使用同一个材质实例**（同一材质的多个实例不算）；
+  3. 不同实例之间**没有镜像（负缩放）**——负缩放会改变三角形绕序，无法合并；
+  4. **非蒙皮网格**（SkinnedMeshRenderer 不参与动态批处理）；
+  5. 使用**同一种光照贴图位置/光照探针**；
+  6. Shader 中**不能依赖物体的世界坐标做逐物体变换**（如自定义顶点位移、`UNITY_MATRIX_M` 参与计算）——否则合并后位置全错，Unity 因而放弃合并。
+- 共同前提：**使用同一个材质**（更准确说是"同一次 setPass 调用"——渲染状态与 Shader 关键字一致才能合进一个批次）。
+- 不能合并的情况：材质不同、渲染状态差异过大（ZWrite/Stencil/混合方式不同）、Shader 关键字不一致、动态批处理条件不满足。
+- 使用**图集**：把多张小 Sprite/贴图合并成一张大纹理，让不同物体共用同一材质实现合批（UI 与 3D 通用手段）。
+- 优化建议：小图合并到大图集（Atlas）；静态物体用静态批处理；**同类重复物体（树木/草丛/子弹/小怪）优先用 GPU Instancing 而不是动态批处理**（见 §6.7.6）——动态批处理每帧要花 CPU 合并，实例化则一次提交多个实例，效率高得多。
 
-### 6.7.5 material 与 sharedMaterial 的区别
+### 6.7.5 合批体系全景（四种手段的取舍 ★★★★）
+
+现代 Unity 里"减 DrawCall"有四条路，**优先级不要记反**：
+
+| 手段 | 原理 | 适用 | 代价/限制 |
+| --- | --- | --- | --- |
+| **静态批处理** Static Batching | 构建期把静态物体的网格**合并成一个大网格**，一次绘制 | 场景中位置永不变、数量多的物体（建筑、地形装饰） | **内存换性能**（顶点被复制）；不能有运行时位移 |
+| **动态批处理** Dynamic Batching | 运行期把满足条件的**小网格**自动合并 | 顶点很少的小物件（< 900） | 每帧 CPU 合并开销；限制多（见 §6.7.4） |
+| **GPU Instancing** | 一次 DrawCall 提交**同一个网格在同一时刻的多个实例**，每实例数据（矩阵/颜色）走常量缓冲 | **大量完全相同的物体**（树、草、子弹、小怪、UI 图标） | 需要材质开启 `Enable GPU Instancing`；每实例可变数据有限（可用 `MaterialPropertyBlock`） |
+| **SRP Batcher**（URP/HDRP） | 不为合并网格，而是**把同 Shader 变体的材质数据常驻 GPU**，减少每次 setPass 的常量上传与状态切换 | **URP/HDRP 下几乎无条件优先**（不要求同材质，只要求同 Shader 变体） | **仅 SRP 可用**；Shader 必须符合 SRP Batcher 兼容要求（CBUFFER 声明规范） |
+
+- **优先级记忆**：**SRP Batcher（URP/HDRP 自动）→ GPU Instancing（同网格大量重复）→ 静态批处理（静态场景）→ 动态批处理（少量小物件）**。四者可共存，Unity 会自行取舍，但**开启 SRP Batcher 后动态批处理基本失去意义**。
+- **UI 的合批**（与 3D 不同，单独记）：UGUI 按 **Canvas** 组织，同一 Canvas 内**同图集 + 同材质 + 层级连续 + 无中间插入不同材质**的图元才能合批；因此 UI 优化靠的是**图集切分 + 动静 Canvas 分离**（§6.3.3/§6.3.21），而不是 GPU Instancing。
+- **如何验证**：**Frame Debugger** 看每个 DrawCall 被合并到了哪个批次、为什么被拆批（它会直接给出"Objects have different materials / non-instanced"等原因）；配合 Profiler 的 `Canvas.BuildBatch`、`BatchRendererGroup` 等标记定位。
+- **常见误区**：
+  - "合批一定更快"——若瓶颈在**像素/着色**（Overdraw、复杂 Shader），合批不解决（§6.7.3 已述）；
+  - "动态批处理万能"——它优先照顾小网格，且每帧耗 CPU；
+  - "负缩放也能合批"——不能（绕序问题）；
+  - "SkinnedMeshRenderer 会参与动态批处理"——默认不参与（可参与 GPU Skinning 后的实例化，需具体版本核对）。
+
+### 6.7.6 GPU Instancing 与 SRP Batcher 详解（面试加分项）
+
+**GPU Instancing 要点**：
+
+- 本质：把"同一网格 + 同材质"的 N 个实例的**逐实例数据**（`unity_ObjectToWorld`、`unity_WorldToObject`、可选颜色/自定义属性）打包进常量缓冲，**一次调用画 N 个**；CPU 侧省掉 N−1 次状态设置与提交。
+- 开启：材质面板勾选 **Enable GPU Instancing**；代码里 `Graphics.DrawMeshInstanced` / `RenderMeshInstanced` 可手动批量提交（适合自己管理数据的场景，如弹幕、草丛）。
+- 逐实例差异：`MaterialPropertyBlock` 可传每实例的颜色等，但**会破坏合批**（旧管线），Instance 属性应通过 Shader 的 `UNITY_INSTANCING_BUFFER` 宏声明。
+- 与动态批处理的分工：**动态批处理是"CPU 每帧合并小网格"，Instancing 是"一次提交多个实例"**；物体数量大、网格相同 → 选 Instancing。
+
+**SRP Batcher 要点**：
+
+- 目标不是"减少 DrawCall 数量"，而是**减少每个 DrawCall 之间的状态切换与常量缓冲上传**（即降低 setPass 开销）。所以它的收益体现在 **CPU 侧的 `SetPass` 时间**。
+- 前提：**同一个 Shader 变体**（不是同一材质）；因此"同 Shader、不同材质"的物体也能被 SRP Batcher 高效处理——这是它比传统合批更强的地方。
+- 要求 Shader 兼容：所有材质属性必须声明在名为 `UnityPerMaterial` 的 `CBUFFER` 中，且不能有逐物体的材质属性散落在 CBUFFER 外。
+- 排查：Frame Debugger 里会显示 `SRP Batch` 标记；若显示 `(not compatible)`，需检查 Shader 的 CBUFFER 规范。
+
+### 6.7.7 material 与 sharedMaterial 的区别
 
 - `material`：当前 MeshRenderer 实例**使用的材质实例**；修改它时 Unity 会创建新的材质实例（实例化），不影响其他物体。
 - `sharedMaterial`：指向**共享的材质实例**；修改它会**影响所有引用该材质的 MeshRenderer**，并改变工程里存储的材质设置。
 - 建议：想单独修改某物体材质用 `material`；批量修改用 `sharedMaterial`，但要小心影响范围。
 
-### 6.7.6 Renderer / MeshRenderer / SkinnedMeshRenderer
+### 6.7.8 Renderer / MeshRenderer / SkinnedMeshRenderer
 
 - **Renderer**：抽象基类，所有渲染组件的基类，负责把游戏对象绘制到屏幕上。
 - **MeshRenderer**：渲染普通网格；需配合 **MeshFilter**（存储网格数据）使用；适用于不变形的网格（建筑、地形）；可挂多个材质对应网格不同部分。
 - **SkinnedMeshRenderer**：渲染带**骨骼动画**的网格；每个顶点可绑定多个骨骼实现平滑变形；支持批处理与 LOD 优化；适用于角色等需要实时动画的对象。
 
-### 6.7.7 纹理压缩
+### 6.7.9 纹理压缩
 
 - 纹理作用：通过映射增强物体表面细节，减少几何复杂度，提高渲染效率。
 - 纹理压缩目的：**减少内存占用**（降低存储空间）、**提高带宽效率**（减少 GPU 与显存之间的数据传输）。
@@ -685,32 +784,32 @@ public class CreateAssetBundles {
   - **块压缩**：将纹理分小块分别压缩（DXT、ETC、ASTC）。
 - 移动端推荐：**ETC**（Android 主流）、**ASTC**（桌面与移动通用，质量好）。
 
-### 6.7.8 MipMap
+### 6.7.10 MipMap
 
 - MipMap：把贴图预处理成一系列分辨率递减的图片（多级渐远纹理）。
 - 作用：根据物体离摄像机距离选择合适精度的纹理——远处用低精度，减少显存带宽消耗、提高缓存命中率、防止远处像素闪烁（锯齿）。
 - 代价：额外占用约 **1/3 内存**（256×256 会生成 2⁰~2⁸ 共 9 个层级，即逐级减半到 1×1）——典型的用空间换时间；UI 图片一般不需要开 MipMap。
 
-### 6.7.9 LightMap（光照贴图）
+### 6.7.11 LightMap（光照贴图）
 
 - 预计算并存储静态场景的光照信息，运行时直接采样，减少实时光照计算。
 - 优点：提高渲染效率（尤其全局光照）、增强视觉质量（可模拟环境光遮蔽、软阴影）、简化光照计算。
 - 缺点：需要额外存储空间；主要适用于静态场景，动态物体/动态光源受限；光照变化需重新烘焙（更新成本）。
 
-### 6.7.10 LOD（Level of Detail）
+### 6.7.12 LOD（Level of Detail）
 
 - 通过创建多个不同细节级别的模型，根据相机距离**动态更换模型**，提高渲染效率、降低运行时内存占用。
 - 优点：提升渲染速度与性能、节省内存/显存、优化视觉效果。
 - 缺点：增加开发工作量（准备多套模型）、切换时有潜在视觉瑕疵、场景中多个 LOD 对象可能增加内存消耗。
 
-### 6.7.11 Unity 光源类型
+### 6.7.13 Unity 光源类型
 
 - **平行光（Directional Light）**：模拟太阳，方向光，无位置衰减。
 - **聚光灯（Spot Light）**：锥形范围，有位置和角度衰减。
 - **点光源（Point Light）**：向四周发光，有距离衰减。
 - **区域光源（Area Light）**：面光源，**只用于烘焙**（不参与实时光照）。
 
-### 6.7.12 SetActive 为什么比较费性能（子物体多时）
+### 6.7.14 SetActive 为什么比较费性能（子物体多时）
 
 - 需要**遍历所有子物体**；
 - 可能涉及内存分配（组件依赖激活状态，如网格、材质实例）；
@@ -743,10 +842,19 @@ public class CreateAssetBundles {
 
 ### 6.9.2 四元数与欧拉角
 
-- **欧拉角**：① 表示同一旋转不唯一（60° 和 420° 方向相同）；② 会发生**万向节死锁**。
-- **四元数**：不存在万向节死锁；表示旋转唯一（-180°~180°）。
-- 优点：能进行增量旋转、避免万向锁、表达方式固定（给定方位的表达方式有两种，互为负）。
-- 运算：两个四元数相乘得到新四元数（相对自身坐标系的旋转）；四元数乘以向量 = 旋转向量。
+- **欧拉角**（三个角度 `(x, y, z)`）：直观、便于人读与编辑，但有两个硬伤：
+  1. **表示不唯一**：同一个朝向可以写成不同角度（`60°` 与 `420°`、`(0,0,0)` 与 `(360,0,0)`），因此**不能用欧拉角做插值或比较**；
+  2. **万向节死锁（Gimbal Lock）**：转动顺序固定（Unity 是 Z→X→Y），当中间那个轴转到 ±90° 时，另两个轴重合、**丢失一个旋转自由度**——表现是"某个方向怎么拖都转不动"。
+- **四元数**（`(x, y, z, w)` 四个分量，模长为 1 的单位四元数）：
+  - **不存在万向节死锁**；
+  - **表示"朝向"时只有一对相反的表达**：`q` 与 `-q` 表示**同一个旋转**（这是旋转的双覆盖性质）。所以"唯一"要加限定——**朝向与四元数不是一一对应，而是二对一**。原笔记"表示旋转唯一（-180°~180°）"前后矛盾：`-180°~180°` 是**欧拉角**的量程，四元数的四个分量各自在 `[-1, 1]`。
+  - **优点**：可平滑插值（`Quaternion.Slerp`/`Lerp`）、可增量相乘、无死锁、存储紧凑（4 个数 vs 旋转矩阵 9 个）。
+  - **缺点**：不直观（无法直接读出"转了多少度"）、单分量无独立意义；调试时通常转成欧拉角显示。
+- **运算**：四元数 × 四元数 = 复合旋转（顺序敏感，`a * b` 表示先 b 后 a）；四元数 × 向量 = 把向量按该旋转变换方向。
+- **Unity 实操要点**：
+  - 读 `transform.eulerAngles` 得到的是**Unity 内部四元数转换出来的近似值**，回去再赋值可能与原值不同（有 `360°` 归一化、精度截断），所以**不要"读出欧拉角→改一个分量→写回"**来累积旋转，那会引入偏差；要增量旋转用 `Rotate`/`Quaternion.AngleAxis` 相乘。
+  - 常用 API：`Quaternion.LookRotation(朝向, 上方向)`、`AngleAxis(角度, 轴)`、`Slerp/Lerp`、`RotateTowards`、`FromToRotation`、`Inverse`。
+  - **插值用 `Slerp`（球面）而不是对欧拉角做 `Lerp`**，否则会出现路径扭曲与转速不均。
 
 ## 6.10 优化专题
 
@@ -771,10 +879,10 @@ public class CreateAssetBundles {
 ### 6.10.3 如何减少 DrawCall
 
 1. 图集合并（多张小图 → 一张大图集）；
-2. 静态批处理 / 动态批处理；
+2. 静态批处理 / 动态批处理（**现代首选 GPU Instancing 与 SRP Batcher**，见 §6.7.5/§6.7.6）；
 3. 减少 Mask、禁用多余 Raycast Target；
-4. 合并 Canvas、动静分离；
-5. 相同材质、相同纹理的对象尽量同时渲染。
+4. **按更新频率拆分 Canvas（动静分离）**，而不是盲目合并 Canvas；
+5. 相同材质、相同纹理的对象尽量同时渲染（渲染顺序一致才可能合批）。
 
 ### 6.10.4 优化 DrawCall 是优化 CPU 还是 GPU？
 
@@ -790,7 +898,7 @@ public class CreateAssetBundles {
 
 ### 6.10.7 LOD 与 MipMap 概念、区别、优缺点
 
-- 见 §6.7.8（MipMap）与 §6.7.10（LOD）。核心区别：LOD 换**模型网格**细节，MipMap 换**纹理**精度；两者都是"距离越远细节越低"的空间换性能手段。
+- 见 §6.7.10（MipMap）与 §6.7.12（LOD）。核心区别：LOD 换**模型网格**细节，MipMap 换**纹理**精度；两者都是"距离越远细节越低"的空间换性能手段。
 
 ## 6.11 常用 API 与编程题
 
@@ -830,7 +938,21 @@ public class CreateAssetBundles {
 
 ### 6.11.8 抛物线运动（愤怒的小鸟思路）
 
-- 初速度 v，每帧速度更新 `v' = v - new Vector3(0, g·t, f·t)`（g 为重力加速度、f 为空气阻力，均需自行调试），`transform.Translate(v')` 即可得到抛物线轨迹。
+- 初速度 `v`，**每帧**用积分更新（`dt = Time.deltaTime`）：
+
+```csharp
+// 重力沿 -Y 恒定；空气阻力沿"速度反方向"、与速率成正比
+Vector3 gravity = new Vector3(0, -g, 0);          // g 为正数，如 9.8
+Vector3 drag = -dragCoef * v;                     // 阻力必须与速度反向
+v += (gravity + drag) * Time.deltaTime;           // 加速度 × dt = 速度增量
+transform.Translate(v * Time.deltaTime, Space.World); // 速度 × dt = 位移
+```
+
+- 三处容易写错的地方（原始写法 `v' = v - new Vector3(0, g·t, f·t)` 全中）：
+  1. 加速度项必须乘 `dt`。若用累计时间 `t` 直接乘 `g` 再逐帧叠加，等于对加速度做了**二次积分**，轨迹会随时间急剧发散；
+  2. 空气阻力应**沿速度反方向**（`-k·v`），写成固定 `(0,0,f·t)` 的 Z 分量没有物理意义（除非刻意做侧向风）；
+  3. 位移必须乘 `dt`（`Translate(v * Time.deltaTime)`）。`Translate(v)` 直接把"速度"当"每帧位移"，**运动速度会随帧率变化**，帧率越高飞得越快。
+- 若用刚体实现，只需 `rb.velocity = v0` + `rb.drag`，把积分交给物理引擎（见 §6.2.6）。
 
 ### 6.11.9 生命周期高频题速查
 
