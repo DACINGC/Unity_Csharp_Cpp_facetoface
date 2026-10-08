@@ -113,6 +113,28 @@ const APP_JS = inlineScripts[inlineScripts.length - 1][1];
     ? "✓ 全局快捷键统一由 window 上的 handleGlobalKey 处理"
     : "✗ 全局快捷键存在多处挂载");
   if (!singleKeyHandler) process.exit(1);
+
+  /* 动效层：令牌 / 关键帧 / 可插值属性 / 降级开关 / 零依赖 */
+  const motionTokens = ["--ease-expo:", "--ease-spring:", "--dur-base:", "--dur-enter:", "--stagger:",
+    "--glow-a:"].every((t) => APP.includes(t));
+  const motionKeyframes = ["@keyframes rise", "@keyframes bar-grow", "@keyframes mark-pop",
+    "@keyframes pulse-ring", "@keyframes sheen", "@keyframes breathe",
+    "@keyframes vt-out"].every((k) => APP.includes(k));
+  const pctProperty = /@property --pct \{/.test(APP);
+  const viewTransition = APP.includes("startViewTransition") &&
+    APP.includes("view-transition-name: pane") &&
+    APP.includes("::view-transition-old(pane)");
+  const motionFallbacks = /prefersReducedMotion\(\)/.test(APP) &&
+    /typeof document\.startViewTransition !== "function"/.test(APP) &&
+    /typeof document\.body\.animate !== "function"/.test(APP) &&
+    APP.includes("prefers-reduced-motion: reduce");
+  const noNewDeps = !/<script[^>]+src="https?:/.test(APP) && !/@import/.test(APP) &&
+    !/cdn\./i.test(APP) && !/cdnjs|unpkg|jsdelivr/i.test(APP);
+  console.log(motionTokens && motionKeyframes && pctProperty && viewTransition && motionFallbacks && noNewDeps
+    ? "✓ 动效层齐备且可控降级（令牌 / 关键帧 / @property --pct / View Transitions / 减少动态效果 / 零新增依赖）"
+    : "✗ 动效层缺失或引入外部依赖（令牌=" + motionTokens + " 关键帧=" + motionKeyframes +
+      " 环插值=" + pctProperty + " 视图过渡=" + viewTransition + " 降级=" + motionFallbacks + " 零依赖=" + noNewDeps + "）");
+  if (!(motionTokens && motionKeyframes && pctProperty && viewTransition && motionFallbacks && noNewDeps)) process.exit(1);
 }
 
 /* ---------- DOM 桩 ---------- */
@@ -577,6 +599,29 @@ setTimeout(async () => {
   els["side-switch"]._handlers.click({ target: { closest: (s) => (s === "button[data-pane]" ? { dataset: { pane: "files" } } : null) } });
   check("点击分段按钮切回文件列表", els["side-split"].classList.contains("pane-files") &&
     localStorageStub._d["mdviewer:side-pane"] === "files");
+
+  // 动效层：桩环境（缺 matchMedia / Web Animations / startViewTransition）必须静默降级、不抛错
+  console.log("动效降级检查");
+  check("默认不视为减少动态效果（桩无 matchMedia）", context.prefersReducedMotion() === false);
+  let vtRan = false;
+  context.runViewTransition(function () { vtRan = true; });
+  check("无 View Transitions 时同步执行更新（视图切换行为不变）", vtRan === true);
+  let motionThrew = null;
+  try {
+    context.animateRings(els["home-page"]);
+    context.animateCounters(els["home-page"]);
+    context.updateTocIndicator();
+    context.updateNavIndicator(null);
+    context.pulseMarkBadge("面试知识整理/01_CSharp.md", "1.1.1");
+    context.initSpotlight();
+  } catch (e) { motionThrew = e.message; }
+  check("动效工具在能力缺失时静默跳过（不抛错）", motionThrew === null, motionThrew || "ok");
+  context.setMark("面试知识整理/01_CSharp.md", "1.1.1", "done");
+  context.renderHomePage();
+  const kpiMatch = /home-summary-value">(\d+)</.exec(els["home-page"].innerHTML);
+  check("KPI 数值在 DOM 里始终是精确整数（数字滚动只发生在真实浏览器）",
+    !!kpiMatch && /^\d+$/.test(kpiMatch[1]), kpiMatch ? "值=" + kpiMatch[1] : "未匹配到 KPI 卡");
+  context.setMark("面试知识整理/01_CSharp.md", "1.1.1", ""); // 还原，避免影响后续导入合并断言
 
   // 复习进度导入/导出（合并逻辑）
   console.log("进度导入导出检查");

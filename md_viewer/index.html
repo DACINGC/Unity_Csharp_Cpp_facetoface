@@ -76,9 +76,21 @@
     --r-pill: 999px;
     /* 动效 */
     --ease: cubic-bezier(.22,.61,.36,1);
+    --ease-out: cubic-bezier(.22,.61,.36,1);
+    --ease-expo: cubic-bezier(.16,1,.3,1);      /* 主力曲线：快速起步、柔和收尾 */
+    --ease-spring: cubic-bezier(.34,1.36,.64,1); /* 轻微回弹：小元素出现与按压 */
+    --ease-in-out: cubic-bezier(.65,.05,.36,1);
     --dur-1: .14s;
     --dur-2: .22s;
     --dur-3: .36s;
+    --dur-fast: .14s;
+    --dur-base: .26s;
+    --dur-slow: .46s;
+    --dur-enter: .52s;
+    --stagger: 26ms;
+    /* 环境光（大面积底色的纵深，静态、低饱和） */
+    --glow-a: rgba(63,189,251,.055);
+    --glow-b: rgba(120,96,255,.035);
     /* 焦点环 */
     --focus-ring: 0 0 0 3px rgba(63,189,251,.28);
     /* 滚动条 / 热力图 */
@@ -149,8 +161,13 @@
     --icon-md: #0f86c4;
     --icon-txt: #7c8899;
     --skeleton: linear-gradient(90deg, var(--panel-soft) 25%, var(--border) 37%, var(--panel-soft) 63%);
+    /* 环境光（浅色下同样只留一点点冷调纵深） */
+    --glow-a: rgba(10,114,173,.05);
+    --glow-b: rgba(96,84,214,.03);
   }
   * { box-sizing: border-box; }
+  /* 可插值的自定义属性：进度环 / 进度条能真正"长"出来，而不是瞬间跳到位 */
+  @property --pct { syntax: "<number>"; inherits: false; initial-value: 0; }
   html, body { margin: 0; height: 100%; }
   body {
     font-family: Inter, "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
@@ -178,12 +195,54 @@
   }
   .rail-btn:active, .top-action:active, .nav-btn:active, .workbench-action:active,
   .ps-btn:active, .eb-btn:active, .svc-btn:active, .boot-btn:active, .filter-bar button:active,
-  .app-nav button:active, .toc-goto:active { transform: translateY(1px); }
+  .app-nav button:active, .toc-goto:active, .panel-link:active, .search-clear:active,
+  .toc-chev:active, .side-switch-btn:active, .update-chip:active { transform: translateY(1px) scale(.97); }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: .001ms !important; animation-iteration-count: 1 !important;
       transition-duration: .001ms !important; scroll-behavior: auto !important;
     }
+  }
+
+  /* ---------- 动效语言：整套关键帧（时长/曲线都取上方令牌） ---------- */
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes rise-sm { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes slide-left { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+  @keyframes pop-in { 0% { opacity: 0; transform: scale(.94); } 60% { opacity: 1; transform: scale(1.01); } 100% { opacity: 1; transform: none; } }
+  @keyframes bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 100% { box-shadow: 0 0 0 9px transparent; } }
+  @keyframes sheen { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+  @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+  @keyframes mark-pop { 0% { transform: scale(.72); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
+
+  /* 入场编排：容器加 .stagger，子项按序错峰"升起"（最多编排前 10 个，避免长列表拖沓） */
+  .stagger > * { animation: rise var(--dur-enter) var(--ease-expo) both; }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: calc(var(--stagger) * 1); }
+  .stagger > *:nth-child(3) { animation-delay: calc(var(--stagger) * 2); }
+  .stagger > *:nth-child(4) { animation-delay: calc(var(--stagger) * 3); }
+  .stagger > *:nth-child(5) { animation-delay: calc(var(--stagger) * 4); }
+  .stagger > *:nth-child(6) { animation-delay: calc(var(--stagger) * 5); }
+  .stagger > *:nth-child(7) { animation-delay: calc(var(--stagger) * 6); }
+  .stagger > *:nth-child(8) { animation-delay: calc(var(--stagger) * 7); }
+  .stagger > *:nth-child(9) { animation-delay: calc(var(--stagger) * 8); }
+  .stagger > *:nth-child(n + 10) { animation-delay: calc(var(--stagger) * 9); }
+  /* 侧栏长列表：整块轻微淡入即可，不要逐个错峰（几百行会显得拖） */
+  .pane-scroll.reveal, #tab-toc .pane-scroll.reveal { animation: fade var(--dur-base) var(--ease-expo) both; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+  /* 视图切换：工作台/文档内容区做一次"抬起 + 淡入"（View Transitions 不可用时的兜底） */
+  .pane-enter { animation: rise var(--dur-base) var(--ease-expo) both; }
+
+  /* 指针跟随的环境高光（卡片上用，靠 JS 写 --mx/--my；不支持悬停的设备不启用） */
+  @media (hover: hover) {
+    .spot { position: relative; }
+    .spot::after {
+      content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%), var(--glow-a), transparent 70%);
+      opacity: 0; transition: opacity var(--dur-base) var(--ease-expo);
+    }
+    .spot:hover::after { opacity: 1; }
   }
 
   /* ---------- 工作区外壳 ---------- */
@@ -220,7 +279,7 @@
   aside {
     flex: 0 0 var(--sidebar-w, 480px); min-width: 220px; background: var(--panel);
     border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0;
-    transition: flex-basis .2s ease, min-width .2s ease, opacity .2s ease;
+    transition: flex-basis var(--dur-base) var(--ease-expo), min-width var(--dur-base) var(--ease-expo), opacity var(--dur-base) var(--ease-expo);
   }
   /* 工作台页：保留工具轨（抽题 / 打印 / 主题 / 帮助），仅隐藏笔记专用的侧栏开关、侧栏与分隔条。 */
   body.workbench-view .workspace-rail #toggle-sidebar { display: none; }
@@ -328,10 +387,18 @@
   .topbar-icon { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: var(--r-sm); color: var(--accent); background: var(--accent-soft); font-size: 15px; }
   .topbar-name { color: var(--text-strong); font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
   .topbar-sub { margin-top: 1px; color: var(--muted-2); font-size: 10px; }
-  .app-nav { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; padding: 3px; border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--panel); }
-  .app-nav button { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 0; border-radius: var(--r-sm); color: var(--muted); background: transparent; font: inherit; font-size: 11.5px; cursor: pointer; transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease); }
-  .app-nav button:hover { color: var(--text); background: var(--panel-soft); }
-  .app-nav button.active { color: var(--accent); background: var(--accent-soft); font-weight: 650; }
+  .app-nav { position: relative; display: flex; align-items: center; gap: 2px; flex: 0 0 auto; padding: 3px; border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--panel); }
+  .app-nav button { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 0; border-radius: var(--r-sm); color: var(--muted); background: transparent; font: inherit; font-size: 11.5px; cursor: pointer; transition: color var(--dur-1) var(--ease); }
+  .app-nav button:hover { color: var(--text); }
+  .app-nav button:not(.active):hover { background: var(--panel-soft); }
+  .app-nav button.active { color: var(--accent); font-weight: 650; }
+  /* 当前页签指示片：整块在三个入口之间平滑滑动（不再让每个按钮各画一层底色） */
+  .nav-indicator {
+    position: absolute; left: 0; top: 3px; width: 0; height: 28px; z-index: 0;
+    border: 1px solid var(--accent-line-soft); border-radius: var(--r-sm);
+    background: var(--accent-soft); opacity: 0; pointer-events: none;
+    transition: transform var(--dur-base) var(--ease-expo), width var(--dur-base) var(--ease-expo), opacity var(--dur-base) var(--ease-expo);
+  }
   /* 复习入口徽标：唯一的待处理计数入口，0 时隐藏 */
   .nav-badge {
     min-width: 16px; padding: 0 5px; border-radius: var(--r-pill);
@@ -420,7 +487,7 @@
   }
   @media (max-width: 700px) { #toggle-sidebar-mobile { display: inline-flex; } }
 
-  main { flex: 1; overflow-y: auto; min-height: 0; background: var(--bg); }
+  main { flex: 1; overflow-y: auto; min-height: 0; background: radial-gradient(130% 90% at 78% -12%, var(--glow-a), transparent 58%), var(--bg); }
   #crumb {
     position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px;
     min-height: 42px; padding: 6px 28px; background: var(--bg-glass); border-bottom: 1px solid var(--border-soft);
@@ -471,7 +538,8 @@
   .home-resume {
     display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center;
     padding: 14px 16px; border: 1px solid var(--accent-line-soft); border-radius: var(--r-md);
-    background: linear-gradient(110deg, var(--accent-soft), var(--panel) 62%); box-shadow: var(--shadow-1);
+    background: linear-gradient(110deg, var(--accent-soft), var(--panel) 62%, var(--accent-soft)); background-size: 200% 100%;
+    box-shadow: var(--shadow-1); animation: sheen 16s var(--ease-in-out) infinite alternate;
   }
   .home-resume-label { color: var(--accent); font-size: 10px; font-weight: 650; letter-spacing: .04em; }
   .home-resume-title { overflow: hidden; margin-top: 4px; color: var(--text-strong); font-size: 15px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
@@ -523,13 +591,14 @@
   .stats-category-total { flex: 0 0 auto; }
   .stats-category-card .stats-bar-track { margin: 6px 0 4px; }
   .stats-bar-track { display: flex; height: 8px; overflow: hidden; border-radius: var(--r-pill); background: var(--border); }
-  .stats-bar-seg { height: 100%; }
+  /* 色段从左侧"长"出来（scaleX 走合成层，不受内联 width 影响） */
+  .stats-bar-seg { height: 100%; transform-origin: left center; animation: bar-grow var(--dur-slow) var(--ease-expo) both; }
   .stats-done { background: var(--success); }
   .stats-review { background: var(--warning); }
   .stats-weak { background: var(--error); }
   .stats-ring-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .stats-ring-wrap { min-width: 0; text-align: center; }
-  .stats-ring { --pct: 0; --ring: var(--accent); display: grid; place-items: center; width: 78px; height: 78px; margin: 0 auto; border-radius: 50%; background: conic-gradient(var(--ring) calc(var(--pct) * 1%), var(--border) 0); }
+  .stats-ring { --pct: 0; --ring: var(--accent); display: grid; place-items: center; width: 78px; height: 78px; margin: 0 auto; border-radius: 50%; background: conic-gradient(var(--ring) calc(var(--pct) * 1%), var(--border) 0); transition: --pct var(--dur-slow) var(--ease-expo); }
   .stats-ring::after { content: attr(data-value); display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; color: var(--text-strong); background: var(--panel); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stats-ring-label { display: block; overflow: hidden; margin-top: 6px; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
   .stats-overview-panel { display: block; }
@@ -645,6 +714,7 @@
     transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
   }
   #toast.show { opacity: 1; transform: none; }
+  #toast.show::before { animation: pop-in var(--dur-base) var(--ease-spring); }
   #toast::before {
     content: "•"; position: absolute; left: 14px; top: 9px;
     color: var(--accent); font-size: 13px; line-height: 1.4;
@@ -703,6 +773,7 @@
     background: var(--bg); transition: opacity .28s ease;
   }
   #boot-overlay.hidden { opacity: 0; pointer-events: none; }
+  #boot-overlay:not(.hidden) .boot-logo { animation: breathe 3.6s var(--ease-in-out) infinite; }
   .boot-logo {
     display: flex; align-items: center; justify-content: center; width: 58px; height: 58px;
     border-radius: var(--r-lg); color: var(--icon-ink); font-size: 26px; font-weight: 700;
@@ -889,6 +960,9 @@
   .mark-badge[data-state="done"]::before { background: var(--success); opacity: 1; }
   .mark-badge[data-state="review"]::before { background: var(--warning); opacity: 1; }
   .mark-badge[data-state="weak"]::before { background: var(--error); opacity: 1; }
+  /* 刚被标记：圆点弹一下 + 一圈扩散（由 setMark 短暂加类触发） */
+  .mark-badge.just-marked::before { animation: mark-pop var(--dur-base) var(--ease-spring); }
+  .mark-badge.just-marked { animation: pulse-ring 620ms var(--ease-expo); border-radius: var(--r-pill); }
 
   /* ---------- 随机抽题 / 打印 / 进度统计 ---------- */
   .rail-tool { position: relative; }
@@ -946,10 +1020,23 @@
   #progress-import-file.hidden { display: none; }
 
   /* ---------- 滚动跟随 / 阅读进度 / 文档内查找 ---------- */
-  .toc-link.active { color: var(--text-strong); background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+  .toc-link.active { color: var(--text-strong); background: var(--accent-soft); }
   .toc-link.active .toc-num { color: var(--accent); }
+  /* 当前小节指示条：整条滑块在目录列里平滑移动（而不是每行各画一条） */
+  #col-toc { position: relative; }
+  .toc-indicator {
+    position: absolute; left: 0; width: 3px; height: 0; opacity: 0; z-index: 2;
+    border-radius: var(--r-pill); background: var(--accent-grad); pointer-events: none;
+    transform: translateY(0);
+    transition: transform var(--dur-base) var(--ease-expo), height var(--dur-base) var(--ease-expo), opacity var(--dur-base) var(--ease-expo);
+  }
+  /* View Transitions：切换工作台/文档时内容区做一次"抬起 + 淡出/淡入" */
+  #content:not(.hidden), #home-page:not(.hidden), #review-page:not(.hidden) { view-transition-name: pane; }
+  ::view-transition-old(pane) { animation: vt-out var(--dur-base) var(--ease-expo) both; }
+  ::view-transition-new(pane) { animation: rise var(--dur-slow) var(--ease-expo) both; }
+  @keyframes vt-out { to { opacity: 0; transform: translateY(-6px); } }
   #read-progress { position: sticky; top: 0; z-index: 31; height: 2px; pointer-events: none; }
-  #read-progress-fill { height: 100%; width: 0%; background: var(--accent-grad); transition: width .12s linear; }
+  #read-progress-fill { height: 100%; width: 0%; background: var(--accent-grad); transition: width .16s var(--ease-expo); }
   /* 当前文档学习进度（面包屑栏）：与侧栏「总进度」区分口径（本篇 vs 全部） */
   #file-progress {
     display: inline-flex; align-items: center; gap: 7px; margin-left: auto;
@@ -1019,6 +1106,60 @@
   @media (max-width: 520px) {
     #file-progress { display: none; }   /* 极窄屏：进度信息让位于文件名与导航 */
     .crumb-tools #btn-unmarked { padding-left: 6px; padding-right: 6px; }
+  }
+
+  /* ---------- 微交互：统一"悬浮抬起 / 按压回落"，并把位移纳入过渡 ---------- */
+  .rail-btn, .top-action, .nav-btn, .workbench-action, .eb-btn, .ps-btn, .svc-btn, .boot-btn,
+  .panel-link, .filter-bar button, .app-nav button, .side-switch-btn, .search-clear, .update-chip,
+  .toc-chev, .toc-goto, .mark-badge, .toc-link, .file-item, .workbench-list-item, .stats-category-card,
+  .home-summary-card, .workbench-panel, .stats-panel {
+    transition: color var(--dur-fast) var(--ease-expo), background-color var(--dur-fast) var(--ease-expo),
+                border-color var(--dur-base) var(--ease-expo), box-shadow var(--dur-base) var(--ease-expo),
+                transform var(--dur-fast) var(--ease-spring), opacity var(--dur-base) var(--ease-expo);
+  }
+  @media (hover: hover) {
+    .rail-btn:hover, .top-action:hover, .nav-btn:not(:disabled):hover, .workbench-action:hover,
+    .eb-btn:hover, .ps-btn:hover, .svc-btn:hover, .boot-btn:hover, .side-switch-btn:hover,
+    .search-clear:hover, .update-chip:hover { transform: translateY(-1px); }
+    .home-summary-card:hover, .stats-category-card:hover { transform: translateY(-2px); }
+  }
+  .home-summary-card:hover, .workbench-panel:hover, .stats-panel:hover,
+  .stats-category-card:hover { border-color: var(--accent-line-soft); }
+  .workbench-panel:hover, .stats-panel:hover, .workbench-list-item:hover { box-shadow: var(--shadow-2); }
+
+  /* ---------- 高级感细节：玻璃顶缘 / 发光 / 指示条 / CTA / 微动效 ---------- */
+  /* 卡片与弹层的顶缘高光：让平面色块像"玻璃"而不是纯色贴片 */
+  .home-summary-card, .workbench-panel, .stats-panel, .stats-category-card, .help-card,
+  .svc-drop, .random-menu, .mark-menu, .mobile-more-menu, #search-results {
+    background-image: linear-gradient(180deg, var(--hairline), transparent 46%);
+  }
+  /* 进度环外发光（很轻，只是把环从底色里"托"起来） */
+  .stats-ring { filter: drop-shadow(0 3px 12px var(--glow-a)); }
+  /* 侧栏条目：悬停/选中时左侧滑出强调条 */
+  .file-item { position: relative; }
+  .file-item::before {
+    content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px;
+    border-radius: var(--r-pill); background: var(--accent); opacity: .9;
+    transform: scaleY(0); transform-origin: center;
+    transition: transform var(--dur-base) var(--ease-expo);
+  }
+  .file-item:hover::before, .file-item.active::before { transform: scaleY(1); }
+  /* 列表项悬停：一道从左侧铺开的浅色渐变 */
+  .workbench-list-item:hover { background-image: linear-gradient(90deg, var(--accent-soft), transparent 58%); }
+  /* 主行动按钮：强调色渐变 + 投影（CTA 才有，避免到处都是"主色"） */
+  .workbench-action.primary {
+    color: var(--icon-ink); border-color: transparent;
+    background-color: transparent; background-image: var(--accent-grad);
+    box-shadow: 0 8px 20px -12px rgba(63,189,251,.85);
+  }
+  .workbench-action.primary:hover { color: var(--icon-ink); filter: brightness(1.07); }
+  /* 热力图格子：悬停放大并高亮（网格位置不变） */
+  .stats-heat-cell { transition: transform var(--dur-1) var(--ease-spring), box-shadow var(--dur-1) var(--ease-expo); }
+  .stats-heat-cell:hover { transform: scale(1.4); position: relative; z-index: 1; box-shadow: 0 0 0 1px var(--accent), var(--shadow-1); }
+  /* 进度条缓慢流光：让"进度"这件事看起来是活的 */
+  .progress-stats .ps-fill, #file-progress .fp-fill {
+    background-image: linear-gradient(90deg, var(--accent), var(--accent-strong), var(--accent));
+    background-size: 220% 100%; animation: sheen 3.6s var(--ease-in-out) infinite;
   }
 
   /* ---------- 打印 / 导出 PDF ---------- */
@@ -1102,6 +1243,7 @@
             <span class="tab-heading-note" id="toc-count"></span>
           </div>
           <div id="tab-toc" role="region" aria-label="当前文档知识点目录" tabindex="0"></div>
+          <span id="toc-indicator" class="toc-indicator" aria-hidden="true"></span>
         </div>
       </div>
     </aside>
@@ -1118,13 +1260,14 @@
           <button id="nav-home" type="button" data-view="home" aria-current="page">首页</button>
           <button id="nav-notes" type="button" data-view="document">笔记</button>
           <button id="nav-review" type="button" data-view="review">复习<span class="nav-badge hidden" id="nav-review-count">0</span></button>
+          <span id="nav-indicator" class="nav-indicator" aria-hidden="true"></span>
         </nav>
         <div class="search-wrap">
           <span class="search-symbol"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
           <input id="search" type="text" placeholder="搜索知识点、章节编号或文件名" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-results">
           <button type="button" id="search-clear" class="search-clear hidden" title="清空搜索" aria-label="清空搜索">✕</button>
           <span class="search-kbd">Ctrl+K</span>
-          <div id="search-results" role="listbox" aria-label="搜索结果"></div>
+          <div id="search-results" class="stagger" role="listbox" aria-label="搜索结果"></div>
         </div>
         <div class="header-right">
           <div class="service-wrap">
@@ -1415,7 +1558,7 @@ function renderFiles() {
     if (!group) { group = { name: name, items: [] }; groups.push(group); }
     group.items.push(f);
   });
-  el.innerHTML = groups.map(function (group) {
+  var groupsHtml = groups.map(function (group) {
     var collapsed = !!fileGroupsCollapsed[group.name];
     var rows = group.items.map(function (f) {
       var title = f.name;
@@ -1433,6 +1576,7 @@ function renderFiles() {
         '<span class="fg-name">' + Renderer.esc(group.name) + '</span></span>' +
         '<span>' + group.items.length + '</span></div>' + rows + '</div>';
   }).join("");
+  el.innerHTML = '<div class="reveal">' + groupsHtml + "</div>";
   updateFilterCount(list.length);
   el.onclick = function (e) {
     var label = e.target.closest(".file-group-label");
@@ -1648,6 +1792,7 @@ function setMark(path, anchor, next) {
   if (next) recordReviewEvent(path, anchor, next);
   refreshTocMarks();
   refreshNodeProgress();
+  pulseMarkBadge(path, anchor);
   renderReviewBadge();
   renderStats();
   renderHomePage();
@@ -1850,7 +1995,9 @@ function renderToc(headings) {
     return;
   }
   var tree = buildTocTree(currentHeadings);
-  el.innerHTML = '<div class="pane-scroll">' + tree.map(tocHtml).join("") + "</div>";
+  el.innerHTML = '<div class="pane-scroll reveal">' + tree.map(tocHtml).join("") + "</div>";
+  lastIndicatorKey = ""; // 目录重绘后重新定位指示条
+  updateTocIndicator();
   collectHeadingPositions();
 }
 function buildTocTree(headings) {
@@ -1949,10 +2096,122 @@ function showError(msg) { contentEl.className = "doc error"; contentEl.innerHTML
 function doubleRaf(fn) { requestAnimationFrame(function () { requestAnimationFrame(fn); }); }
 /* 平滑滚动：系统开启「减少动态效果」时退化为瞬时定位 */
 function scrollBehavior() {
-  try {
-    if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return "auto";
-  } catch (e) {}
+  if (prefersReducedMotion()) return "auto";
   return "smooth";
+}
+/* ---------- 动效工具（全部在能力缺失时静默降级） ---------- */
+function prefersReducedMotion() {
+  try {
+    if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+  } catch (e) {}
+  return false;
+}
+/* 视图切换：优先用 View Transitions 做内容区交叉过渡；不支持时直接执行（行为完全一致） */
+function runViewTransition(mutate) {
+  if (typeof document === "undefined" || typeof document.startViewTransition !== "function" || prefersReducedMotion()) {
+    mutate();
+    return;
+  }
+  try {
+    var t = document.startViewTransition(mutate);
+    if (t && t.finished && typeof t.finished.catch === "function") t.finished.catch(function () {});
+  } catch (e) {
+    mutate();
+  }
+}
+/* 进度环：从 0 长到目标值（不支持 / 降级时保持内联的最终值） */
+function animateRings(root) {
+  if (!root || !root.querySelectorAll || prefersReducedMotion()) return;
+  var rings = root.querySelectorAll(".stats-ring");
+  for (var i = 0; i < rings.length; i++) {
+    (function (ring) {
+      var target = ring.getAttribute ? ring.getAttribute("data-pct") : null;
+      if (target === null || !ring.style || typeof requestAnimationFrame !== "function") return;
+      ring.style.setProperty("--pct", "0");
+      requestAnimationFrame(function () { ring.style.setProperty("--pct", target); });
+    })(rings[i]);
+  }
+}
+/* KPI 数字滚动：只改文本节点，DOM 里最终一定是精确值；桩环境（无 Web Animations）直接跳过 */
+function animateCounters(root) {
+  if (!root || !root.querySelectorAll || prefersReducedMotion()) return;
+  if (typeof document === "undefined" || !document.body || typeof document.body.animate !== "function") return;
+  if (typeof requestAnimationFrame !== "function") return;
+  var nodes = root.querySelectorAll(".home-summary-value");
+  for (var i = 0; i < nodes.length; i++) {
+    (function (node) {
+      var to = parseInt(String(node.textContent).replace(/[^\d-]/g, ""), 10);
+      if (!isFinite(to) || to <= 0) return;
+      var start = null, dur = 720;
+      var step = function (ts) {
+        if (start === null) start = ts;
+        var k = Math.min(1, (ts - start) / dur);
+        node.textContent = String(Math.round(to * (1 - Math.pow(1 - k, 3))));
+        if (k < 1) requestAnimationFrame(step);
+        else node.textContent = String(to);
+      };
+      requestAnimationFrame(step);
+    })(nodes[i]);
+  }
+}
+/* 指针跟随高光：只在卡片上写 --mx/--my，rAF 节流 */
+function initSpotlight() {
+  if (typeof document === "undefined" || !document.addEventListener) return;
+  var fine = true;
+  try { if (typeof matchMedia === "function") fine = matchMedia("(hover: hover)").matches; } catch (e) {}
+  if (!fine || prefersReducedMotion()) return;
+  var pending = false, last = null;
+  document.addEventListener("pointermove", function (e) {
+    last = e;
+    if (pending) return;
+    pending = true;
+    var run = function () {
+      pending = false;
+      var ev = last;
+      var card = ev && ev.target && ev.target.closest ? ev.target.closest(".spot") : null;
+      if (!card || !card.style || typeof card.getBoundingClientRect !== "function") return;
+      var r = card.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      card.style.setProperty("--mx", Math.round(ev.clientX - r.left) + "px");
+      card.style.setProperty("--my", Math.round(ev.clientY - r.top) + "px");
+    };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(run); else run();
+  }, { passive: true });
+}
+/* 刚标记的圆点弹一下（找不到对应圆点时静默跳过） */
+function pulseMarkBadge(path, anchor) {
+  var tocEl = $("tab-toc");
+  var badges = tocEl && tocEl.querySelectorAll ? tocEl.querySelectorAll(".mark-badge") : [];
+  for (var i = 0; i < badges.length; i++) {
+    var b = badges[i];
+    if (!b.dataset || b.dataset.path !== path || b.dataset.anchor !== anchor) continue;
+    if (!b.classList || prefersReducedMotion()) return;
+    b.classList.remove("just-marked");
+    void b.offsetWidth; // 强制重排以重启动画
+    b.classList.add("just-marked");
+    setTimeout(function () { b.classList.remove("just-marked"); }, 760);
+    return;
+  }
+}
+/* 当前小节指示条：整条滑块在目录列里平滑移动（锚点变化时才重算） */
+var lastIndicatorKey = "";
+function updateTocIndicator() {
+  var ind = $("toc-indicator"), col = $("col-toc"), pane = $("tab-toc");
+  if (!ind || !col || !pane || !ind.style || !col.querySelectorAll) return;
+  var links = col.querySelectorAll(".toc-link");
+  var active = null;
+  for (var i = 0; i < links.length; i++) {
+    if (links[i].classList && links[i].classList.contains("active")) { active = links[i]; break; }
+  }
+  var key = active ? (active.getAttribute("data-anchor") || "?") + "|" + pane.scrollTop + "|" + pane.clientHeight : "";
+  if (key === lastIndicatorKey) return;
+  lastIndicatorKey = key;
+  if (!active || typeof active.getBoundingClientRect !== "function") { ind.style.opacity = "0"; return; }
+  var ar = active.getBoundingClientRect(), pr = pane.getBoundingClientRect(), cr = col.getBoundingClientRect();
+  if (!ar.height || ar.top < pr.top - 1 || ar.bottom > pr.bottom + 1) { ind.style.opacity = "0"; return; }
+  ind.style.opacity = "1";
+  ind.style.height = Math.max(10, Math.round(ar.height - 10)) + "px";
+  ind.style.transform = "translateY(" + Math.round(ar.top - cr.top + 5) + "px)";
 }
 
 /* ============================== 滚动位置记忆 ============================== */
@@ -2037,6 +2296,7 @@ function setTocActive(anchor) {
       }
     }
   }
+  updateTocIndicator();
 }
 /* 程序化跳转到小节：立即把目标置为选中态并锁定滚动跟随，平滑滚动途中不逐节跳变 */
 var spyLocked = false;
@@ -2083,7 +2343,7 @@ if (typeof window !== "undefined" && window.addEventListener) {
   var spyResizeTimer = null;
   window.addEventListener("resize", function () {
     if (spyResizeTimer) clearTimeout(spyResizeTimer);
-    spyResizeTimer = setTimeout(function () { collectHeadingPositions(); }, 200);
+    spyResizeTimer = setTimeout(function () { collectHeadingPositions(); lastIndicatorKey = ""; updateTocIndicator(); syncAppNav(); }, 200);
   });
 }
 
@@ -2504,26 +2764,41 @@ function syncAppNav() {
   // 首页、复习和统计是独立工作台；只有笔记阅读保留学习进度与目录侧栏。
   document.body.classList.toggle("workbench-view", viewMode !== "document");
   var navs = { home: "nav-home", document: "nav-notes", review: "nav-review" };
+  var activeBtn = null;
   Object.keys(navs).forEach(function (view) {
     var btn = $(navs[view]);
     var active = view === viewMode;
     btn.classList.toggle("active", active);
-    if (active) btn.setAttribute("aria-current", "page");
+    if (active) { btn.setAttribute("aria-current", "page"); activeBtn = btn; }
     else if (btn.removeAttribute) btn.removeAttribute("aria-current");
   });
+  updateNavIndicator(activeBtn);
+}
+/* 当前页签指示片：滑到激活按钮下方（窄屏 page-nav 隐藏时自动收起） */
+function updateNavIndicator(activeBtn) {
+  var ind = $("nav-indicator"), nav = $("app-nav");
+  if (!ind || !ind.style || !nav || typeof nav.getBoundingClientRect !== "function") return;
+  if (!activeBtn || typeof activeBtn.getBoundingClientRect !== "function") { ind.style.opacity = "0"; return; }
+  var nr = nav.getBoundingClientRect(), br = activeBtn.getBoundingClientRect();
+  if (!br.width || br.top < nr.top - 20) { ind.style.opacity = "0"; return; } // 导航被隐藏（窄屏）
+  ind.style.opacity = "1";
+  ind.style.width = Math.round(br.width) + "px";
+  ind.style.transform = "translateX(" + Math.round(br.left - nr.left) + "px)";
 }
 function hideWorkbenchPages() {
   $("home-page").classList.add("hidden");
   $("review-page").classList.add("hidden");
 }
 function showDocumentView() {
-  hideWorkbenchPages();
-  if (contentEl) contentEl.classList.remove("hidden");
-  $("edit-source").classList.add("hidden");
-  $("crumb").classList.remove("hidden");
-  $("read-progress").classList.remove("hidden");
-  viewMode = "document";
-  syncAppNav();
+  runViewTransition(function () {
+    hideWorkbenchPages();
+    if (contentEl) contentEl.classList.remove("hidden");
+    $("edit-source").classList.add("hidden");
+    $("crumb").classList.remove("hidden");
+    $("read-progress").classList.remove("hidden");
+    viewMode = "document";
+    syncAppNav();
+  });
 }
 function rememberDocumentScroll() {
   if (!histReady || viewMode !== "document" || !current) return;
@@ -2539,16 +2814,18 @@ function activateWorkbenchView(view, pageId, renderer, options) {
   if (findBarVisible()) closeFind();
   hideMarkMenu();
   toggleRandomMenu(false);
-  hideWorkbenchPages();
-  if (contentEl) contentEl.classList.add("hidden");
-  $("edit-source").classList.add("hidden");
-  $("crumb").classList.add("hidden");
-  $("read-progress").classList.add("hidden");
-  $("edit-bar").classList.add("hidden");
-  $(pageId).classList.remove("hidden");
-  viewMode = view;
-  syncAppNav();
-  renderer();
+  runViewTransition(function () {
+    hideWorkbenchPages();
+    if (contentEl) contentEl.classList.add("hidden");
+    $("edit-source").classList.add("hidden");
+    $("crumb").classList.add("hidden");
+    $("read-progress").classList.add("hidden");
+    $("edit-bar").classList.add("hidden");
+    $(pageId).classList.remove("hidden");
+    viewMode = view;
+    syncAppNav();
+    renderer();
+  });
   if (mainEl && typeof mainEl.scrollTop === "number") mainEl.scrollTop = 0;
   if (options.pushHistory === false) return true;
   if (options.replaceHistory || !histReady) {
@@ -2625,18 +2902,18 @@ function renderHomePage() {
       { label: "待处理", value: pending.length, note: "待复习 " + data.review + " · 薄弱 " + data.weak },
       { label: "复习次数", value: data.reviewActions, note: "启用统计后累计" }
     ].map(function (item) {
-      return '<div class="home-summary-card"><div class="home-summary-label">' + item.label + '</div>' +
+      return '<div class="home-summary-card spot"><div class="home-summary-label">' + item.label + '</div>' +
         '<div class="home-summary-value">' + item.value + '</div>' +
         '<div class="home-summary-note">' + item.note + '</div></div>';
     }).join("");
     overviewSection =
-      '<section class="home-summary">' + kpi + '</section>' +
-      '<section class="stats-panel stats-overview-panel"><h2>学习概览</h2><p class="stats-panel-note">掌握与覆盖分开计算，避免把已标记误当作已掌握。</p>' +
+      '<section class="home-summary stagger">' + kpi + '</section>' +
+      '<section class="stats-panel stats-overview-panel spot"><h2>学习概览</h2><p class="stats-panel-note">掌握与覆盖分开计算，避免把已标记误当作已掌握。</p>' +
         '<div class="stats-overview-main">' +
           '<div class="stats-ring-row">' +
-            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + mastery + ';--ring:var(--success)" data-value="' + mastery + '%"></div><span class="stats-ring-label">掌握率</span></div>' +
-            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + coverage + ';--ring:var(--accent)" data-value="' + coverage + '%"></div><span class="stats-ring-label">覆盖率</span></div>' +
-            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + weakRate + ';--ring:var(--error)" data-value="' + weakRate + '%"></div><span class="stats-ring-label">薄弱占比</span></div>' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + mastery + ';--ring:var(--success)" data-pct="' + mastery + '" data-value="' + mastery + '%"></div><span class="stats-ring-label">掌握率</span></div>' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + coverage + ';--ring:var(--accent)" data-pct="' + coverage + '" data-value="' + coverage + '%"></div><span class="stats-ring-label">覆盖率</span></div>' +
+            '<div class="stats-ring-wrap"><div class="stats-ring" style="--pct:' + weakRate + ';--ring:var(--error)" data-pct="' + weakRate + '" data-value="' + weakRate + '%"></div><span class="stats-ring-label">薄弱占比</span></div>' +
           '</div>' +
           '<div class="stats-overview-lines">' +
             '<div class="ov-line"><span class="ov-dot stats-done"></span><span class="ov-label">已掌握</span><b>' + data.done + ' 项</b></div>' +
@@ -2653,7 +2930,7 @@ function renderHomePage() {
       var doneWidth = statsPercent(category.done, category.total);
       var reviewWidth = statsPercent(category.review, category.total);
       var weakWidth = statsPercent(category.weak, category.total);
-      return '<div class="stats-category-card" title="' + escAttr(category.name) + '：共 ' + category.total + ' 个知识点，复习 ' + category.reviewActions + ' 次">' +
+      return '<div class="stats-category-card spot" title="' + escAttr(category.name) + '：共 ' + category.total + ' 个知识点，复习 ' + category.reviewActions + ' 次">' +
         '<div class="stats-category-head"><span class="stats-category-name">' + esc(category.name) + '</span><span class="stats-category-total">' + category.total + ' 项</span></div>' +
         '<span class="stats-bar-track" role="img" aria-label="已掌握 ' + category.done + '，待复习 ' + category.review + '，薄弱 ' + category.weak + '">' +
           '<span class="stats-bar-seg stats-done" style="width:' + doneWidth + '%"></span>' +
@@ -2663,8 +2940,8 @@ function renderHomePage() {
     }).join("");
     tailSection =
       '<div class="stats-dashboard">' +
-        '<section class="stats-panel stats-distribution-panel"><h2>知识点类型分布</h2><p class="stats-panel-note">按笔记汇总；色条依次表示已掌握、待复习与薄弱。</p><div class="stats-category-grid">' + bars + '</div></section>' +
-        '<section class="stats-panel stats-heat-panel"><h2>复习热力图</h2><p class="stats-panel-note">近 12 个月每天标记过的知识点数量；悬停查看当日明细。</p>' + statsHeatmapHtml(data.events) + '</section>' +
+        '<section class="stats-panel stats-distribution-panel spot"><h2>知识点类型分布</h2><p class="stats-panel-note">按笔记汇总；色条依次表示已掌握、待复习与薄弱。</p><div class="stats-category-grid stagger">' + bars + '</div></section>' +
+        '<section class="stats-panel stats-heat-panel spot"><h2>复习热力图</h2><p class="stats-panel-note">近 12 个月每天标记过的知识点数量；悬停查看当日明细。</p>' + statsHeatmapHtml(data.events) + '</section>' +
       '</div>';
   } else {
     overviewSection = '<section class="stats-panel stats-empty">当前笔记中还没有可统计的末级标题。</section>';
@@ -2673,9 +2950,11 @@ function renderHomePage() {
     '<div class="workbench-hero"><div><p class="workbench-kicker">学习概览</p><h1 id="home-title" class="workbench-title">学习工作台</h1><p class="workbench-sub">进度总览、继续阅读、待复习与最近打开集中在一屏内。</p></div></div>' +
     '<section class="home-resume"><div><div class="home-resume-label">继续阅读</div><div class="home-resume-title">' + resumeName + '</div><div class="home-resume-note">' + resumeMeta + '</div></div><button type="button" class="workbench-action primary" data-home-action="resume"' + (resume ? ' data-path="' + escAttr(resume.path) + '"' : "") + '>继续学习 →</button></section>' +
     overviewSection +
-    '<div class="home-grid"><section class="workbench-panel"><div class="panel-head"><h2>待复习</h2>' + pendingLink + '</div><p class="workbench-panel-note">优先处理薄弱项与待复习项，点击即可回到原文。</p><div class="workbench-list">' + pendingHtml + '</div></section>' +
-      '<section class="workbench-panel"><div class="panel-head"><h2>' + entryTitle + '</h2><button type="button" class="panel-link" data-home-action="notes">全部笔记 →</button></div><p class="workbench-panel-note">' + entryNote + '</p><div class="workbench-list">' + recent + '</div></section></div>' +
+    '<div class="home-grid"><section class="workbench-panel spot"><div class="panel-head"><h2>待复习</h2>' + pendingLink + '</div><p class="workbench-panel-note">优先处理薄弱项与待复习项，点击即可回到原文。</p><div class="workbench-list stagger">' + pendingHtml + '</div></section>' +
+      '<section class="workbench-panel spot"><div class="panel-head"><h2>' + entryTitle + '</h2><button type="button" class="panel-link" data-home-action="notes">全部笔记 →</button></div><p class="workbench-panel-note">' + entryNote + '</p><div class="workbench-list stagger">' + recent + '</div></section></div>' +
     tailSection;
+  animateRings(el);
+  animateCounters(el);
   bindHeatmapTooltip(el);
   el.onclick = function (event) {
     var button = event.target && event.target.closest ? event.target.closest("[data-home-action]") : null;
@@ -2695,7 +2974,7 @@ function renderReviewPage() {
     return '<button type="button" class="workbench-list-item" data-review-path="' + escAttr(item.path) + '" data-review-anchor="' + escAttr(item.anchor) + '"><span class="workbench-list-dot ' + item.state + '"></span><span class="workbench-list-copy"><span class="workbench-list-title">' + esc(item.text) + '</span><span class="workbench-list-meta">' + esc(item.file) + ' · ' + (item.state === "weak" ? "薄弱" : "待复习") + '</span></span></button>';
   }).join("");
   var listHtml = items.length
-    ? '<div class="workbench-list">' + rows + '</div>'
+    ? '<div class="workbench-list stagger">' + rows + '</div>'
     : '<div class="empty-state">' +
         '<div class="es-glyph" aria-hidden="true">◔</div>' +
         '<div class="es-title">暂无待复习项目</div>' +
@@ -2703,8 +2982,9 @@ function renderReviewPage() {
         '<button type="button" class="workbench-action primary es-action" data-review-go="notes">去笔记里标记 →</button>' +
       '</div>';
   el.innerHTML = '<div class="workbench-hero"><div><p class="workbench-kicker">复习</p><h1 id="review-page-title" class="workbench-title">待复习清单</h1><p class="workbench-sub">薄弱优先；点击条目回到原文，重新标记后自动从清单移除。随机抽题用左侧工具轨 🎲（快捷键 R）。</p></div></div>' +
-    '<section class="home-summary narrow"><div class="home-summary-card"><div class="home-summary-label">待处理</div><div class="home-summary-value">' + items.length + '</div><div class="home-summary-note">待复习 + 薄弱</div></div><div class="home-summary-card"><div class="home-summary-label">薄弱</div><div class="home-summary-value">' + weakCount + '</div><div class="home-summary-note">建议优先处理</div></div></section>' +
-    '<section class="workbench-panel review-page-list">' + listHtml + '</section>';
+    '<section class="home-summary narrow stagger"><div class="home-summary-card spot"><div class="home-summary-label">待处理</div><div class="home-summary-value">' + items.length + '</div><div class="home-summary-note">待复习 + 薄弱</div></div><div class="home-summary-card spot"><div class="home-summary-label">薄弱</div><div class="home-summary-value">' + weakCount + '</div><div class="home-summary-note">建议优先处理</div></div></section>' +
+    '<section class="workbench-panel spot review-page-list">' + listHtml + '</section>';
+  animateCounters(el);
   el.onclick = function (event) {
     var go = event.target && event.target.closest ? event.target.closest("button[data-review-go]") : null;
     if (go) { openNotesView(); return; }
@@ -3901,6 +4181,7 @@ $("side-switch").addEventListener("click", function (e) {
 })();
 
 /* ============================== 启动 ============================== */
+initSpotlight();
 showBoot("loading", "服务正在启动中…", "正在连接本地笔记服务，请稍候");
 loadIndex();
 </script>

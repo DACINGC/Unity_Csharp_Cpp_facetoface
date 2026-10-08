@@ -145,6 +145,48 @@
 - DOM 桩改为**从 HTML 标记读取各 id 的初始 class**（如 `hidden`），使弹层分层关闭等逻辑的测试与真实页面一致
 - `test_render.js` 未改动、原样通过；`renderer.js`、`mdviewer.py` 未改动
 - 视觉验收：无头 Chrome + CDP 截图（深/浅 × 1600 / 1280 / 1000 / 640 宽 × 首页 / 文档 / 复习 / 帮助 / 骨架）逐张核对，修掉发现的问题：目录深层标题被挤成逐字换行、文件行内联导致的省略失效、面包屑在中等宽度竖向堆叠、筛选栏换行、空清单虚高面板
+- 运行时检查：真实浏览器遍历 14 个交互步骤（首页/复习/开文档/帮助/掌握度菜单/抽题/磁盘检查/筛选/主题/分节跳转/搜索/查找/编辑），`window.onerror`、未处理 Promise、`console.error` 收集为空
+
+## 本轮（二）：高级动效与流动性（已实施）
+
+> 目标：让界面"会呼吸"——切换有过渡、状态变化有生长、指针交互有跟随；同时一个依赖都不加、一条 `prefers-reduced-motion` 全部可关。
+
+### 一、动效语言（令牌 + 关键帧）
+
+- 新增令牌：`--ease-expo`（快速起步、柔和收尾，主力曲线）、`--ease-spring`（轻微回弹）、`--ease-in-out`、`--dur-fast/base/slow/enter`、`--stagger: 26ms`、`--glow-a/--glow-b`（环境光）
+- 关键帧库：`rise` / `rise-sm` / `slide-left` / `pop-in` / `bar-grow` / `pulse-ring` / `sheen` / `breathe` / `mark-pop` / `vt-out`
+- 入场编排：容器加 `.stagger`，子项用 `nth-child` 给 0~9 档延迟（只编排前 10 个；长列表整块 `.reveal` 淡入，避免几百行逐个错峰显得拖沓）
+- 可插值自定义属性 `@property --pct`：进度环因此能真正从 0 长到目标值（`transition: --pct`），深浅主题同源
+
+### 二、页面与状态过渡
+
+- **视图交叉过渡**：`runViewTransition()` 包住「切换工作台 / 进入文档」的 DOM 更新；内容区带 `view-transition-name: pane`，`::view-transition-old/new(pane)` 各自定义淡出/淡入；不支持或系统要求减少动效时**同步执行原逻辑**（行为完全不变）
+- 进度环从 0 长出（`animateRings`）、色段用 `scaleX` 从左侧展开（不受内联 width 影响）、KPI 数字滚动到位（`animateCounters`，只改文本节点，DOM 终值一定是精确整数）
+- 阅读进度条改用 expo 短过渡，滚动时有一点"追上"的手感；侧栏收起/展开也换用 expo 曲线
+
+### 三、指示条与指针交互
+
+- **当前小节指示条** `#toc-indicator`：整条滑块在目录列里平滑移动（`transform`/`height` 过渡），锚点或可视区变化时才重算，超出可视区自动隐藏；取代了原先"每行各画一条 inset 阴影"
+- **页签滑动指示片** `#nav-indicator`：在「首页 / 笔记 / 复习」之间滑动；窄屏导航隐藏时自动收起；窗口 resize 后重算
+- **指针跟随柔光**：卡片加 `.spot`，`pointermove`（rAF 节流）写 `--mx/--my`，`::after` 画跟随光斑；仅在支持悬停的设备启用
+- 侧栏条目悬停/选中时左侧滑出强调条；列表项悬停铺开浅色渐变；热力图格子悬停放大 1.4 倍并高亮
+- 按钮统一"悬浮微抬 1px / 按压回落 1px 且缩到 0.97"；主行动按钮（继续学习、去笔记里标记）换强调色渐变 + 投影，其余按钮保持安静
+
+### 四、玻璃质感与状态脉冲
+
+- 卡片与弹层统一顶缘高光（`linear-gradient(180deg, var(--hairline), transparent 46%)`），平面色块变成"玻璃"
+- 进度环外发光；`main` 加极低饱和环境光；「继续阅读」卡底色缓慢漂移（16s alternate）
+- 标记圆点 `just-marked` 短暂加类 → 圆点弹一下 + 一圈 `pulse-ring` 扩散；Toast 图标弹入；启动覆盖层 logo 呼吸
+- 侧栏总进度与面包屑本篇进度条叠加缓慢流光（3.6s），让"进度"看起来是活的
+
+### 五、成本与降级
+
+- **零新增依赖**：无 CDN / 无 npm / 无 `@import`，全部是 CSS 关键帧 + 少量 JS 助手
+- **三层降级**：`prefersReducedMotion()`（JS 侧一律跳过）、`@media (prefers-reduced-motion: reduce)`（动画/过渡压到 0.001ms）、能力探测（`startViewTransition`、`document.body.animate`、`matchMedia`、`getBoundingClientRect` 缺失时静默跳过）
+- **性能**：指针跟随 rAF 节流；指示条只在锚点/可视区变化时重算；滚动跟随仍是缓存偏移量比较；动效全部走 `transform`/`opacity` 合成层
+- **测试**：新增静态契约（动效令牌 / 关键帧 / `@property --pct` / View Transitions / 降级开关 / 零外部依赖）与行为断言（桩环境无 `matchMedia`、无 `startViewTransition`、无 Web Animations 时：视图切换同步执行、动效助手不抛错、KPI 数值仍是精确整数）
+- **可视化验证**：CDP 探针确认 `rise` 编排（第 3 张卡延迟 52ms）、`--pct` 过渡已注册、环 0→46、色段 `bar-grow`、指示条 `translateY(214px) / height 20px / opacity 1`、标记脉冲命中 1 个圆点、`::view-transition-group(pane)` 真实生成；把 `--dur-enter` 临时放大到 3.6s 截图确认错峰入场；`prefers-reduced-motion` 下环直接落到终值、无过渡
+- **交互回归**：约 40 步真实浏览器操作（视图往返、分节跳转、标记/清除、搜索/查找、主题切换、抽题、磁盘检查、筛选、编辑、帮助、连续 6 轮狂点导航）零运行时错误
 
 
 
