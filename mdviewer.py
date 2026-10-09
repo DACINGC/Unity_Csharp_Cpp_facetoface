@@ -3,7 +3,7 @@
 """面试 MD 文档查看器 —— 本地服务端（仅用 Python 标准库，零依赖）。
 
 用法:
-    python mdviewer.py                # 默认端口 8765，默认根目录为脚本所在目录（含 面试知识整理/*.md 与 note、笔记 下的 txt）
+    python mdviewer.py                # 默认端口 8765，默认根目录为脚本所在目录（含 面试知识整理/*.md 与 原始素材 下的 txt）
     python mdviewer.py --port 9000    # 指定端口
     python mdviewer.py --root D:/docs # 指定文档根目录
     python mdviewer.py --no-browser   # 不自动打开浏览器
@@ -744,7 +744,7 @@ def main():
 
     ap = argparse.ArgumentParser(description=APP_NAME)
     ap.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"监听端口（默认 {DEFAULT_PORT}）")
-    ap.add_argument("--root", default=DEFAULT_ROOT, help="文档根目录（默认：脚本所在目录，含 面试知识整理 下的 md 与 note、笔记 下的 txt）")
+    ap.add_argument("--root", default=DEFAULT_ROOT, help="文档根目录（默认：脚本所在目录，含 面试知识整理 下的 md 与 原始素材 下的 txt）")
     ap.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
     ap.add_argument("--daemon", action="store_true",
                     help="后台模式：派生一个与控制台分离的服务进程后立刻退出（关闭控制台不影响服务）")
