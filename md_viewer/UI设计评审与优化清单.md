@@ -87,6 +87,7 @@
 
 ## 后续增量
 
+- **文件行尾复习进度环（2026-10-09）**：文件列表每个「有知识点的 md」行尾新增 20px 圆环（`.file-ring`），一眼预览每份文档的掌握进度；txt 与无标题文档不显示。实现：`conic-gradient(var(--accent) calc(var(--pct)*1%))` + radial 遮罩挖空成环，复用已注册的 `@property --pct`（可插值 → 列表渲染后从 0 生长，`refreshFileRings(true)` 双 rAF 回填）；标记 / 导入后的刷新走 `refreshProgressViews() → refreshFileRings(false)`，同一元素上改值天然带过渡。环表达「进度」故沿用主色靛蓝，语义色仍只留给掌握状态圆点；数值详情放 tooltip（掌握 x/y · 覆盖 z% · 待复习 · 薄弱），环本体 `aria-hidden`（纯装饰性重复）。`test_app.js` 加静态契约 + 渲染数量断言；`verify_browser.js` 加探针（data-pct 与内联 --pct 全一致、conic 生效）
 - **当前文档学习进度**：面包屑栏新增 `#file-progress`（进度条 + ✓/◔/✕ 计数 + 百分比 + title 提示），`updateFileProgress()` 在打开文档与 `cycleMark` 标记后刷新；无标题的 txt 自动隐藏；≤700px 隐藏进度条仅留计数；`test_app.js` 增加 0/55 与 1/55 两条断言
 - **未复习定位**：面包屑「▸ 未复习」按钮 `jumpToNextUnmarked()`——按标题顺序定位当前文档第一个未标记的**小标题（叶子知识点，跳过仅用于折叠分组的大标题）**并闪烁高亮；全部标完时 toast 提示；配合行尾圆点标记形成连续复习流；`test_app.js` 增加定位提示与全部标记提示两条断言
 - **双击不选中（仅侧栏）**：侧栏交互条目（toc/file/review 列表、徽标、tab 标题、面包屑）加 `user-select: none`——双击不再产生选区，避免唤起浏览器/插件的复制、分享、翻译划词弹窗；**正文标题与段落均保持可选中复制**（曾对 `.doc h1..h4` 也禁用选择，按用户要求已恢复，正文标题重新可复制）
