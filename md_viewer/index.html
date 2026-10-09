@@ -23,47 +23,52 @@
   :root {
     color-scheme: dark;
     /* 表面 */
-    --bg: #0e1013;
-    --bg-deep: #0a0c0f;
-    --panel: #14171b;
-    --panel-raised: #1a1e23;
-    --panel-soft: #1e232a;
-    --bg-glass: rgba(14,16,19,.82);
+    --bg: #0c0f16;
+    --bg-deep: #080b12;
+    --panel: #131824;
+    --panel-raised: #1a2030;
+    --panel-soft: #1f2637;
+    --bg-glass: rgba(12,15,22,.82);
     --blur: 14px;
     /* 描边 */
-    --border: #262c34;
-    --border-soft: #1e232a;
+    --border: #262e42;
+    --border-soft: #1b2233;
     --hairline: rgba(255,255,255,.06);
     /* 文本 */
-    --text: #e6e9ee;
-    --text-strong: #f8fafc;
-    --muted: #98a1ad;
-    --muted-2: #7b8593;
-    /* 强调色 */
-    --accent: #3fbdfb;
-    --accent-strong: #1a9ae0;
-    --accent-soft: rgba(63,189,251,.12);
-    --accent-line: rgba(63,189,251,.32);
-    --accent-line-soft: rgba(63,189,251,.18);
-    --accent-grad: linear-gradient(135deg, #4ecbff, #1a8fdd);
-    /* 语义色 */
-    --success: #4fd08e;
-    --success-soft: rgba(79,208,142,.12);
+    --text: #e2e7f2;
+    --text-strong: #f7f9fd;
+    --muted: #909bb5;
+    --muted-2: #74809c;
+    /* 强调色（交互层：靛蓝。只用于「可点击 / 当前所在位置」，不作装饰色铺开） */
+    --accent: #6e93f7;
+    --accent-strong: #4a73e8;
+    --accent-soft: rgba(110,147,247,.12);
+    --accent-line: rgba(110,147,247,.32);
+    --accent-line-soft: rgba(110,147,247,.18);
+    --accent-grad: linear-gradient(135deg, #8cabff, #3f63d6);
+    /* 语义色（状态层：与强调色错开色相，只用于掌握状态圆点 / 徽标） */
+    --success: #5fcb6b;
+    --success-soft: rgba(95,203,107,.12);
     --warning: #e8b768;
     --warning-soft: rgba(232,183,104,.12);
     --error: #f0787a;
     --error-soft: rgba(240,120,122,.12);
+    /* 点缀色（暖砂：图表第二维度 / 环境光暖点 / 搜索命中，与靛蓝冷对冲） */
+    --sand: #e4b87a;
+    --sand-soft: rgba(228,184,122,.12);
     /* 代码与高亮 */
-    --code-bg: #0d141c;
-    --code-text: #dbeafe;
-    --code-border: #22303f;
-    --hl: rgba(255,208,92,.28);
-    --select-bg: rgba(63,189,251,.26);
+    /* 代码块要能从正文底色（--bg）里浮起来：明度高于 --bg 一档，再靠描边确立边界。
+       若取比 --bg 更暗的值，长代码段会整块糊进背景，看不出「这段是代码」。 */
+    --code-bg: #0e1420;
+    --code-text: #a9c4f5;
+    --code-border: #2a3550;
+    --hl: rgba(228,184,122,.28);
+    --select-bg: rgba(110,147,247,.26);
     --row-stripe: rgba(255,255,255,.02);
     /* 正文强调色（深色主题下的取值） */
     --strong-text: #f0c36a;
-    --em-text: #7cc9ef;
-    --code-inline-text: #9cdbf7;
+    --em-text: #9cb4fa;
+    --code-inline-text: #a9c4f5;
     /* 层级投影（1 静态卡 / 2 悬浮 / 3 弹层） */
     --shadow-1: 0 1px 2px rgba(0,0,0,.28);
     --shadow-2: 0 6px 18px -6px rgba(0,0,0,.45);
@@ -88,22 +93,22 @@
     --dur-slow: .46s;
     --dur-enter: .52s;
     --stagger: 26ms;
-    /* 环境光（大面积底色的纵深，静态、低饱和） */
-    --glow-a: rgba(63,189,251,.055);
-    --glow-b: rgba(120,96,255,.035);
+    /* 环境光（靛蓝 + 暖砂冷暧对冲，静态、低饱和） */
+    --glow-a: rgba(110,147,247,.055);
+    --glow-b: rgba(228,184,122,.035);
     /* 焦点环 */
-    --focus-ring: 0 0 0 3px rgba(63,189,251,.28);
-    /* 滚动条 / 热力图 */
+    --focus-ring: 0 0 0 3px rgba(110,147,247,.28);
+    /* 滚动条 / 热力图（热力图表达的是「活跃度」而非掌握状态，故用靛蓝不用语义绿） */
     --scrollbar-thumb: rgba(255,255,255,.16);
     --scrollbar-thumb-hover: rgba(255,255,255,.26);
-    --heat-1: rgba(79,208,142,.28);
-    --heat-2: rgba(79,208,142,.55);
-    --heat-3: rgba(79,208,142,.78);
-    --heat-4: #43b878;
+    --heat-1: rgba(110,147,247,.28);
+    --heat-2: rgba(110,147,247,.55);
+    --heat-3: rgba(110,147,247,.78);
+    --heat-4: #4a73e8;
     /* 文件类型图标 */
-    --icon-ink: #06141d;
-    --icon-md: #36b8f3;
-    --icon-txt: #8b9aa7;
+    --icon-ink: #08111f;
+    --icon-md: #6e93f7;
+    --icon-txt: #8a96b0;
     /* 阅读测宽与骨架 */
     --doc-measure: 900px;
     --skeleton: linear-gradient(90deg, var(--panel-soft) 25%, var(--border) 37%, var(--panel-soft) 63%);
@@ -111,59 +116,64 @@
   }
   :root[data-theme="light"] {
     color-scheme: light;
-    --bg: #f6f7f9;
-    --bg-deep: #eef0f3;
+    /* 纸白带一丝蓝，避免与纯白卡片撞色 */
+    --bg: #f5f7fb;
+    --bg-deep: #eaeff7;
     --panel: #ffffff;
     --panel-raised: #ffffff;
-    --panel-soft: #f3f5f8;
-    --bg-glass: rgba(246,247,249,.82);
-    --border: #e5e8ee;
-    --border-soft: #eef1f5;
-    --hairline: rgba(16,24,40,.04);
-    --text: #1f242b;
-    --text-strong: #111418;
-    --muted: #5b6675;
-    --muted-2: #6b7684;
-    --accent: #0a72ad;
-    --accent-strong: #08618f;
-    --accent-soft: rgba(10,114,173,.09);
-    --accent-line: rgba(10,114,173,.28);
-    --accent-line-soft: rgba(10,114,173,.16);
-    --accent-grad: linear-gradient(135deg, #0f86c4, #0a6091);
-    --success: #2c9c68;
-    --success-soft: rgba(44,156,104,.11);
-    --warning: #a56b08;
-    --warning-soft: rgba(165,107,8,.11);
-    --error: #c0392b;
-    --error-soft: rgba(192,57,43,.10);
-    --code-bg: #0d141c;
-    --code-text: #dbeafe;
-    --code-border: #d7dee7;
-    --hl: rgba(255,208,92,.45);
-    --select-bg: rgba(10,114,173,.20);
-    --row-stripe: rgba(16,24,40,.025);
+    --panel-soft: #eef2f9;
+    --bg-glass: rgba(245,247,251,.82);
+    --border: #dfe6f2;
+    --border-soft: #e9eff7;
+    --hairline: rgba(16,32,72,.04);
+    --text: #1b2233;
+    --text-strong: #0a1020;
+    --muted: #55628a;
+    --muted-2: #6c78a0;
+    /* 白底对比度 5.0:1，达 WCAG AA */
+    --accent: #3f63d6;
+    --accent-strong: #3355be;
+    --accent-soft: rgba(63,99,214,.09);
+    --accent-line: rgba(63,99,214,.28);
+    --accent-line-soft: rgba(63,99,214,.16);
+    --accent-grad: linear-gradient(135deg, #4f74e8, #3355be);
+    --success: #2e9e56;
+    --success-soft: rgba(46,158,86,.11);
+    --warning: #9a6408;
+    --warning-soft: rgba(154,100,8,.11);
+    --error: #bf3a2e;
+    --error-soft: rgba(191,58,46,.10);
+    --sand: #c79355;
+    --sand-soft: rgba(199,147,85,.12);
+    /* 浅色主题下代码块保留深底：白底 + 深墨块，对比最强、最好辨认 */
+    --code-bg: #0e1420;
+    --code-text: #a9c4f5;
+    --code-border: #cfdcef;
+    --hl: rgba(228,184,122,.45);
+    --select-bg: rgba(63,99,214,.20);
+    --row-stripe: rgba(16,32,72,.025);
     /* 正文强调色（浅色主题下的取值：加深以保证白底可读） */
     --strong-text: #7d5000;
-    --em-text: #0b6ea8;
-    --code-inline-text: #0a5687;
+    --em-text: #2f52b8;
+    --code-inline-text: #3355be;
     --shadow-1: 0 1px 2px rgba(16,24,40,.06);
     --shadow-2: 0 8px 20px -8px rgba(16,24,40,.14);
     --shadow-3: 0 20px 44px -16px rgba(16,24,40,.18);
     --shadow: var(--shadow-3);
-    --focus-ring: 0 0 0 3px rgba(10,114,173,.22);
-    --scrollbar-thumb: rgba(24,32,44,.22);
-    --scrollbar-thumb-hover: rgba(24,32,44,.34);
-    --heat-1: rgba(44,156,104,.26);
-    --heat-2: rgba(44,156,104,.50);
-    --heat-3: rgba(44,156,104,.74);
-    --heat-4: #2c9c68;
+    --focus-ring: 0 0 0 3px rgba(63,99,214,.22);
+    --scrollbar-thumb: rgba(24,36,72,.22);
+    --scrollbar-thumb-hover: rgba(24,36,72,.34);
+    --heat-1: rgba(63,99,214,.26);
+    --heat-2: rgba(63,99,214,.50);
+    --heat-3: rgba(63,99,214,.74);
+    --heat-4: #3f63d6;
     --icon-ink: #ffffff;
-    --icon-md: #0f86c4;
-    --icon-txt: #7c8899;
+    --icon-md: #3f63d6;
+    --icon-txt: #6c78a0;
     --skeleton: linear-gradient(90deg, var(--panel-soft) 25%, var(--border) 37%, var(--panel-soft) 63%);
-    /* 环境光（浅色下同样只留一点点冷调纵深） */
-    --glow-a: rgba(10,114,173,.05);
-    --glow-b: rgba(96,84,214,.03);
+    /* 环境光（浅色下同样只用「靛蓝 + 暖砂」，不引入第三种色相） */
+    --glow-a: rgba(63,99,214,.05);
+    --glow-b: rgba(228,184,122,.03);
   }
   * { box-sizing: border-box; }
   /* 可插值的自定义属性：进度环 / 进度条能真正"长"出来，而不是瞬间跳到位 */
@@ -532,6 +542,13 @@
   .workbench-kicker { margin: 0 0 4px; color: var(--accent); font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
   .workbench-title { margin: 0; color: var(--text-strong); font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
   .workbench-sub { max-width: 780px; margin: 5px 0 0; color: var(--muted-2); font-size: 11.5px; line-height: 1.6; }
+  /* 待复习筛选与标题同处一行（UE-03 就近操作）。
+     抽题入口仍然只有工具轨 🎲 一处——同一功能不放第二个按钮，这条由 test_app.js 静态契约锁死。 */
+  .review-filter { display: flex; flex: 0 0 auto; gap: 3px; padding: 3px; border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--panel); }
+  .review-filter-btn { padding: 5px 10px; border: 0; border-radius: var(--r-sm); color: var(--muted); background: transparent; font: inherit; font-size: 11px; cursor: pointer; transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease); }
+  .review-filter-btn:hover { color: var(--text); background: var(--panel-soft); }
+  .review-filter-btn.active { color: var(--accent); background: var(--accent-soft); font-weight: 650; }
+  .workbench-list-meta .meta-overdue { color: var(--error); font-weight: 650; }
   .workbench-action { display: inline-flex; align-items: center; justify-content: center; min-height: 29px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--muted); background: var(--panel); font: inherit; font-size: 11px; cursor: pointer; transition: border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease); }
   .workbench-action:hover { border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
   .workbench-action.primary { border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
@@ -553,7 +570,12 @@
   .home-summary-label { color: var(--muted-2); font-size: 11px; }
   .home-summary-value { margin-top: 4px; color: var(--text-strong); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
   .home-summary-note { margin-top: 2px; color: var(--muted); font-size: 10px; }
-  .home-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+  /* 两张卡必须等高：align-items 用默认的 stretch，条目少的一侧会被补齐到与另一侧同高。
+     曾用 start —— 那会让两卡各按自身内容高度渲染，一张 6 条、一张 8 条就一高一低参差。 */
+  .home-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+  /* 两卡内的列表限同一最大高度：条目再多也不会把卡片撑长，超出部分在卡内滚动
+     （滚动条样式是全局的）。作用域限定在 home-grid，复习工作台那张全量清单不受影响。 */
+  .home-grid .workbench-list { max-height: 216px; overflow-y: auto; padding-right: 2px; }
   .workbench-panel { padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--panel); box-shadow: var(--shadow-1); }
   .workbench-panel h2 { margin: 0; color: var(--text-strong); font-size: 13px; font-weight: 650; }
   .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -634,6 +656,19 @@
   .stats-heat-summary span { display: block; color: var(--muted-2); font-size: 10.5px; }
   .stats-heat-summary b { display: block; margin-top: 3px; color: var(--text-strong); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .stats-heat-legend { display: flex; align-items: center; gap: 4px; margin-top: 12px; color: var(--muted-2); font-size: 10px; }
+  /* 首屏减负（UE-01）：热力图默认折叠成一行入口。
+     整块从约 230px 高压到约 44px，首页一屏就能看完「继续学习 → KPI → 学习概览 → 待复习/最近打开」，
+     不用为了找「今天该做什么」先滚过一张全年日历。 */
+  .stats-heat-panel > summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 1px 0; cursor: pointer; list-style: none;
+  }
+  .stats-heat-panel > summary::-webkit-details-marker { display: none; }
+  .stats-heat-panel > summary:hover .heat-toggle { color: var(--accent-strong); }
+  .heat-toggle { flex: 0 0 auto; color: var(--accent); font-size: 11px; font-weight: 650; }
+  .heat-toggle::after { content: "展开"; }
+  .stats-heat-panel[open] .heat-toggle::after { content: "收起"; }
+  .heat-body { margin-top: 10px; }
   .stats-heat-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; background: var(--panel-soft); }
   .stats-empty { padding: 28px 14px; color: var(--muted); font-size: 12px; text-align: center; }
 
@@ -648,7 +683,7 @@
   .doc em { color: var(--em-text); }
   .doc a { color: var(--accent); text-underline-offset: 3px; }
   .doc code { font-family: Consolas, "Courier New", monospace; font-size: 13px; background: var(--panel-soft); color: var(--code-inline-text); padding: 2px 5px; border: 1px solid var(--border); border-radius: 5px; word-break: break-all; }
-  .doc pre { margin: 14px 0; padding: 15px 17px; overflow-x: auto; border: 1px solid var(--code-border); border-radius: var(--r-md); background: var(--code-bg); color: var(--code-text); line-height: 1.65; box-shadow: inset 0 1px 0 var(--hairline); }
+  .doc pre { margin: 16px 0; padding: 16px 18px; overflow-x: auto; border: 1px solid var(--code-border); border-radius: var(--r-md); background: var(--code-bg); color: var(--code-text); line-height: 1.72; box-shadow: inset 0 1px 0 var(--hairline), 0 1px 2px rgba(0,0,0,.22); }
   .doc pre code { padding: 0; border: 0; background: none; color: inherit; font-size: 13px; word-break: normal; }
   .doc blockquote { margin: 14px 0; padding: 10px 16px; border-left: 3px solid var(--accent); border-radius: 0 var(--r-sm) var(--r-sm) 0; background: var(--accent-soft); color: var(--muted); }
   .doc ul, .doc ol { margin: 10px 0; padding-left: 27px; color: var(--text); font-size: 15px; line-height: 1.85; }
@@ -873,17 +908,17 @@
   .code-copy {
     position: absolute; top: 7px; right: 8px; z-index: 2;
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 8px; border: 1px solid rgba(148,166,184,.28); border-radius: 6px;
-    color: #aebdd2; background: rgba(16,24,32,.85); cursor: pointer;
+    padding: 3px 8px; border: 1px solid rgba(144,155,184,.28); border-radius: 6px;
+    color: var(--muted); background: rgba(7,12,14,.85); cursor: pointer;
     font-size: 11px; opacity: 0; transition: opacity .15s, color .15s;
   }
   .doc pre:hover .code-copy { opacity: 1; }
-  .code-copy:hover { color: #6ec7ff; border-color: rgba(110,199,255,.45); }
+  .code-copy:hover { color: var(--accent); border-color: var(--accent-line); }
   .code-copy:focus-visible { opacity: 1; }
   .code-lang {
     position: absolute; top: 8px; left: 12px; z-index: 1;
-    padding: 1px 7px; border-radius: 5px; border: 1px solid rgba(148,166,184,.22);
-    background: rgba(255,255,255,.05); color: #8fa3b8;
+    padding: 1px 7px; border-radius: 5px; border: 1px solid rgba(144,155,184,.22);
+    background: rgba(255,255,255,.05); color: var(--muted-2);
     font-size: 10px; line-height: 1.5; letter-spacing: .06em; text-transform: uppercase;
     pointer-events: none; user-select: none;
   }
@@ -1062,7 +1097,8 @@
   #find-input:focus { border-color: var(--accent-line); box-shadow: var(--focus-ring); }
   #find-count { min-width: 78px; color: var(--muted-2); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
   mark.find-term { background: var(--hl); color: inherit; border-radius: 2px; padding: 0 1px; }
-  mark.find-term.active { background: var(--accent); color: #fff; }
+  /* 玉青底亮度高，当前命中项必须用深色字，白字对比度只有 1.7:1 不可读 */
+  mark.find-term.active { background: var(--accent); color: #0a1020; }
   /* ---------- 双击不选中（仅侧栏交互条目）：禁用文本选择，避免唤起浏览器/插件的复制、分享、翻译弹窗；正文标题与段落保持可选中复制 ---------- */
   .toc-link, .toc-link *, .file-item, .file-item *,
   .mark-badge, .tab-heading, .tab-heading *, .crumb, .crumb *, .file-group-label, .side-switch {
@@ -1152,7 +1188,7 @@
   .workbench-action.primary {
     color: var(--icon-ink); border-color: transparent;
     background-color: transparent; background-image: var(--accent-grad);
-    box-shadow: 0 8px 20px -12px rgba(63,189,251,.85);
+    box-shadow: 0 8px 20px -12px rgba(110,147,247,.85);
   }
   .workbench-action.primary:hover { color: var(--icon-ink); filter: brightness(1.07); }
   /* 热力图格子：悬停放大并高亮（网格位置不变） */
@@ -1168,10 +1204,10 @@
   @media print {
     :root {
       --bg: #fff; --panel: #fff; --text: #000; --text-strong: #000; --muted: #444; --muted-2: #666;
-      --border: #ccc; --border-soft: #ddd; --panel-soft: #f5f5f5; --accent: #0366d6;
+      --border: #ccc; --border-soft: #ddd; --panel-soft: #f5f5f5; --accent: #3355be;
       --code-bg: #f6f8fa; --code-text: #24292f; --hl: rgba(255,208,92,.45);
       --code-border: #d7dee7; --row-stripe: transparent; --bg-glass: #fff; --hairline: transparent;
-      --accent-soft: transparent; --accent-line: #0366d6; --accent-line-soft: #ccc;
+      --accent-soft: transparent; --accent-line: #3355be; --accent-line-soft: #ccc;
       --success-soft: transparent; --warning-soft: transparent; --error-soft: transparent;
       --shadow-1: none; --shadow-2: none; --shadow-3: none; --shadow: none;
     }
@@ -1185,13 +1221,13 @@
     }
     .doc h1, .doc h2, .doc h3, .doc h4 { break-after: avoid; }
     .doc pre { break-inside: avoid; white-space: pre-wrap; }
-    .doc a { color: #0366d6; text-decoration: underline; }
+    .doc a { color: #3355be; text-decoration: underline; }
     .doc details { break-inside: avoid; }
     /* 打印时强制展开所有 <details>：否则折叠着的答案会被整段丢掉（打印/导出 PDF 的主要用途就是留档，
      * 漏掉答案等于内容缺失）。`display: block` 覆盖浏览器对未展开 details 的默认隐藏。 */
     .doc details > summary { list-style: none; }
-    .doc details:not([open]) > *:not(summary) { display: block !important; }
-    .doc details > *:not(summary) { display: block !important; }
+    .doc details:not([open]) > *:not(summary), .stats-heat-panel:not([open]) > *:not(summary) { display: block !important; }
+    .doc details > *:not(summary), .stats-heat-panel > *:not(summary) { display: block !important; }
   }
 </style>
 </head>
@@ -1823,6 +1859,41 @@ function recordReviewEvent(path, anchor, state) {
   if (reviewEvents.length > REVIEW_EVENT_LIMIT) reviewEvents = reviewEvents.slice(-REVIEW_EVENT_LIMIT);
   try { localStorage.setItem("mdviewer:review-events", JSON.stringify(reviewEvents)); } catch (e) {}
 }
+/* 复习节奏（UE-02）：给每条待复习项算出「上次复习 / 建议下次 / 第几轮 / 是否逾期」，
+   把「我该不该现在过这一条」从回忆题变成读一行字。
+   间隔取简化递增（第 n 轮后 1/3/7/15/30 天）；薄弱项固定 1 天——
+   标成薄弱说明上次没答上来，不能按轮次推迟。 */
+var REVIEW_INTERVALS = [1, 3, 7, 15, 30];
+var DAY_MS = 86400000;
+function reviewDueInfo(key, state) {
+  var evs = reviewEvents.filter(function (event) { return event.key === key; });
+  if (!evs.length) return { rounds: 0, lastTs: 0, dueTs: 0 };
+  evs.sort(function (a, b) { return a.ts - b.ts; });
+  var days = state === "weak" ? 1 : REVIEW_INTERVALS[Math.min(evs.length - 1, REVIEW_INTERVALS.length - 1)];
+  return { rounds: evs.length, lastTs: evs[evs.length - 1].ts, dueTs: evs[evs.length - 1].ts + days * DAY_MS };
+}
+function dayDiffFromToday(ts) {
+  var a = new Date(ts); a.setHours(0, 0, 0, 0);
+  var b = new Date(); b.setHours(0, 0, 0, 0);
+  return Math.round((b - a) / DAY_MS);
+}
+function relPastText(ts) {
+  var d = dayDiffFromToday(ts);
+  if (d <= 0) return "今天";
+  if (d === 1) return "昨天";
+  if (d < 7) return d + " 天前";
+  if (d < 30) return Math.floor(d / 7) + " 周前";
+  return Math.floor(d / 30) + " 个月前";
+}
+function dueText(dueTs) {
+  var left = -dayDiffFromToday(dueTs);
+  if (left < 0) return "已逾期 " + (-left) + " 天";
+  if (left === 0) return "今天到期";
+  if (left === 1) return "明天到期";
+  return left + " 天后到期";
+}
+/* 复习页筛选：只影响复习工作台的显示范围，不改变 marks 数据 */
+var reviewFilter = "all";
 function setMark(path, anchor, next) {
   if (MARK_STATES.indexOf(next) < 0) next = "";
   if (next) marks[markKey(path, anchor)] = next; else delete marks[markKey(path, anchor)];
@@ -2006,7 +2077,15 @@ function reviewItems() {
       }
     });
   });
-  items.sort(function (a, b) { return a.state !== b.state ? (a.state === "weak" ? -1 : 1) : a.path.localeCompare(b.path, "zh") || a.text.localeCompare(b.text, "zh"); });
+  /* 排序：薄弱优先 → 越逾期越靠前（UE-02）→ 文件/标题稳定兜底。
+     没有复习事件的条目（dueTs=0）排到最后，避免新标记项抢占老逾期项的位置。 */
+  items.sort(function (a, b) {
+    if (a.state !== b.state) return a.state === "weak" ? -1 : 1;
+    var da = reviewDueInfo(markKey(a.path, a.anchor), a.state).dueTs || Number.MAX_SAFE_INTEGER;
+    var db = reviewDueInfo(markKey(b.path, b.anchor), b.state).dueTs || Number.MAX_SAFE_INTEGER;
+    if (da !== db) return da - db;
+    return a.path.localeCompare(b.path, "zh") || a.text.localeCompare(b.text, "zh");
+  });
   return items;
 }
 /* 「复习」导航徽标：待处理项数量（唯一一处全站计数入口，清单本体只在复习工作台页） */
@@ -3054,7 +3133,7 @@ function renderHomePage() {
     tailSection =
       '<div class="stats-dashboard">' +
         '<section class="stats-panel stats-distribution-panel spot"><h2>知识点类型分布</h2><p class="stats-panel-note">按笔记汇总；色条依次表示已掌握、待复习与薄弱。</p><div class="stats-category-grid stagger">' + bars + '</div></section>' +
-        '<section class="stats-panel stats-heat-panel spot"><h2>复习热力图</h2><p class="stats-panel-note">近 12 个月每天标记过的知识点数量；悬停查看当日明细。</p>' + statsHeatmapHtml(data.events) + '</section>' +
+        '<details class="stats-panel stats-heat-panel spot"><summary><h2>复习热力图</h2><span class="heat-toggle" aria-hidden="true"></span></summary><div class="heat-body"><p class="stats-panel-note">近 12 个月每天标记过的知识点数量；悬停查看当日明细。</p>' + statsHeatmapHtml(data.events) + '</div></details>' +
       '</div>';
   } else {
     overviewSection = '<section class="stats-panel stats-empty">当前笔记中还没有可统计的末级标题。</section>';
@@ -3086,10 +3165,25 @@ function renderReviewPage() {
   reviewDirty = false;
   var items = reviewItems(), esc = Renderer.esc, escAttr = Renderer.escAttr;
   var weakCount = items.filter(function (item) { return item.state === "weak"; }).length;
-  var rows = items.map(function (item) {
-    return '<button type="button" class="workbench-list-item" data-review-path="' + escAttr(item.path) + '" data-review-anchor="' + escAttr(item.anchor) + '"><span class="workbench-list-dot ' + item.state + '"></span><span class="workbench-list-copy"><span class="workbench-list-title">' + esc(item.text) + '</span><span class="workbench-list-meta">' + esc(item.file) + ' · ' + (item.state === "weak" ? "薄弱" : "待复习") + '</span></span></button>';
+  var reviewCount = items.length - weakCount;
+  var shown = reviewFilter === "weak"
+    ? items.filter(function (item) { return item.state === "weak"; })
+    : reviewFilter === "review"
+      ? items.filter(function (item) { return item.state !== "weak"; })
+      : items;
+  var rows = shown.map(function (item) {
+    var info = reviewDueInfo(markKey(item.path, item.anchor), item.state);
+    var meta = [esc(item.file)];
+    if (info.lastTs) meta.push("上次 " + relPastText(info.lastTs));
+    if (info.dueTs) {
+      var overdue = dayDiffFromToday(info.dueTs) > 0;
+      meta.push(overdue ? '<b class="meta-overdue">' + dueText(info.dueTs) + '</b>' : dueText(info.dueTs));
+    }
+    if (info.rounds) meta.push("第 " + info.rounds + " 轮");
+    meta.push(item.state === "weak" ? "薄弱" : "待复习");
+    return '<button type="button" class="workbench-list-item" data-review-path="' + escAttr(item.path) + '" data-review-anchor="' + escAttr(item.anchor) + '"><span class="workbench-list-dot ' + item.state + '"></span><span class="workbench-list-copy"><span class="workbench-list-title">' + esc(item.text) + '</span><span class="workbench-list-meta">' + meta.join(" · ") + '</span></span></button>';
   }).join("");
-  var listHtml = items.length
+  var listHtml = shown.length
     ? '<div class="workbench-list stagger">' + rows + '</div>'
     : '<div class="empty-state">' +
         '<div class="es-glyph" aria-hidden="true">◔</div>' +
@@ -3097,11 +3191,18 @@ function renderReviewPage() {
         '<div class="es-hint">在笔记左侧目录里点击标题行尾圆点，标记「待复习」或「薄弱」<br>标记过的知识点会自动汇总到这里，处理完即可从清单移除</div>' +
         '<button type="button" class="workbench-action primary es-action" data-review-go="notes">去笔记里标记 →</button>' +
       '</div>';
-  el.innerHTML = '<div class="workbench-hero"><div><p class="workbench-kicker">复习</p><h1 id="review-page-title" class="workbench-title">待复习清单</h1><p class="workbench-sub">薄弱优先；点击条目回到原文，重新标记后自动从清单移除。随机抽题用左侧工具轨 🎲（快捷键 R）。</p></div></div>' +
+  el.innerHTML = '<div class="workbench-hero"><div><p class="workbench-kicker">复习</p><h1 id="review-page-title" class="workbench-title">待复习清单</h1><p class="workbench-sub">薄弱优先、逾期越久越靠前；每条标注上次复习与建议下次时间。点击条目回到原文，重新标记后自动从清单移除。随机抽题用左侧工具轨 🎲（快捷键 R）。</p></div>' +
+    '<div class="review-filter" role="group" aria-label="待复习筛选">' +
+      '<button type="button" class="review-filter-btn' + (reviewFilter === "all" ? " active" : "") + '" data-review-filter="all" aria-pressed="' + (reviewFilter === "all" ? "true" : "false") + '">全部 ' + items.length + '</button>' +
+      '<button type="button" class="review-filter-btn' + (reviewFilter === "review" ? " active" : "") + '" data-review-filter="review" aria-pressed="' + (reviewFilter === "review" ? "true" : "false") + '">待复习 ' + reviewCount + '</button>' +
+      '<button type="button" class="review-filter-btn' + (reviewFilter === "weak" ? " active" : "") + '" data-review-filter="weak" aria-pressed="' + (reviewFilter === "weak" ? "true" : "false") + '">薄弱 ' + weakCount + '</button>' +
+    '</div></div>' +
     '<section class="home-summary narrow stagger"><div class="home-summary-card spot"><div class="home-summary-label">待处理</div><div class="home-summary-value">' + items.length + '</div><div class="home-summary-note">待复习 + 薄弱</div></div><div class="home-summary-card spot"><div class="home-summary-label">薄弱</div><div class="home-summary-value">' + weakCount + '</div><div class="home-summary-note">建议优先处理</div></div></section>' +
     '<section class="workbench-panel spot review-page-list">' + listHtml + '</section>';
   animateCounters(el);
   el.onclick = function (event) {
+    var filter = event.target && event.target.closest ? event.target.closest("button[data-review-filter]") : null;
+    if (filter) { reviewFilter = filter.dataset.reviewFilter; renderReviewPage(); return; }
     var go = event.target && event.target.closest ? event.target.closest("button[data-review-go]") : null;
     if (go) { openNotesView(); return; }
     var item = event.target && event.target.closest ? event.target.closest("button[data-review-path]") : null;

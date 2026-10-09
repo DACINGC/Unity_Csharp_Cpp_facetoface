@@ -102,6 +102,9 @@ class CDP {
   await cdp.send("Page.enable");
   await cdp.send("Log.enable");
   await cdp.send("Network.enable");
+  /* 固定视口宽度：headless 默认窗口只有 800px 宽，会落进 .home-grid 的单列降级分支 ——
+   * 那时两卡各占一行、行高互相独立，「两卡等高」这类只在双列下成立的布局契约就测不出来。 */
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await cdp.send("Page.navigate", { url: BASE + "/" });
 
   // 等首页渲染完成（标题栏出现「学习工作台」）
@@ -115,6 +118,23 @@ class CDP {
   }
   if (!ready) fail("页面未在预期时间内完成首页渲染");
   else ok("页面加载并渲染首页");
+
+  /* 0) 首页「待复习」与「最近打开」两卡必须等高。
+   * 依赖 .home-grid 的 align-items:stretch + 两卡内列表限同一 max-height。
+   * 历史上用的是 align-items:start —— 两张卡各按自身内容高度渲染，
+   * 一边 6 条、一边 8 条就会一高一低参差。这是布局行为，静态断言测不出来。 */
+  const cardHeights = await cdp.eval(`(function(){
+    var grid = document.querySelector('.home-grid');
+    if (!grid) return null;
+    var cards = Array.prototype.slice.call(grid.children);
+    return { count: cards.length, heights: cards.map(function(c){ return Math.round(c.getBoundingClientRect().height); }) };
+  })()`);
+  if (cardHeights && cardHeights.count === 2 && cardHeights.heights[0] > 0 &&
+      cardHeights.heights[0] === cardHeights.heights[1]) {
+    ok("首页两卡等高（待复习 / 最近打开 均为 " + cardHeights.heights[0] + "px）");
+  } else {
+    fail("首页两卡不等高：" + JSON.stringify(cardHeights));
+  }
 
   /* 1) 运行时无真实错误。
    * 注意：不能用 Log 域的 error 文本判断——favicon.ico 的 404 也走 Log 且文本里**没有 URL**，
