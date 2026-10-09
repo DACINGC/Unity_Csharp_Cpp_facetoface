@@ -310,6 +310,59 @@
 `test_render.js` · `test_app.js` · `verify_sections.js` · `verify_csrf.js` · `verify_browser.js` **五套全绿**；
 grep 确认无墨玉青残留。README（`设计令牌统一` / `明暗主题`）与 `项目记忆/01`（色值 + 色相安全区 + 4 处硬编码清单）已同步。
 
+## 本轮（六）：特色动效（2026-10-09，已实施）
+
+> 目标：在既有动效语言之上补四种有辨识度的动画，让"高级感"落在**可感知的细节**而不是更多装饰。
+> 只改 `md_viewer/index.html` 与 `verify_browser.js`；`renderer.js` / `mdviewer.py` 未改动，仍是零依赖单文件前端。
+
+### 一、主题涟漪揭示（signature）
+
+- `toggleTheme(originEl)`：以触发按钮为圆心，用 View Transitions 的 `::view-transition-new(root)` 做 `clip-path: circle(0 → 覆盖最远角)` 揭示，新主题从按钮位置铺开。
+- 半径取**到四个角的最远距离**，否则屏幕边缘会留一块没揭示到的旧主题。
+- 用 `html.theme-revealing` 临时摘掉内容区 `view-transition-name: pane` 并停用 root 的默认交叉淡入——两套过渡叠在一起会糊成一团；限定作用域是为了**不影响上一轮已验证的"切换工作台 / 进入文档" pane 过渡**。类名在 `finished` 后回收（`then(cleanup, cleanup)` 双分支，避免未处理 Promise）。
+- **行为契约变化（重要）**：VT 可用时 `data-theme` 在 update 回调里写入，是**异步**的（约一帧）。`verify_browser.js` 第 3 项已改为轮询断言。降级路径仍是同步。
+
+### 二、极光描边（`@property --aurora`）
+
+- 第二个可插值自定义属性：`--aurora: <angle>`，配合 `conic-gradient` + `mask-composite: exclude` 挖空中心，得到一圈 1px 巡回冷光。
+- 只给两处，遵循"强调色只出现在可点击 / 当前所在位置"：**搜索框聚焦**（4.2s 慢巡）、**主 CTA 悬停**（2.6s）。
+- 整组规则包进 `@supports (mask-composite: exclude) or (-webkit-mask-composite: xor)`——不支持时未被挖空的 conic 渐变会糊成实心块盖住控件，宁可整组不生效。
+
+### 三、CTA 光扫与图标微动
+
+- `@keyframes sweep`：主行动按钮悬停时一道斜向高光掠过**一次**（不是常驻），`overflow: hidden` 裁出圆角边界。
+- 工具轨图标悬停 1px 微移 / 主题微旋 -22° / 抽题微旋 14°（都走 `--ease-spring`）；搜索框聚焦时放大镜图标转为主色。
+
+### 四、正文滚动揭示
+
+- 标题 / 代码块 / 表格 / 引用 / 折叠块滚入视口时浮现。**标题只淡入、不做位移**——它参与滚动跟随的偏移量缓存（`getBoundingClientRect`），位移会让小节判定线漂移。
+- **惰性启用是硬要求**：`<html>` 没被打上 `sr-on` 时 `#content .sr` 一律不隐藏；只有 IntersectionObserver 真的建起来才加这个类。任何不支持的环境正文照常可见，不会出现空白正文。`@media print` 再兜一层 `opacity: 1 !important`。
+- **首批不加动画**：打开文档 / 恢复阅读位置后已在视口里的内容先直接落定，90ms 后才加 `sr-armed`（过渡自从它开始），只有滚动新带进来的才浮现。
+- 揭示一次即 `unobserve`，不回收。
+
+### 五、滚动时的顶栏聚拢
+
+`main` 滚动超过 6px 时给 `body` 加 `scrolled`，顶栏投影从 inset 变为 `--shadow-2`（浮起来），回到顶部收回。只改变投影**不改尺寸**，避免正文跟着跳。
+
+### 六、验证
+
+`test_render.js` · `test_app.js` · `verify_sections.js` · `verify_csrf.js` **四套全绿**；
+`verify_browser.js`（真实 Chrome 140）在原有 11 项之外新增 **7 项运行时探针**，全绿：
+
+| 探针 | 实测结果 |
+| --- | --- |
+| CSSOM 关键帧齐备 | `aurora-spin` / `sweep` 均在✔️|
+| 搜索框聚焦触发极光描边 | 1 个 `aurora-spin` 在跑 |
+| `--aurora` 连续插值 | `1.43deg → 44.29deg`（伪元素上，主机留 `0deg`）|
+| 滚动揭示生效 | 35 个块，滚动前隐藏 31 → 段进滚动后隐藏 27 |
+| 顶栏聚拢 | 离开顶部挂类、回到顶部收回 |
+| 主题涟漪揭示 | 生成 `::view-transition-new(root)` 动画、主题切换成功、类名已回收 |
+| 减少动态效果降级 | 不打 `sr-on`、正文 `opacity: 1`、主题退回**同步**切换 |
+| 悬停 CTA（真实派发鼠标） | 「继续学习 →」同时触发 sweep + aurora |
+| 悬停工具轨图标 | 主题图标 `transform: matrix(0.9827, -0.3976, …)` |
+
+> 约束与不变量（异步主题、惰性揭示、`inherits: false` 的读取方式、`@supports` 包裹）已写入 `项目记忆/01`（动效节 + 布局陷阱 14–17）。
+
 ## 后续增量：首页两卡等高（2026-10-09）
 
 - **问题**：`.home-grid` 用了 `align-items: start`，两张卡各按自身内容高度渲染 ——「待复习」6 条、「最近打开」8 条时就一高一低参差。
