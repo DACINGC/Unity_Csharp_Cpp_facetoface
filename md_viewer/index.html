@@ -178,6 +178,8 @@
   * { box-sizing: border-box; }
   /* 可插值的自定义属性：进度环 / 进度条能真正"长"出来，而不是瞬间跳到位 */
   @property --pct { syntax: "<number>"; inherits: false; initial-value: 0; }
+  /* 可插值的角度：极光描边据此让一圈冷光沿边框巡回（不能插值就只能瞬跳） */
+  @property --aurora { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
   html, body { margin: 0; height: 100%; }
   body {
     font-family: Inter, "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
@@ -224,6 +226,10 @@
   @keyframes sheen { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
   @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
   @keyframes mark-pop { 0% { transform: scale(.72); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  /* 极光描边：一圈冷光绕边框巡回（配合 @property --aurora 才能连续插值） */
+  @keyframes aurora-spin { to { --aurora: 360deg; } }
+  /* CTA 光扫：一道斜向高光从左掠过（按钮需 overflow: hidden） */
+  @keyframes sweep { from { transform: translateX(-130%) skewX(-18deg); } to { transform: translateX(240%) skewX(-18deg); } }
 
   /* 入场编排：容器加 .stagger，子项按序错峰"升起"（最多编排前 10 个，避免长列表拖沓） */
   .stagger > * { animation: rise var(--dur-enter) var(--ease-expo) both; }
@@ -1072,6 +1078,12 @@
   ::view-transition-old(pane) { animation: vt-out var(--dur-base) var(--ease-expo) both; }
   ::view-transition-new(pane) { animation: rise var(--dur-slow) var(--ease-expo) both; }
   @keyframes vt-out { to { opacity: 0; transform: translateY(-6px); } }
+  /* 主题涟漪揭示：以切换按钮为圆心，新主题从一圈圆形里铺开。
+     期间把内容区的 pane 摘掉并停用 root 的默认交叉淡入——否则两套过渡会叠在一起糊成一团。
+     用 html.theme-revealing 限定，避免影响上面「切换工作台 / 进入文档」那套已验证的 pane 过渡。 */
+  html.theme-revealing #content, html.theme-revealing #home-page, html.theme-revealing #review-page { view-transition-name: none; }
+  html.theme-revealing::view-transition-old(root) { animation: none; z-index: 1; }
+  html.theme-revealing::view-transition-new(root) { animation: none; z-index: 2; mix-blend-mode: normal; }
   #read-progress { position: sticky; top: 0; z-index: 31; height: 2px; pointer-events: none; }
   #read-progress-fill { height: 100%; width: 0%; background: var(--accent-grad); transition: width .16s var(--ease-expo); }
   /* 当前文档学习进度（面包屑栏）：与侧栏「总进度」区分口径（本篇 vs 全部） */
@@ -1200,6 +1212,68 @@
     background-size: 220% 100%; animation: sheen 3.6s var(--ease-in-out) infinite;
   }
 
+  /* ---------- 本轮特色动效：极光描边 / CTA 光扫 / 图标微动 ---------- */
+  /* 极光描边：conic-gradient 铺满盒子，再用 content-box 遮罩挖空中间，得到一圈 1px 描边；
+     靠 @property --aurora 让这圈冷光沿边框连续巡回（不能插值就只能瞬跳）。
+     只给「当前所在位置 / 即将点击」的元素（聚焦的搜索框、悬停的主行动按钮），不作装饰性铺开。
+     整块规则放进 @supports：不支持 mask-composite 时整块不生效，
+     否则没有被挖空的 conic 渐变会糊成一个实心色块盖住控件。 */
+  @supports (mask-composite: exclude) or (-webkit-mask-composite: xor) {
+    .aurora-ring { position: relative; }
+    .aurora-ring::before, .search-wrap::before, .workbench-action.primary::before {
+      content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit;
+      padding: 1px; pointer-events: none; opacity: 0;
+      background: conic-gradient(from var(--aurora),
+        transparent 0deg, transparent 196deg, var(--accent-line) 272deg, var(--accent) 314deg, transparent 348deg);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      transition: opacity var(--dur-base) var(--ease-expo);
+    }
+    .search-wrap:focus-within::before { opacity: .9; animation: aurora-spin 4.2s linear infinite; }
+    .workbench-action.primary:hover::before, .workbench-action.primary:focus-visible::before {
+      opacity: 1; animation: aurora-spin 2.6s linear infinite;
+    }
+  }
+  /* CTA 光扫：悬停时一道斜向高光从左掠过一次（expensive 感来自"一次性"而不是常驻） */
+  .workbench-action.primary { position: relative; overflow: hidden; }
+  .workbench-action.primary::after {
+    content: ""; position: absolute; top: -60%; bottom: -60%; left: 0; width: 38%;
+    pointer-events: none; opacity: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  @media (hover: hover) {
+    .workbench-action.primary:hover::after { opacity: 1; animation: sweep .72s var(--ease-expo); }
+  }
+  /* 图标微动：静态 linear SVG 在指针进入时有 1px 级的"回应"（位移 / 旋转都很小，避免卡通感） */
+  .rail-icon svg, .top-action svg { transition: transform var(--dur-base) var(--ease-spring); }
+  @media (hover: hover) {
+    .rail-btn:hover .rail-icon svg { transform: translateY(-1px) scale(1.06); }
+    #theme-toggle:hover .rail-icon svg { transform: rotate(-22deg) scale(1.06); }
+    #rail-random:hover .rail-icon svg { transform: rotate(14deg) scale(1.06); }
+    #rail-print:hover .rail-icon svg { transform: translateY(-2px) scale(1.06); }
+    .top-action:hover svg { transform: translateY(-1px); }
+  }
+  .search-symbol { transition: color var(--dur-base) var(--ease-expo); }
+  .search-wrap:focus-within .search-symbol { color: var(--accent); }
+  /* 正文滚动揭示：新的块级内容在滚入视口时浮现。
+     「惰性启用」是硬要求——`html.sr-on` 只由 JS 在 IntersectionObserver 真可用时才加上，
+     没有它时下面这些规则全部不生效，正文照常可见。
+     绝不能出现"内容 opacity:0 而没有任何东西把它揭示回来"的事故。
+     标题只淡入、不做位移：标题参与滚动跟随的偏移量缓存，位移会让小节判定线漂移。 */
+  html.sr-on #content .sr { opacity: 0; }
+  html.sr-on #content .sr.sr-block { transform: translateY(10px); }
+  html.sr-on #content.sr-armed .sr { transition: opacity var(--dur-enter) var(--ease-expo), transform var(--dur-enter) var(--ease-expo); }
+  html.sr-on #content .sr.sr-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html.sr-on #content .sr { opacity: 1; transform: none; }
+  }
+  /* 顶栏聚拢：向下滚动时顶栏浮起来（投影加深 + 底色更实），滚动回顶再收回去 */
+  header { transition: box-shadow var(--dur-base) var(--ease-expo), background-color var(--dur-base) var(--ease-expo); }
+  body.scrolled header { box-shadow: inset 0 1px 0 var(--hairline), var(--shadow-2); }
+
   /* ---------- 打印 / 导出 PDF ---------- */
   @media print {
     :root {
@@ -1212,6 +1286,8 @@
       --shadow-1: none; --shadow-2: none; --shadow-3: none; --shadow: none;
     }
     body { background: #fff !important; overflow: visible !important; }
+    /* 打印 / 导出 PDF 必须是完整正文：滚动揭示的初始隐藏态在这里强制解除 */
+    html.sr-on #content .sr { opacity: 1 !important; transform: none !important; }
     .workspace-rail, aside, header, #crumb, #find-bar, #edit-bar, #read-progress,
     #toggle-sidebar-mobile, #toast, .code-copy, .code-lang, .sec-ref, .empty-state, .sk-bar { display: none !important; }
     .layout, .main-shell, main { display: block !important; height: auto !important; overflow: visible !important; }
@@ -1757,6 +1833,7 @@ function renderContent(data) {
     contentEl.innerHTML = Renderer.renderMarkdown(data.content);
   }
   attachCodeCopy();
+  observeScrollReveal(contentEl);
   // 折叠块展开/收起会改变正文高度：捕获阶段监听 toggle（不冒泡）后重新测量
   if (contentEl.addEventListener && !contentEl._toggleBound) {
     contentEl._toggleBound = true;
@@ -2273,6 +2350,56 @@ function animateCounters(root) {
     })(nodes[i]);
   }
 }
+/* ---------- 正文滚动揭示 ----------
+   块级内容滚入视口时浮现。三条硬约束：
+   1. 惰性启用：IntersectionObserver 真可用才给 <html> 加 sr-on；不支持或初始化失败就一个标记都不打，
+      正文保持原样可见（不会出现「opacity:0 却没人把它揭示回来」的空白正文）；
+   2. 首批不加动画：打开文档或恢复阅读位置后已在视口里的内容直接落定，只有滚动新带进来的才浮现；
+   3. 标题不做位移：它参与滚动跟随的偏移缓存，位移会让小节判定线漂移。 */
+var srObserver = null, srTried = false;
+var SR_TAGS = "h1,h2,h3,h4,pre,table,blockquote,details,figure";
+var SR_SHIFT = { PRE: 1, TABLE: 1, BLOCKQUOTE: 1, DETAILS: 1, FIGURE: 1 };
+function initScrollReveal() {
+  if (srObserver) return srObserver;
+  if (srTried) return srObserver;
+  srTried = true;
+  if (prefersReducedMotion()) return null;
+  if (typeof IntersectionObserver !== "function" || !document.documentElement || !document.documentElement.classList) return null;
+  var root = $("main");
+  if (!root) return null;
+  try {
+    srObserver = new IntersectionObserver(function (entries, obs) {
+      for (var i = 0; i < entries.length; i++) {
+        if (!entries[i].isIntersecting) continue;
+        var el = entries[i].target;
+        if (el.classList) el.classList.add("sr-in");
+        if (typeof obs.unobserve === "function") obs.unobserve(el); // 揭示一次就放手，不做回收
+      }
+    }, { root: root, rootMargin: "0px 0px -6% 0px", threshold: 0.01 });
+  } catch (e) { srObserver = null; return null; }
+  document.documentElement.classList.add("sr-on");
+  return srObserver;
+}
+function observeScrollReveal(container) {
+  if (!container || !container.querySelectorAll || !container.classList) return;
+  container.classList.remove("sr-armed");
+  var ob = initScrollReveal();
+  if (!ob) return;                       // 环境不支持：保持原样，一个 .sr 都不打
+  var nodes = container.querySelectorAll(SR_TAGS);
+  for (var i = 0; i < nodes.length; i++) {
+    var el = nodes[i];
+    if (!el.classList) continue;
+    el.classList.remove("sr-in");
+    el.classList.add("sr");
+    if (SR_SHIFT[el.tagName]) el.classList.add("sr-block"); else el.classList.remove("sr-block");
+    if (typeof ob.observe === "function") ob.observe(el);
+  }
+  // 首批落定后再"上膛"：此后滚进来的元素才有过渡可用
+  if (container._srTimer && typeof clearTimeout === "function") clearTimeout(container._srTimer);
+  container._srTimer = setTimeout(function () {
+    try { container.classList.add("sr-armed"); } catch (e) {}
+  }, 90);
+}
 /* 指针跟随高光：只在卡片上写 --mx/--my，rAF 节流 */
 function initSpotlight() {
   if (typeof document === "undefined" || !document.addEventListener) return;
@@ -2355,6 +2482,13 @@ mainEl.addEventListener("scroll", function () {
   if (mainEl._scrollTimer) clearTimeout(mainEl._scrollTimer);
   mainEl._scrollTimer = setTimeout(saveScrollPos, 250);
   scheduleScrollSpy();
+  // 顶栏聚拢：离开顶部时顶栏"浮起来"（比开始滚动略晚一点点，避免呼吸式抖动）
+  var st = (typeof mainEl.scrollTop === "number") ? mainEl.scrollTop : 0;
+  var lifted = st > 6;
+  if (lifted !== mainEl._lifted) {
+    mainEl._lifted = lifted;
+    if (document.body && document.body.classList) document.body.classList[lifted ? "add" : "remove"]("scrolled");
+  }
 });
 
 /* ============================== 滚动跟随（目录高亮 + 阅读进度） ============================== */
@@ -3928,10 +4062,56 @@ function setTheme(theme) {
   var ic = themeIcon(theme);
   var t = $("theme-toggle"); if (t) t.innerHTML = '<span class="rail-icon">' + ic + '</span>';
 }
-function toggleTheme() {
+/* 揭示圆心：优先取触发按钮的中心（视觉上"从按钮里涌出来"），拿不到退回视口中心 */
+function revealOrigin(el) {
+  var x = 0, y = 0;
+  try {
+    x = (typeof window !== "undefined" && window.innerWidth) ? window.innerWidth / 2 : 0;
+    y = (typeof window !== "undefined" && window.innerHeight) ? window.innerHeight / 2 : 0;
+    if (el && typeof el.getBoundingClientRect === "function") {
+      var r = el.getBoundingClientRect();
+      if (r.width || r.height) { x = r.left + r.width / 2; y = r.top + r.height / 2; }
+    }
+  } catch (e) {}
+  return { x: x, y: y };
+}
+/* 主题涟漪揭示（signature）：新主题从触发点的一圈圆形里铺开。
+   三重降级：无 startViewTransition / 系统要求减少动态效果 / animate 缺失 → 直接切换，行为完全一致。 */
+function toggleTheme(originEl) {
   var next = "dark";
   if (document.documentElement && document.documentElement.getAttribute && document.documentElement.getAttribute("data-theme") === "dark") next = "light";
-  setTheme(next);
+  var root = document.documentElement;
+  if (!root || typeof document.startViewTransition !== "function" || prefersReducedMotion()) {
+    setTheme(next);
+    return;
+  }
+  var p = revealOrigin(originEl || $("theme-toggle"));
+  // 圆要覆盖到最远的那个角，否则屏幕边缘会留一块没揭示到的旧主题
+  var far = 0;
+  if (typeof window !== "undefined") {
+    var w = window.innerWidth || 0, h = window.innerHeight || 0;
+    far = Math.max(
+      Math.sqrt(p.x * p.x + p.y * p.y), Math.sqrt((w - p.x) * (w - p.x) + p.y * p.y),
+      Math.sqrt(p.x * p.x + (h - p.y) * (h - p.y)), Math.sqrt((w - p.x) * (w - p.x) + (h - p.y) * (h - p.y))
+    );
+  }
+  var vt = null;
+  try { if (root.classList) root.classList.add("theme-revealing"); } catch (e) {}
+  try { vt = document.startViewTransition(function () { setTheme(next); }); }
+  catch (err) { setTheme(next); }
+  var cleanup = function () { try { if (root.classList) root.classList.remove("theme-revealing"); } catch (e) {} };
+  if (!vt || !vt.ready || typeof vt.ready.then !== "function") { cleanup(); return; }
+  vt.ready.then(function () {
+    if (typeof root.animate !== "function") return;
+    try {
+      root.animate(
+        { clipPath: ["circle(0px at " + p.x + "px " + p.y + "px)", "circle(" + Math.ceil(far) + "px at " + p.x + "px " + p.y + "px)"] },
+        { duration: 560, easing: "cubic-bezier(.22,.61,.36,1)", pseudoElement: "::view-transition-new(root)" }
+      );
+    } catch (e) {}
+  }).catch(function () {});
+  if (vt.finished && typeof vt.finished.then === "function") vt.finished.then(cleanup, cleanup);
+  else cleanup();
 }
 var savedTheme = null;
 try { savedTheme = localStorage.getItem("mdviewer:theme"); } catch (e) {}
@@ -3942,7 +4122,7 @@ if (!savedTheme) {
   } catch (e) { savedTheme = "dark"; }
 }
 setTheme(savedTheme);
-$("theme-toggle").addEventListener("click", toggleTheme);
+$("theme-toggle").addEventListener("click", function () { toggleTheme(this); });
 
 /* ---------- 侧栏收起 ---------- */
 function updateSidebarToggleUI() {
