@@ -441,6 +441,27 @@ class CDP {
     else fail("工具轨图标悬停无微动：" + JSON.stringify(icon));
   }
 
+  /* 15) 文件列表行尾的复习进度环：数量合理、data-pct 与内联 --pct 一致、conic + 遮罩真的生效 */
+  const rings = await cdp.eval(`(function(){
+    var list = document.getElementById('file-list');
+    if (!list) return { skip: true };
+    var els = Array.prototype.slice.call(list.querySelectorAll('.file-ring'));
+    var mismatch = 0, withPct = 0, styled = 0;
+    els.forEach(function (el) {
+      var v = parseFloat(el.style.getPropertyValue('--pct'));
+      if (v > 0) withPct++;
+      if (el.dataset.pct !== String(Math.round(v))) mismatch++;
+      var bg = getComputedStyle(el).backgroundImage;
+      if (/conic-gradient/.test(bg)) styled++;
+    });
+    var items = list.querySelectorAll('.file-item').length;
+    return { count: els.length, items: items, withPct: withPct, mismatch: mismatch, styled: styled };
+  })()`);
+  if (rings.skip) console.log("  · 无文件列表，跳过进度环检查");
+  else if (rings.count > 0 && rings.count <= rings.items && rings.mismatch === 0 && rings.styled === rings.count) {
+    ok("文件行尾进度环 " + rings.count + "/" + rings.items + " 行，data-pct 与 --pct 全部一致，conic 环生效（有进度 " + rings.withPct + "）");
+  } else fail("文件行尾进度环异常：" + JSON.stringify(rings));
+
   console.log(failures ? `\n共 ${failures} 项失败` : "\n全部通过 ✔");
   finish(failures ? 1 : 0);
 })().catch((e) => {

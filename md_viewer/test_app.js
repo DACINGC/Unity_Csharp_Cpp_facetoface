@@ -228,6 +228,17 @@ const APP_JS = inlineScripts[inlineScripts.length - 1][1];
     : "✗ 动效层缺失或引入外部依赖（令牌=" + motionTokens + " 关键帧=" + motionKeyframes +
       " 环插值=" + pctProperty + " 视图过渡=" + viewTransition + " 降级=" + motionFallbacks + " 零依赖=" + noNewDeps + "）");
   if (!(motionTokens && motionKeyframes && pctProperty && viewTransition && motionFallbacks && noNewDeps)) process.exit(1);
+
+  /* 文件列表行尾的复习进度环：渲染、刷新链、conic 环与遮罩挖空都要在 */
+  const fileRing = APP.includes('class="file-ring"') &&
+    /refreshFileRings\(true\)/.test(APP) &&
+    /refreshFileRings\(false\)/.test(APP) &&
+    /conic-gradient\(var\(--accent\) calc\(var\(--pct\) \* 1%\)/.test(APP) &&
+    /mask: radial-gradient/.test(APP);
+  console.log(fileRing
+    ? "✓ 文件行尾进度环齐备（渲染 + 刷新链 + conic 环 + 遮罩挖空）"
+    : "✗ 文件行尾进度环缺失或未接入刷新链");
+  if (!fileRing) process.exit(1);
 }
 
 /* ---------- DOM 桩 ---------- */
@@ -371,6 +382,10 @@ setTimeout(async () => {
   const filesHtml = els["file-list"].innerHTML;
   check("文件列表渲染（全部=" + totalFiles + "）", (filesHtml.match(/file-item/g) || []).length === totalFiles,
     (filesHtml.match(/file-item/g) || []).length + " 项");
+  // 行尾复习进度环：只给「有知识点的 md」，所以数量在 (0, mdFiles] 之间
+  const ringCount = (filesHtml.match(/class="file-ring"/g) || []).length;
+  check("文件行尾复习进度环已渲染", ringCount > 0 && ringCount <= mdFiles,
+    ringCount + " 环 / " + mdFiles + " 个 md");
 
   const doc = els["content"].innerHTML;
   check("首个文档为 00 知识索引（h1）", doc.includes("<h1") && doc.includes("知识索引"));

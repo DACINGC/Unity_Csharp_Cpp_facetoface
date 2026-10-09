@@ -373,6 +373,21 @@
   .file-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 22px; width: 22px; height: 24px; border-radius: 5px; color: var(--icon-ink); font-size: 10px; font-weight: 800; }
   .file-icon-md { background: var(--icon-md); }
   .file-icon-txt { background: var(--icon-txt); }
+  /* 行尾复习进度环：一眼看出每份文档复习到哪了。
+     表达的是「进度」，所以沿用主色（与侧栏总进度 / 面包屑进度条同一套语言），
+     不用语义绿——语义色只留给掌握状态圆点。
+     conic-gradient 铺底 + radial 遮罩挖空成环；--pct 已注册为可插值属性，能从 0 长出来。 */
+  .file-ring {
+    --pct: 0;
+    flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+    background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--border) 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    transition: --pct var(--dur-slow) var(--ease-expo);
+  }
+  .file-item:hover .file-ring, .file-item.active .file-ring {
+    background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--muted-2) 0);
+  }
   .file-copy { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .file-item .fi-title { display: block; overflow: hidden; color: var(--text); font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
   .file-item .fi-meta { display: block; overflow: hidden; margin-top: 3px; color: var(--muted-2); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
@@ -1694,10 +1709,14 @@ function renderFiles() {
       var leaf = fileLeafCount(f);
       // 副标题只保留「知识点数量」：文档标题在面包屑与正文标题里已经出现，列表里重复一遍只会挤掉文件名
       var meta = f.type === "md" ? (leaf + " 个知识点") : "纯文本笔记";
+      // 行尾复习进度环：只给有知识点的 md；具体 --pct / title 由 refreshFileRings 统一回填
+      var ring = (f.type === "md" && leaf > 0)
+        ? '<span class="file-ring" data-path="' + Renderer.escAttr(f.path) + '" style="--pct:0" aria-hidden="true"></span>'
+        : "";
       return '<button type="button" class="file-item" data-path="' + Renderer.escAttr(f.path) + '">' +
         '<span class="file-icon ' + (f.type === "md" ? "file-icon-md" : "file-icon-txt") + '">' + (f.type === "md" ? "M" : "T") + "</span>" +
         '<span class="file-copy"><span class="fi-title">' + Renderer.esc(title) + "</span>" +
-        '<span class="fi-meta">' + Renderer.esc(meta) + '</span></span></button>';
+        '<span class="fi-meta">' + Renderer.esc(meta) + '</span></span>' + ring + '</button>';
     }).join("");
     return '<div class="file-group' + (collapsed ? " collapsed" : "") + '">' +
       '<div class="file-group-label" data-key="' + Renderer.escAttr(group.name) + '" role="button" tabindex="0" aria-expanded="' + (collapsed ? "false" : "true") + '">' +
@@ -1707,6 +1726,7 @@ function renderFiles() {
   }).join("");
   el.innerHTML = '<div class="reveal">' + groupsHtml + "</div>";
   updateFilterCount(list.length);
+  refreshFileRings(true);
   el.onclick = function (e) {
     var label = e.target.closest(".file-group-label");
     if (label) { toggleFileGroupCollapse(label); return; }
@@ -1717,6 +1737,33 @@ function renderFiles() {
     var label = e.target && e.target.classList && e.target.classList.contains("file-group-label") ? e.target : null;
     if (label && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggleFileGroupCollapse(label); }
   };
+}
+/* 文件列表行尾的复习进度环：按 marks 回填每个环的 --pct 与 tooltip。
+   animate=true（列表刚重建）：等两帧再从 0 长到目标，配合 --pct 的过渡形成生长动画；
+   animate=false（标记变化 / 导入）：就地更新，同一个元素上的值变化天然带过渡。
+   环是纯装饰性重复（真正可读的数值在 tooltip 与面包屑进度里），所以 aria-hidden。 */
+function refreshFileRings(animate) {
+  var list = $("file-list");
+  if (!list || !list.querySelectorAll || !index) return;
+  var apply = function () {
+    var rings = list.querySelectorAll(".file-ring");
+    for (var i = 0; i < rings.length; i++) {
+      var el = rings[i];
+      var path = el.dataset ? el.dataset.path : "";
+      var p = fileProgress(path);
+      var pct = p.total ? Math.round(p.done / p.total * 100) : 0;
+      if (el.dataset) el.dataset.pct = String(pct);
+      if (el.setAttribute) {
+        el.setAttribute("title", p.total
+          ? "掌握 " + p.done + "/" + p.total + " · 覆盖 " + Math.round(p.marked / p.total * 100) + "%（待复习 " + p.review + " · 薄弱 " + p.weak + "）"
+          : "暂无可标记的知识点");
+      }
+      if (el.style) el.style.setProperty("--pct", String(pct));
+    }
+  };
+  if (animate && typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(function () { requestAnimationFrame(apply); });
+  } else apply();
 }
 function highlightFile(path) {
   var items = $("file-list").querySelectorAll ? $("file-list").querySelectorAll(".file-item") : [];
@@ -2790,6 +2837,7 @@ function refreshProgressViews() {
   renderHomePage();
   renderReviewPage();
   updateFileProgress();
+  refreshFileRings(false);
 }
 function exportProgress() {
   var payload = {
