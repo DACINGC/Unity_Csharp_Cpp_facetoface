@@ -35,18 +35,18 @@ const APP_JS = inlineScripts[inlineScripts.length - 1][1];
   const hasDesktopToggle = new RegExp('id="toggle-sidebar"').test(APP);
   const hasMobileToggle = new RegExp('id="toggle-sidebar-mobile"').test(APP);
   console.log(sidebarControls.length === 1 && hasDesktopToggle && hasMobileToggle
-    ? "✓ 侧栏仅保留统一的收起/展开按钮（桌面工具轨 + 移动端悬浮）"
+    ? "✓ 侧栏仅保留统一的收起/展开按钮（桌面顶栏 + 移动端悬浮）"
     : "✗ 侧栏收起/展开按钮数量或位置不符合预期");
   if (!(sidebarControls.length === 1 && hasDesktopToggle && hasMobileToggle)) process.exit(1);
-  const railStart = APP.indexOf('<nav id="workspace-rail"');
-  const layoutStart = APP.indexOf('<div class="layout">');
+  const headerStart = APP.indexOf('<header id="topbar"');
+  const searchStart = APP.indexOf('class="search-wrap"');
   const toggleStart = APP.indexOf('id="toggle-sidebar"');
-  const toggleInRail = railStart >= 0 && layoutStart > railStart &&
-    toggleStart > railStart && toggleStart < layoutStart;
-  console.log(toggleInRail
-    ? "✓ 侧栏按钮固定在左侧工具轨内（不随侧栏宽度偏移）"
-    : "✗ 侧栏按钮未固定在左侧工具轨内");
-  if (!toggleInRail) process.exit(1);
+  const toggleInHeader = headerStart >= 0 && searchStart > headerStart &&
+    toggleStart > headerStart && toggleStart < searchStart;
+  console.log(toggleInHeader
+    ? "✓ 侧栏按钮固定在顶栏左侧（不随侧栏宽度偏移）"
+    : "✗ 侧栏按钮未固定在顶栏左侧");
+  if (!toggleInHeader) process.exit(1);
   const toggleEnd = APP.indexOf("</button>", toggleStart);
   const toggleMarkup = toggleStart >= 0 && toggleEnd >= 0 ? APP.slice(toggleStart, toggleEnd) : "";
   const compactToggle = (toggleMarkup.includes("rail-icon") || toggleMarkup.includes("ico-open")) &&
@@ -55,10 +55,10 @@ const APP_JS = inlineScripts[inlineScripts.length - 1][1];
     ? "✓ 侧栏按钮采用紧凑图标样式"
     : "✗ 侧栏按钮仍包含展开/收起文字");
   if (!compactToggle) process.exit(1);
-  const workbenchFullscreen = /body\.workbench-view \.workspace-rail[\s\S]*?body\.workbench-view aside[\s\S]*?body\.workbench-view #resizer/.test(APP);
+  const workbenchFullscreen = /body\.workbench-view #toggle-sidebar[\s\S]*?body\.workbench-view aside[\s\S]*?body\.workbench-view #resizer/.test(APP);
   console.log(workbenchFullscreen
-    ? "✓ 工作台页保留工具轨、隐藏笔记侧栏与分隔条"
-    : "✗ 工作台页未按约定处理工具轨与笔记侧栏");
+    ? "✓ 工作台页隐藏笔记侧栏、侧栏开关与分隔条"
+    : "✗ 工作台页未按约定处理笔记侧栏与分隔条");
   if (!workbenchFullscreen) process.exit(1);
   const fixedAppNav = /header\s*\{[\s\S]*?position: fixed; inset: 0 0 auto; height: 58px;/.test(APP) &&
     /\.layout\s*\{[\s\S]*?margin-top: 58px;/.test(APP);
@@ -638,12 +638,12 @@ setTimeout(async () => {
   check("] 连续跳到再下一节", context.currentAnchor === "1.1.2", "当前=" + context.currentAnchor);
   key("[");
   check("[ 回到上一节", context.currentAnchor === "1.1.1", "当前=" + context.currentAnchor);
-  // Esc 分层：先关掌握度菜单（前一步遗留的弹层），再关随机抽题菜单
+  // Esc 分层：先关掌握度菜单（前一步遗留的弹层），再关「更多」菜单（抽题已收敛进更多）
   context.hideMarkMenu();
   key("r");
-  check("R 打开随机抽题菜单", !els["random-menu"].classList.contains("hidden"));
+  check("R 打开「更多」菜单", !els["mobile-more-menu"].classList.contains("hidden"));
   key("Escape");
-  check("Esc 收起随机抽题菜单", els["random-menu"].classList.contains("hidden"));
+  check("Esc 收起「更多」菜单", els["mobile-more-menu"].classList.contains("hidden"));
   key("1");
   check("1 标记当前小节为已掌握",
     JSON.parse(localStorageStub._d["mdviewer:marks"] || "{}")["面试知识整理/01_CSharp.md|1.1.1"] === "done");

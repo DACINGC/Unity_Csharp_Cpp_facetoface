@@ -407,7 +407,7 @@ class CDP {
   await sleep(2200);
   const box = await cdp.eval(`(function(){
     var cta = document.querySelector('.workbench-action.primary');
-    var rail = document.getElementById('theme-toggle');
+    var rail = document.getElementById('mobile-more-btn');
     var boxOf = function (el) { if (!el) return null; var r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; };
     return { cta: boxOf(cta), rail: boxOf(rail) };
   })()`);
@@ -432,13 +432,13 @@ class CDP {
     await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: box.rail.x, y: box.rail.y, button: "none" });
     const icon = await cdp.eval(`(async function(){
       await new Promise(function(r){ setTimeout(r, 260); });
-      var svg = document.querySelector('#theme-toggle .rail-icon svg');
+      var svg = document.querySelector('#mobile-more-btn svg');
       var t = svg ? getComputedStyle(svg).transform : "none";
-      return { hovered: !!document.querySelector('#theme-toggle:hover'), transform: t };
+      return { hovered: !!document.querySelector('#mobile-more-btn:hover'), transform: t };
     })()`);
     if (icon.hovered && icon.transform !== "none" && icon.transform !== "")
-      ok("工具轨图标悬停微动生效（主题图标 transform=" + icon.transform + "）");
-    else fail("工具轨图标悬停无微动：" + JSON.stringify(icon));
+      ok("「更多」按钮悬停微动生效（图标 transform=" + icon.transform + "）");
+    else fail("「更多」按钮悬停无微动：" + JSON.stringify(icon));
   }
 
   /* 15) 文件列表行尾的复习进度环：数量合理、data-pct 与内联 --pct 一致、conic + 遮罩真的生效 */

@@ -112,7 +112,6 @@
     /* 阅读测宽与骨架 */
     --doc-measure: 900px;
     --skeleton: linear-gradient(90deg, var(--panel-soft) 25%, var(--border) 37%, var(--panel-soft) 63%);
-    --rail-w: 58px;
   }
   :root[data-theme="light"] {
     color-scheme: light;
@@ -263,13 +262,8 @@
 
   /* ---------- 工作区外壳 ---------- */
   .app-shell { display: flex; width: 100%; height: 100%; min-width: 0; background: var(--bg); }
-  /* 工具轨：应用级操作（抽题 / 打印 / 主题 / 帮助），在工作台视图中也保留，
-     否则删除工作台内的重复按钮后该视图将没有抽题入口。 */
-  .workspace-rail {
-    flex: 0 0 var(--rail-w); display: flex; flex-direction: column; align-items: center;
-    padding: 12px 8px 10px; background: var(--bg-deep); border-right: 1px solid var(--border-soft);
-  }
-  .rail-bottom { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: auto; }
+  /* 已收敛的旧入口容器：只作为 DOM 挂点，不参与布局与渲染 */
+  .legacy-tools { display: none; }
   .rail-btn {
     position: relative; width: 38px; height: 38px; padding: 0; border: 0; border-radius: var(--r-md);
     color: var(--muted-2); background: transparent; cursor: pointer;
@@ -289,7 +283,6 @@
   }
   .rail-btn:hover::after { opacity: 1; }
   .layout { position: relative; flex: 1; display: flex; min-width: 0; min-height: 0; margin-top: 58px; }
-  .workspace-rail { margin-top: 58px; }
 
   /* ---------- 左侧工作区 ---------- */
   aside {
@@ -297,8 +290,8 @@
     border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0;
     transition: flex-basis var(--dur-base) var(--ease-expo), min-width var(--dur-base) var(--ease-expo), opacity var(--dur-base) var(--ease-expo);
   }
-  /* 工作台页：保留工具轨（抽题 / 打印 / 主题 / 帮助），仅隐藏笔记专用的侧栏开关、侧栏与分隔条。 */
-  body.workbench-view .workspace-rail #toggle-sidebar { display: none; }
+  /* 工作台页：隐藏笔记专用的侧栏开关、侧栏与分隔条，正文占满剩余宽度。 */
+  body.workbench-view #toggle-sidebar { display: none; }
   body.workbench-view aside,
   body.workbench-view #resizer,
   body.workbench-view #toggle-sidebar-mobile { display: none; }
@@ -418,12 +411,13 @@
   .topbar-icon { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: var(--r-sm); color: var(--accent); background: var(--accent-soft); font-size: 15px; }
   .topbar-name { color: var(--text-strong); font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
   .topbar-sub { margin-top: 1px; color: var(--muted-2); font-size: 10px; }
-  .app-nav { position: relative; display: flex; align-items: center; gap: 2px; flex: 0 0 auto; padding: 3px; border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--panel); }
-  .app-nav button { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 0; border-radius: var(--r-sm); color: var(--muted); background: transparent; font: inherit; font-size: 11.5px; cursor: pointer; transition: color var(--dur-1) var(--ease); }
+  /* 页签固定在顶栏正中间：绝对定位居中，两侧内容变化不影响其位置 */
+  .app-nav { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--border-soft); border-radius: var(--r-md); background: var(--panel); }
+  .app-nav button { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; padding: 0 10px; border: 0; border-radius: var(--r-sm); color: var(--muted); background: transparent; font: inherit; font-size: 11.5px; cursor: pointer; white-space: nowrap; transition: color var(--dur-1) var(--ease); }
   .app-nav button:hover { color: var(--text); }
   .app-nav button:not(.active):hover { background: var(--panel-soft); }
   .app-nav button.active { color: var(--accent); font-weight: 650; }
-  /* 当前页签指示片：整块在三个入口之间平滑滑动（不再让每个按钮各画一层底色） */
+  /* 当前页签指示片：整块在三个入口之间横向平滑滑动（不再让每个按钮各画一层底色） */
   .nav-indicator {
     position: absolute; left: 0; top: 3px; width: 0; height: 28px; z-index: 0;
     border: 1px solid var(--accent-line-soft); border-radius: var(--r-sm);
@@ -437,7 +431,8 @@
     font-size: 10px; font-weight: 650; line-height: 15px; text-align: center; font-variant-numeric: tabular-nums;
   }
   .nav-badge.hidden { display: none; }
-  .search-wrap { position: relative; flex: 1; max-width: 500px; margin: 0 auto; }
+  /* 搜索栏靠右：宽度可收缩，避免与居中页签重叠 */
+  .search-wrap { position: relative; flex: 0 1 300px; min-width: 170px; margin-left: auto; }
   #search {
     width: 100%; height: 34px; padding: 7px 92px 7px 35px; border: 1px solid var(--border);
     border-radius: var(--r-md); color: var(--text); font-size: 12.5px; outline: none; background: var(--panel);
@@ -478,17 +473,32 @@
   .sr-item mark { background: var(--hl); color: inherit; border-radius: 2px; padding: 0 1px; }
   .sr-empty { padding: 14px 12px 6px; color: var(--muted); text-align: center; font-size: 12px; }
   .sr-hint { padding: 0 14px 14px; color: var(--muted-2); font-size: 10.5px; text-align: center; line-height: 1.6; }
-  .header-right { display: flex; align-items: center; gap: 5px; margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .header-right { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; white-space: nowrap; }
   body.workbench-view #edit-btn, body.workbench-view #reveal-btn { display: none; }
   .top-action { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 9px; border: 0; border-radius: var(--r-sm); color: var(--muted); background: transparent; cursor: pointer; font-size: 12px; transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease); }
   .top-action:hover { color: var(--text); background: var(--panel-soft); }
   .top-action.icon-only { width: 30px; justify-content: center; padding: 0; font-size: 16px; }
-  .mobile-more { display: none; position: relative; }
+  /* 功能收敛：原工具轨按钮与顶栏操作按钮统一进入「更多」菜单。
+     原按钮保留在 DOM 中（隐藏），既有事件绑定与自动化脚本不受影响。 */
+  .service-wrap { display: contents; }
+  #service-btn, #share-btn, #edit-btn, #reveal-btn { display: none; }
+  .mobile-more { display: inline-flex; position: relative; }
+  #mobile-more-btn { border: 1px solid var(--border-soft); background: var(--panel); }
+  #mobile-more-btn:hover { border-color: var(--border); }
   .mobile-more-menu {
-    position: absolute; top: calc(100% + 9px); right: 0; z-index: 70; width: 200px; padding: 5px;
+    position: absolute; top: calc(100% + 9px); right: 0; z-index: 70; width: 216px; padding: 5px;
     border: 1px solid var(--border); border-radius: var(--r-md); background: var(--panel-raised); box-shadow: var(--shadow-3);
     animation: popin var(--dur-2) var(--ease);
   }
+  /* 分类标签：贯穿菜单宽度的浅色带 + 强调色短竖条与文字，三组功能一眼分段 */
+  .mmm-label {
+    display: flex; align-items: center; gap: 7px;
+    margin: 4px -5px 3px; padding: 8px 15px 5px;
+    color: var(--accent); font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+    background: var(--accent-soft); border-top: 1px solid var(--border-soft);
+  }
+  .mmm-label:first-child { margin-top: -5px; border-top: 0; border-radius: var(--r-md) var(--r-md) 0 0; }
+  .mmm-label::before { content: ""; flex: 0 0 auto; width: 3px; height: 11px; border-radius: 2px; background: var(--accent); }
   .mobile-more-menu.hidden { display: none; }
   .mobile-more-menu button {
     display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--r-sm);
@@ -496,9 +506,11 @@
   }
   .mobile-more-menu button:hover, .mobile-more-menu button:focus-visible { color: var(--text); background: var(--panel-soft); }
 
-  /* ---------- 左侧侧栏开关按钮 ---------- */
-  /* 固定在左侧工具轨内，位置与侧栏宽度无关，收起/展开/拖拽调整宽度时均不偏移 */
-  #toggle-sidebar { margin-top: 10px; }
+  /* ---------- 侧栏开关按钮（固定在顶栏左侧） ---------- */
+  /* 位置固定在顶栏，不随侧栏宽度变化；收起/展开/拖拽调整宽度时均不偏移 */
+  header #toggle-sidebar { flex: 0 0 auto; margin: 0 -4px 0 0; }
+  /* 顶栏里的按钮提示改到下方，避免遮住应用标题 */
+  header .rail-btn::after { left: 50%; top: calc(100% + 8px); transform: translateX(-50%); }
   #toggle-sidebar .ico-closed, #toggle-sidebar-mobile .ico-closed { display: none; }
   body.sidebar-collapsed #toggle-sidebar .ico-open, body.sidebar-collapsed #toggle-sidebar-mobile .ico-open { display: none; }
   body.sidebar-collapsed #toggle-sidebar .ico-closed, body.sidebar-collapsed #toggle-sidebar-mobile .ico-closed { display: inline; }
@@ -852,27 +864,31 @@
   .boot-btn.primary { border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
   .boot-btn.hidden { display: none; }
   @media (max-width: 980px) {
-    :root { --rail-w: 50px; }
-    .workspace-rail { flex-basis: var(--rail-w); padding-left: 5px; padding-right: 5px; }
     aside { flex-basis: var(--sidebar-w, 420px); }
     .doc { padding-left: 34px; padding-right: 34px; }
     .app-nav button { padding-left: 8px; padding-right: 8px; }
+    /* 中等宽度：收缩搜索并隐藏 Ctrl+K 提示，给正文与页签让位 */
+    .search-kbd { display: none; }
+    #search { padding-right: 34px; }
+    .search-clear { right: 8px; }
     .stats-category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .stats-heat-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .home-grid { grid-template-columns: 1fr; }
   }
+  /* 再窄一点：居中页签会让位给搜索栏，视图切换走右上角「更多」菜单 */
+  @media (max-width: 860px) {
+    .app-nav { display: none; }
+  }
   @media (max-width: 700px) {
-    :root { --rail-w: 0px; }
-    .workspace-rail { display: none; }
     aside { position: absolute; top: 0; bottom: 0; left: 0; z-index: 30; flex-basis: auto; width: min(360px, calc(100vw - 28px)); box-shadow: var(--shadow-3); }
     body.sidebar-collapsed aside { width: 0; pointer-events: none; }
     header { gap: 10px; padding: 0 14px; }
     .topbar-title { min-width: auto; }
-    .topbar-sub, .topbar-icon, .app-nav, .top-action:not(.icon-only) span:last-child { display: none; }
+    #toggle-sidebar, .topbar-sub, .topbar-icon, .app-nav, .top-action:not(.icon-only) span:last-child { display: none; }
     #service-btn, #share-btn, #edit-btn, #reveal-btn { display: none; }
     .mobile-more { display: block; }
     .svc-drop { position: fixed; top: 54px; right: 12px; }
-    .search-wrap { max-width: none; }
+    .search-wrap { max-width: none; min-width: 0; }
     /* 抽屉内两列太窄：改为「文件 / 知识点」分段切换（桌面两列不受影响） */
     .side-switch {
       display: flex; gap: 4px; padding: 10px 12px 0;
@@ -1303,7 +1319,7 @@
     body { background: #fff !important; overflow: visible !important; }
     /* 打印 / 导出 PDF 必须是完整正文：滚动揭示的初始隐藏态在这里强制解除 */
     html.sr-on #content .sr { opacity: 1 !important; transform: none !important; }
-    .workspace-rail, aside, header, #crumb, #find-bar, #edit-bar, #read-progress,
+    aside, header, #crumb, #find-bar, #edit-bar, #read-progress,
     #toggle-sidebar-mobile, #toast, .code-copy, .code-lang, .sec-ref, .empty-state, .sk-bar { display: none !important; }
     .layout, .main-shell, main { display: block !important; height: auto !important; overflow: visible !important; }
     .doc {
@@ -1324,25 +1340,21 @@
 </head>
 <body>
 <div class="app-shell">
-  <nav id="workspace-rail" class="workspace-rail" aria-label="工作区导航">
-    <button id="toggle-sidebar" class="rail-btn" title="收起侧栏" aria-label="收起侧栏" aria-expanded="true">
-      <span class="rail-icon"><span class="ico-open" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg></span><span class="ico-closed" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span></span>
-    </button>
-    <div class="rail-bottom">
-      <div class="rail-tool">
-        <button id="rail-random" class="rail-btn" title="随机抽题自测" aria-label="随机抽题"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg></span></button>
-        <div id="random-menu" class="random-menu hidden">
-          <div class="rm-note">抽一个知识点自测</div>
-          <button id="random-all" data-mode="all">全部知识点</button>
-          <button id="random-review" data-mode="review">待复习项</button>
-          <button id="random-weak" data-mode="weak">薄弱项</button>
-        </div>
+  <!-- 已收敛的旧入口：只保留 DOM 挂点（整体隐藏），事件绑定与自动化脚本继续可用 -->
+  <div class="legacy-tools" aria-hidden="true">
+    <div class="rail-tool">
+      <button id="rail-random" class="rail-btn" title="随机抽题自测" aria-label="随机抽题"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg></span></button>
+      <div id="random-menu" class="random-menu hidden">
+        <div class="rm-note">抽一个知识点自测</div>
+        <button id="random-all" data-mode="all">全部知识点</button>
+        <button id="random-review" data-mode="review">待复习项</button>
+        <button id="random-weak" data-mode="weak">薄弱项</button>
       </div>
-      <button id="rail-print" class="rail-btn" title="打印 / 导出 PDF" aria-label="打印"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span></button>
-      <button id="theme-toggle" class="rail-btn" title="切换明暗" aria-label="切换明暗"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span></button>
-      <button id="rail-help" class="rail-btn" title="快捷键" aria-label="快捷键"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span></button>
     </div>
-  </nav>
+    <button id="rail-print" class="rail-btn" title="打印 / 导出 PDF" aria-label="打印"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span></button>
+    <button id="theme-toggle" class="rail-btn" title="切换明暗" aria-label="切换明暗"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span></button>
+    <button id="rail-help" class="rail-btn" title="快捷键" aria-label="快捷键"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span></button>
+  </div>
 
   <div class="layout">
     <aside id="sidebar">
@@ -1386,6 +1398,9 @@
 
     <section class="main-shell">
       <header id="topbar">
+        <button id="toggle-sidebar" class="rail-btn" title="收起侧栏" aria-label="收起侧栏" aria-expanded="true">
+          <span class="rail-icon"><span class="ico-open" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="9" y1="3" x2="9" y2="21"/></svg></span><span class="ico-closed" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span></span>
+        </button>
         <div class="topbar-title">
           <span class="topbar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
           <div><div class="topbar-name">本地知识空间</div><div class="topbar-sub">阅读 · 复习 · 概览</div></div>
@@ -1430,16 +1445,15 @@
           <button id="edit-btn" class="top-action icon-only" title="编辑当前文档（Ctrl+E）" aria-label="编辑当前文档"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
           <button id="reveal-btn" class="top-action icon-only" title="在文件管理器中定位" aria-label="在文件管理器中定位"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
           <div class="mobile-more">
-            <button id="mobile-more-btn" class="top-action icon-only" title="更多操作" aria-label="更多操作" aria-expanded="false" aria-controls="mobile-more-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+            <button id="mobile-more-btn" class="top-action" title="更多操作" aria-label="更多操作" aria-expanded="false" aria-controls="mobile-more-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg><span>更多</span></button>
             <div id="mobile-more-menu" class="mobile-more-menu hidden" role="menu" aria-label="更多操作">
+              <div class="mmm-label">页面</div>
               <button type="button" role="menuitem" data-mobile-action="home">首页</button>
               <button type="button" role="menuitem" data-mobile-action="notes">笔记</button>
               <button type="button" role="menuitem" data-mobile-action="review">复习</button>
               <button type="button" role="menuitem" data-mobile-action="prev-file">上一篇（Alt+←）</button>
               <button type="button" role="menuitem" data-mobile-action="next-file">下一篇（Alt+→）</button>
-              <button type="button" role="menuitem" data-mobile-action="share">复制定位链接</button>
-              <button type="button" role="menuitem" data-mobile-action="edit">编辑当前文档</button>
-              <button type="button" role="menuitem" data-mobile-action="reveal">在文件管理器中定位</button>
+              <div class="mmm-label">工具</div>
               <button type="button" role="menuitem" data-mobile-action="random-all">随机抽题：全部知识点</button>
               <button type="button" role="menuitem" data-mobile-action="random-review">随机抽题：待复习项</button>
               <button type="button" role="menuitem" data-mobile-action="random-weak">随机抽题：薄弱项</button>
@@ -1447,6 +1461,10 @@
               <button type="button" role="menuitem" data-mobile-action="print">打印 / 导出 PDF</button>
               <button type="button" role="menuitem" data-mobile-action="help">快捷键帮助</button>
               <button type="button" role="menuitem" data-mobile-action="service">服务控制</button>
+              <div class="mmm-label">文档</div>
+              <button type="button" role="menuitem" data-mobile-action="share">复制定位链接</button>
+              <button type="button" role="menuitem" data-mobile-action="edit">编辑当前文档</button>
+              <button type="button" role="menuitem" data-mobile-action="reveal">在文件管理器中定位</button>
             </div>
           </div>
         </div>
@@ -1496,7 +1514,7 @@
         <tr><td><kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>Alt</kbd>+<kbd>→</kbd></td><td>打开上一篇 / 下一篇（按当前筛选范围）</td></tr>
         <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>跳到当前文档的上一节 / 下一节</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>依次关闭：掌握度菜单 → 更多操作 → 服务面板 → 搜索结果 → 查找栏 → 本弹层</td></tr>
-        <tr><td>顶部「首页 / 笔记 / 复习」</td><td>在独立工作台页面间切换；复习页汇总薄弱与待复习项</td></tr>
+        <tr><td>顶部中间「首页 / 笔记 / 复习」</td><td>在独立工作台页面间切换；复习页汇总薄弱与待复习项</td></tr>
         <tr><td>点击 §编号</td><td>跨文件跳转到对应知识点</td></tr>
         <tr><td>浏览器 前进/后退</td><td>在打开过的文档与小节之间导航</td></tr>
       </table>
@@ -1518,11 +1536,11 @@
       </table>
       <h3 class="help-group">工具</h3>
       <table class="help-table">
-        <tr><td><kbd>R</kbd> 或 🎲</td><td>随机抽题自测（全部 / 待复习 / 薄弱）</td></tr>
+        <tr><td><kbd>R</kbd></td><td>随机抽题自测（全部 / 待复习 / 薄弱，入口在右上角「更多」菜单）</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>编辑当前文档（<kbd>Ctrl</kbd>+<kbd>S</kbd> 保存、<kbd>Esc</kbd> 取消）</td></tr>
         <tr><td><kbd>T</kbd> 或 ◐</td><td>切换明暗主题（未手动切换时跟随系统）</td></tr>
         <tr><td>🖨 打印</td><td>打印当前文档 / 另存为 PDF</td></tr>
-        <tr><td>⏻ 服务控制</td><td>顶栏电源按钮：查看服务状态、重启 / 关闭本地服务</td></tr>
+        <tr><td>⏻ 服务控制</td><td>右上角「更多」菜单：查看服务状态、重启 / 关闭本地服务</td></tr>
         <tr><td><kbd>?</kbd></td><td>打开 / 关闭本帮助</td></tr>
       </table>
     </div>
@@ -3144,13 +3162,13 @@ function syncAppNav() {
   });
   updateNavIndicator(activeBtn);
 }
-/* 当前页签指示片：滑到激活按钮下方（窄屏 page-nav 隐藏时自动收起） */
+/* 当前页签指示片：滑到激活按钮下方（顶栏居中导航；导航被隐藏时自动收起） */
 function updateNavIndicator(activeBtn) {
   var ind = $("nav-indicator"), nav = $("app-nav");
   if (!ind || !ind.style || !nav || typeof nav.getBoundingClientRect !== "function") return;
   if (!activeBtn || typeof activeBtn.getBoundingClientRect !== "function") { ind.style.opacity = "0"; return; }
   var nr = nav.getBoundingClientRect(), br = activeBtn.getBoundingClientRect();
-  if (!br.width || br.top < nr.top - 20) { ind.style.opacity = "0"; return; } // 导航被隐藏（窄屏）
+  if (!br.width || !nr.width || br.top < nr.top - 20) { ind.style.opacity = "0"; return; } // 导航被隐藏（窄屏）
   ind.style.opacity = "1";
   ind.style.width = Math.round(br.width) + "px";
   ind.style.transform = "translateX(" + Math.round(br.left - nr.left) + "px)";
@@ -3373,7 +3391,7 @@ function renderReviewPage() {
         '<div class="es-hint">在笔记左侧目录里点击标题行尾圆点，标记「待复习」或「薄弱」<br>标记过的知识点会自动汇总到这里，处理完即可从清单移除</div>' +
         '<button type="button" class="workbench-action primary es-action" data-review-go="notes">去笔记里标记 →</button>' +
       '</div>';
-  el.innerHTML = '<div class="workbench-hero"><div><p class="workbench-kicker">复习</p><h1 id="review-page-title" class="workbench-title">待复习清单</h1><p class="workbench-sub">薄弱优先、逾期越久越靠前；每条标注上次复习与建议下次时间。点击条目回到原文，重新标记后自动从清单移除。随机抽题用左侧工具轨 🎲（快捷键 R）。</p></div>' +
+  el.innerHTML = '<div class="workbench-hero"><div><p class="workbench-kicker">复习</p><h1 id="review-page-title" class="workbench-title">待复习清单</h1><p class="workbench-sub">薄弱优先、逾期越久越靠前；每条标注上次复习与建议下次时间。点击条目回到原文，重新标记后自动从清单移除。随机抽题在右上角「更多」菜单（快捷键 R）。</p></div>' +
     '<div class="review-filter" role="group" aria-label="待复习筛选">' +
       '<button type="button" class="review-filter-btn' + (reviewFilter === "all" ? " active" : "") + '" data-review-filter="all" aria-pressed="' + (reviewFilter === "all" ? "true" : "false") + '">全部 ' + items.length + '</button>' +
       '<button type="button" class="review-filter-btn' + (reviewFilter === "review" ? " active" : "") + '" data-review-filter="review" aria-pressed="' + (reviewFilter === "review" ? "true" : "false") + '">待复习 ' + reviewCount + '</button>' +
@@ -3902,7 +3920,7 @@ function handleGlobalKey(e) {  if (!e || !e.key) return;
   if (e.key === "?") { e.preventDefault(); helpVisible() ? hideHelp() : showHelp(); return; }
   if (e.key === "[") { e.preventDefault(); jumpAdjacentSection(-1); return; }
   if (e.key === "]") { e.preventDefault(); jumpAdjacentSection(1); return; }
-  if (e.key === "r" || e.key === "R") { e.preventDefault(); toggleRandomMenu(true); return; }
+  if (e.key === "r" || e.key === "R") { e.preventDefault(); toggleMobileMore(true); return; }
   if (e.key === "t" || e.key === "T") { e.preventDefault(); toggleTheme(); return; }
   if (e.key === "m" || e.key === "M") { e.preventDefault(); openCurrentMarkMenu(); return; }
   // 1/2/3/0：给当前小节标记（与目录圆点菜单等价）
