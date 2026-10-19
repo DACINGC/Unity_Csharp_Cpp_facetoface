@@ -865,6 +865,21 @@ setTimeout(async () => {
     reset();
   }
 
+  /* 侧栏分组默认折叠：原始素材是未整理的 txt（无编号/不可标记），首次访问应收起，
+   * 但不能"展开时删键"——否则默认折叠的分组会立刻弹回折叠态。 */
+  console.log("侧栏分组默认折叠检查");
+  {
+    const savedGroups = context.fileGroupsCollapsed;
+    context.fileGroupsCollapsed = {};
+    check("原始素材默认折叠", context.fileGroupCollapsed("原始素材") === true);
+    check("其余分组默认展开", context.fileGroupCollapsed("面试知识整理") === false);
+    context.fileGroupsCollapsed["原始素材"] = false;
+    check("显式展开(false) 后不被默认值覆盖", context.fileGroupCollapsed("原始素材") === false);
+    context.fileGroupsCollapsed["原始素材"] = true;
+    check("显式折叠(true) 后仍为折叠", context.fileGroupCollapsed("原始素材") === true);
+    context.fileGroupsCollapsed = savedGroups;
+  }
+
   /* P3-1：目录父标题进度药丸的计数（真实 DOM 夹具）。
    * 背景：父标题行里放的是 .node-prog，叶子才放 .mark-badge。若 refreshNodeProgress
    * 用不限层级的 querySelector(".toc-row .mark-badge") 找"自身圆点"，会命中第一个

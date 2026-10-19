@@ -1635,6 +1635,18 @@ function fileGroupName(path) {
 /* ---------- 目录分组折叠/展开（状态记忆） ---------- */
 var fileGroupsCollapsed = {};
 try { fileGroupsCollapsed = JSON.parse(localStorage.getItem("mdviewer:file-groups-collapsed") || "{}"); } catch (e) { fileGroupsCollapsed = {}; }
+/* 首次访问时默认折叠的分组。
+ * `原始素材/` 是未整理的逐字稿（无 § 编号、无标题层级、不能标记掌握度），默认收起来，
+ * 免得 16 个 txt 把 22 篇可复习的 md 挤出第一屏。用户手动展开后会记住（见下方显式存 false）。 */
+var DEFAULT_COLLAPSED_GROUPS = ["原始素材"];
+function fileGroupDefaultCollapsed(name) {
+  return DEFAULT_COLLAPSED_GROUPS.indexOf(name) >= 0;
+}
+function fileGroupCollapsed(name) {
+  return Object.prototype.hasOwnProperty.call(fileGroupsCollapsed, name)
+    ? !!fileGroupsCollapsed[name]
+    : fileGroupDefaultCollapsed(name);
+}
 function saveFileGroupsCollapsed() {
   try { localStorage.setItem("mdviewer:file-groups-collapsed", JSON.stringify(fileGroupsCollapsed)); } catch (e) {}
 }
@@ -1644,7 +1656,8 @@ function toggleFileGroupCollapse(label) {
   var collapsed = group.classList.toggle("collapsed");
   label.setAttribute("aria-expanded", String(!collapsed));
   var key = label.getAttribute ? label.getAttribute("data-key") : "";
-  if (collapsed) fileGroupsCollapsed[key] = true; else delete fileGroupsCollapsed[key];
+  /* 显式存 true/false：不能"展开时删键"，否则默认折叠的分组会立刻弹回折叠态 */
+  if (key) fileGroupsCollapsed[key] = !!collapsed;
   saveFileGroupsCollapsed();
 }
 /* 打开某文件时，其所在目录若被折叠则自动展开，保证当前文件可见 */
@@ -1656,7 +1669,8 @@ function expandFileGroupOf(item) {
   if (label) {
     label.setAttribute("aria-expanded", "true");
     var k = label.getAttribute ? label.getAttribute("data-key") : "";
-    if (k && fileGroupsCollapsed[k]) { delete fileGroupsCollapsed[k]; saveFileGroupsCollapsed(); }
+    /* 显式记 false（而不是删键）：默认折叠的分组需要记住"用户已展开" */
+    if (k) { fileGroupsCollapsed[k] = false; saveFileGroupsCollapsed(); }
   }
 }
 /* 每个文件的末级知识点数量（列表副标题用，渲染一次即可复用） */
@@ -1686,7 +1700,7 @@ function renderFiles() {
     group.items.push(f);
   });
   var groupsHtml = groups.map(function (group) {
-    var collapsed = !!fileGroupsCollapsed[group.name];
+    var collapsed = fileGroupCollapsed(group.name);
     var rows = group.items.map(function (f) {
       var title = f.name;
       var leaf = fileLeafCount(f);
