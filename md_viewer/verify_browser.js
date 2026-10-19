@@ -355,7 +355,8 @@ class CDP {
     var root = document.documentElement;
     if (typeof document.startViewTransition !== 'function') return { support: false };
     var before = root.getAttribute('data-theme');
-    document.getElementById('theme-toggle').click();
+    var tb0 = document.getElementById('mobile-more-btn'); if (tb0) tb0.click();
+    var ti0 = document.querySelector('[data-mobile-action="theme"]'); if (ti0) ti0.click();
     var marked = false, pseudo = 0, after = before;
     for (var i = 0; i < 60; i++) {
       if (root.classList.contains('theme-revealing')) marked = true;
@@ -370,7 +371,8 @@ class CDP {
       await new Promise(function(r){ requestAnimationFrame(r); });
     }
     var cleaned = !root.classList.contains('theme-revealing');
-    document.getElementById('theme-toggle').click();       // 还原主题
+    var tb2 = document.getElementById('mobile-more-btn'); if (tb2) tb2.click();
+    var ti2 = document.querySelector('[data-mobile-action="theme"]'); if (ti2) ti2.click();       // 还原主题
     await new Promise(function(r){ setTimeout(r, 800); });
     return { support: true, marked: marked, pseudo: pseudo, changed: after !== before,
              cleaned: cleaned, back: root.getAttribute('data-theme') === before };
@@ -390,9 +392,11 @@ class CDP {
     var el = document.querySelector('#content .sr');
     var op = el ? parseFloat(getComputedStyle(el).opacity) : 1;
     var before = root.getAttribute('data-theme');
-    document.getElementById('theme-toggle').click();
+    var tb3 = document.getElementById('mobile-more-btn'); if (tb3) tb3.click();
+    var ti3 = document.querySelector('[data-mobile-action="theme"]'); if (ti3) ti3.click();
     var after = root.getAttribute('data-theme');     // 降级路径同步切换，这里必须已经变了
-    document.getElementById('theme-toggle').click(); // 还原
+    var tb4 = document.getElementById('mobile-more-btn'); if (tb4) tb4.click();
+    var ti4 = document.querySelector('[data-mobile-action="theme"]'); if (ti4) ti4.click(); // 还原
     return { srOn: srOn, opacity: op, syncTheme: before !== after };
   })()`);
   await cdp.send("Emulation.setEmulatedMedia", { media: "screen", features: [] });

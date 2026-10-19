@@ -79,18 +79,21 @@ const APP_JS = inlineScripts[inlineScripts.length - 1][1];
   /* 去冗余与死代码回归：这些入口/类名/函数不应再出现 */
   const removedTokens = ["toc-tab-review", "toc-review-count", "toc-tabs", "renderReviewTab",
     "reviewTabActive", "markBadgeHtml", "cycleMark", "rail-logo", "rail-divider",
-    "stats-card", "stats-head", "stats-history-note", "stats-status-item", "review-item"];
+    "stats-card", "stats-head", "stats-history-note", "stats-status-item", "review-item",
+    /* 顶栏重构后已删除的"隐藏旧入口"：左侧工具轨整块 DOM 及其绑定不应复活 */
+    "legacy-tools", "rail-random", "rail-print", "rail-help", "theme-toggle",
+    "random-menu", "toggleRandomMenu", "randomMenuTrigger", "themeIcon", "rail-tool"];
   const resurrected = removedTokens.filter((t) => APP.includes(t));
   console.log(resurrected.length
     ? "✗ 已删除的冗余入口/死代码重新出现: " + resurrected.join(", ")
-    : "✓ 冗余入口与死代码已清理（侧栏待复习标签、旧统计卡、rail 品牌残留等 " + removedTokens.length + " 项）");
+    : "✓ 冗余入口与死代码已清理（旧统计卡、rail 品牌残留、隐藏 legacy-tools 等 " + removedTokens.length + " 项）");
   if (resurrected.length) process.exit(1);
 
-  /* 每个能力一个主入口：随机抽题只在工具轨菜单 + 移动端「更多操作」 */
-  const randomEntryPoints = (APP.match(/data-mode="(all|review|weak)"/g) || []).length;
+  /* 每个能力一个主入口：随机抽题只保留顶栏「更多」菜单里的三项 */
+  const randomEntryPoints = (APP.match(/data-mobile-action="random-(all|review|weak)"/g) || []).length;
   const workspaceRandomButtons = /data-home-action="random"|data-review-action="random"/.test(APP);
   console.log(randomEntryPoints === 3 && !workspaceRandomButtons
-    ? "✓ 随机抽题收敛为工具轨菜单（全部/待复习/薄弱），工作台内不再重复放置按钮"
+    ? "✓ 随机抽题收敛为「更多」菜单三项（全部/待复习/薄弱），工作台内不再重复放置按钮"
     : "✗ 随机抽题入口未收敛（菜单项 " + randomEntryPoints + " 个，工作台残留=" + workspaceRandomButtons + "）");
   if (!(randomEntryPoints === 3 && !workspaceRandomButtons)) process.exit(1);
 

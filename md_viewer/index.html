@@ -262,8 +262,6 @@
 
   /* ---------- 工作区外壳 ---------- */
   .app-shell { display: flex; width: 100%; height: 100%; min-width: 0; background: var(--bg); }
-  /* 已收敛的旧入口容器：只作为 DOM 挂点，不参与布局与渲染 */
-  .legacy-tools { display: none; }
   .rail-btn {
     position: relative; width: 38px; height: 38px; padding: 0; border: 0; border-radius: var(--r-md);
     color: var(--muted-2); background: transparent; cursor: pointer;
@@ -1038,21 +1036,7 @@
   .mark-badge.just-marked::before { animation: mark-pop var(--dur-base) var(--ease-spring); }
   .mark-badge.just-marked { animation: pulse-ring 620ms var(--ease-expo); border-radius: var(--r-pill); }
 
-  /* ---------- 随机抽题 / 打印 / 进度统计 ---------- */
-  .rail-tool { position: relative; }
-  .random-menu {
-    position: absolute; left: calc(100% + 10px); bottom: 0; z-index: 70;
-    min-width: 168px; padding: 5px; border: 1px solid var(--border); border-radius: var(--r-md);
-    background: var(--panel-raised); box-shadow: var(--shadow-3);
-    animation: popin var(--dur-2) var(--ease);
-  }
-  .random-menu.hidden { display: none; }
-  .random-menu .rm-note { padding: 6px 10px 4px; color: var(--muted-2); font-size: 10px; }
-  .random-menu button {
-    display: block; width: 100%; padding: 7px 10px; border: 0; border-radius: var(--r-sm);
-    background: transparent; color: var(--muted); font-size: 12px; text-align: left; cursor: pointer;
-  }
-  .random-menu button:hover, .random-menu button:focus-visible { color: var(--text); background: var(--panel-soft); }
+  /* ---------- 进度统计 ---------- */
   .mark-menu {
     position: fixed; z-index: 110; width: 158px; padding: 5px; border: 1px solid var(--border);
     border-radius: var(--r-md); background: var(--panel-raised); box-shadow: var(--shadow-3);
@@ -1211,7 +1195,7 @@
   /* ---------- 高级感细节：玻璃顶缘 / 发光 / 指示条 / CTA / 微动效 ---------- */
   /* 卡片与弹层的顶缘高光：让平面色块像"玻璃"而不是纯色贴片 */
   .home-summary-card, .workbench-panel, .stats-panel, .stats-category-card, .help-card,
-  .svc-drop, .random-menu, .mark-menu, .mobile-more-menu, #search-results {
+  .svc-drop, .mark-menu, .mobile-more-menu, #search-results {
     background-image: linear-gradient(180deg, var(--hairline), transparent 46%);
   }
   /* 进度环外发光（很轻，只是把环从底色里"托"起来） */
@@ -1282,9 +1266,6 @@
   .rail-icon svg, .top-action svg { transition: transform var(--dur-base) var(--ease-spring); }
   @media (hover: hover) {
     .rail-btn:hover .rail-icon svg { transform: translateY(-1px) scale(1.06); }
-    #theme-toggle:hover .rail-icon svg { transform: rotate(-22deg) scale(1.06); }
-    #rail-random:hover .rail-icon svg { transform: rotate(14deg) scale(1.06); }
-    #rail-print:hover .rail-icon svg { transform: translateY(-2px) scale(1.06); }
     .top-action:hover svg { transform: translateY(-1px); }
   }
   .search-symbol { transition: color var(--dur-base) var(--ease-expo); }
@@ -1340,22 +1321,6 @@
 </head>
 <body>
 <div class="app-shell">
-  <!-- 已收敛的旧入口：只保留 DOM 挂点（整体隐藏），事件绑定与自动化脚本继续可用 -->
-  <div class="legacy-tools" aria-hidden="true">
-    <div class="rail-tool">
-      <button id="rail-random" class="rail-btn" title="随机抽题自测" aria-label="随机抽题"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg></span></button>
-      <div id="random-menu" class="random-menu hidden">
-        <div class="rm-note">抽一个知识点自测</div>
-        <button id="random-all" data-mode="all">全部知识点</button>
-        <button id="random-review" data-mode="review">待复习项</button>
-        <button id="random-weak" data-mode="weak">薄弱项</button>
-      </div>
-    </div>
-    <button id="rail-print" class="rail-btn" title="打印 / 导出 PDF" aria-label="打印"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span></button>
-    <button id="theme-toggle" class="rail-btn" title="切换明暗" aria-label="切换明暗"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span></button>
-    <button id="rail-help" class="rail-btn" title="快捷键" aria-label="快捷键"><span class="rail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span></button>
-  </div>
-
   <div class="layout">
     <aside id="sidebar">
       <nav class="side-nav" aria-label="学习进度">
@@ -3201,7 +3166,6 @@ function activateWorkbenchView(view, pageId, renderer, options) {
   if (!sameView) rememberDocumentScroll();
   if (findBarVisible()) closeFind();
   hideMarkMenu();
-  toggleRandomMenu(false);
   runViewTransition(function () {
     hideWorkbenchPages();
     if (contentEl) contentEl.classList.add("hidden");
@@ -3446,23 +3410,6 @@ function randomPick(scope) {
   toast(scope === "all" ? "随机抽题：全部知识点" : (scope === "weak" ? "随机抽题：薄弱项" : "随机抽题：待复习项"));
   openFile(pick.path, pick.anchor, true);
 }
-var randomMenuTrigger = null;
-function toggleRandomMenu(show, returnFocus) {
-  var m = $("random-menu");
-  if (show === undefined) show = m.classList.contains("hidden");
-  m.classList.toggle("hidden", !show);
-  if (show) randomMenuTrigger = document.activeElement;
-  else if (returnFocus && randomMenuTrigger && typeof randomMenuTrigger.focus === "function") { randomMenuTrigger.focus(); }
-  if (!show) randomMenuTrigger = null;
-}
-$("rail-random").addEventListener("click", function (e) { e.stopPropagation(); toggleRandomMenu(); });
-$("random-all").addEventListener("click", function () { toggleRandomMenu(false); randomPick("all"); });
-$("random-review").addEventListener("click", function () { toggleRandomMenu(false); randomPick("review"); });
-$("random-weak").addEventListener("click", function () { toggleRandomMenu(false); randomPick("weak"); });
-document.addEventListener("click", function (e) {
-  var m = $("random-menu");
-  if (m && !m.classList.contains("hidden") && !(e.target && e.target.closest && e.target.closest(".rail-tool"))) toggleRandomMenu(false);
-});
 
 /* ---------- 快速定位：按标题顺序的第一个未标记小标题（知识点） ---------- */
 /* 树形结构中无子节点的标题 = 小标题/知识点；仅用于分组折叠的大标题不参与定位 */
@@ -3493,11 +3440,6 @@ function jumpToNextUnmarked() {
   toast("定位到下个未标记知识点：" + (pick.number ? pick.number + " " : "") + pick.text);
 }
 $("btn-unmarked").addEventListener("click", jumpToNextUnmarked);
-
-$("rail-print").addEventListener("click", function () {
-  if (typeof window !== "undefined" && typeof window.print === "function") window.print();
-  else toast("请使用浏览器菜单打印（Ctrl+P）");
-});
 
 /* ============================== 内置编辑（只读浏览 + 手动进入编辑态） ============================== */
 var editing = false;
@@ -3849,7 +3791,6 @@ function handleEscape() {
   if (!($("mark-menu").classList.contains("hidden"))) { hideMarkMenu(true); return true; }
   if (!($("mobile-more-menu").classList.contains("hidden"))) { toggleMobileMore(false); return true; }
   if (!($("svc-drop").classList.contains("hidden"))) { toggleServiceDrop(false); return true; }
-  if (!($("random-menu").classList.contains("hidden"))) { toggleRandomMenu(false, true); return true; }
   if (resultsEl.classList.contains("show")) { hideResults(); if (searchInput.blur) searchInput.blur(); return true; }
   if (findBarVisible() && document.activeElement !== $("find-input")) { closeFind(); return true; }
   if (helpVisible()) { hideHelp(); return true; }
@@ -3858,7 +3799,7 @@ function handleEscape() {
 /* 是否有弹层/下拉/菜单处于打开状态。
  * 用于让单键快捷键在弹层打开时"让路"，避免操作到背后的页面。 */
 function anyOverlayOpen() {
-  var ids = ["help-overlay", "svc-drop", "mobile-more-menu", "random-menu", "mark-menu"];
+  var ids = ["help-overlay", "svc-drop", "mobile-more-menu", "mark-menu"];
   for (var i = 0; i < ids.length; i++) {
     var el = $(ids[i]);
     if (el && el.classList && !el.classList.contains("hidden")) return true;
@@ -4115,18 +4056,10 @@ function toast(msg, opts) {
 })();
 
 /* ---------- 主题 ---------- */
-function themeIcon(theme) {
-  var inner = theme === "light"
-    ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
-    : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
-}
 function setTheme(theme) {
   theme = theme === "light" ? "light" : "dark";
   if (document.documentElement && document.documentElement.setAttribute) document.documentElement.setAttribute("data-theme", theme);
   try { localStorage.setItem("mdviewer:theme", theme); } catch (e) {}
-  var ic = themeIcon(theme);
-  var t = $("theme-toggle"); if (t) t.innerHTML = '<span class="rail-icon">' + ic + '</span>';
 }
 /* 揭示圆心：优先取触发按钮的中心（视觉上"从按钮里涌出来"），拿不到退回视口中心 */
 function revealOrigin(el) {
@@ -4151,7 +4084,7 @@ function toggleTheme(originEl) {
     setTheme(next);
     return;
   }
-  var p = revealOrigin(originEl || $("theme-toggle"));
+  var p = revealOrigin(originEl || $("mobile-more-btn"));
   // 圆要覆盖到最远的那个角，否则屏幕边缘会留一块没揭示到的旧主题
   var far = 0;
   if (typeof window !== "undefined") {
@@ -4188,7 +4121,6 @@ if (!savedTheme) {
   } catch (e) { savedTheme = "dark"; }
 }
 setTheme(savedTheme);
-$("theme-toggle").addEventListener("click", function () { toggleTheme(this); });
 
 /* ---------- 侧栏收起 ---------- */
 function updateSidebarToggleUI() {
@@ -4431,7 +4363,6 @@ function hideHelp() {
   helpTrigger = null;
 }
 function helpVisible() { return !$("help-overlay").classList.contains("hidden"); }
-$("rail-help").addEventListener("click", showHelp);
 $("help-close").addEventListener("click", hideHelp);
 $("help-overlay").addEventListener("click", function (e) { if (e.target === this) hideHelp(); });
 /* 弹层内 Tab 循环（焦点陷阱），关闭后焦点归还触发按钮（见 hideHelp） */
