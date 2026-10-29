@@ -1,19 +1,40 @@
 # 十、ECS 与 DOTS
 
-> 适用于 Unity Entities 1.x。部分 API 和内部实现可能随版本变化。
-> 本笔记整理自原始素材 `ECS笔记内容.txt`（已合并、去重、重新排序的版本），按「概念关系 → 核心模块 → 三要素 → 存储 → 查询 → 系统 → 工具链 → 优化 → 面试题」组织。
-> **本篇已是该主题的成品版本**：原始 txt 与本篇行级重复 88%，故已移出仓库、备份在仓库外的 `_仓库外备份/`，不再与本篇并行维护。
+> 适用 Unity Entities 1.x。标题即面试问题，正文先给结论、再上要点。
 
-## 10.1 DOD、ECS、Entities、DOTS 的关系
+## 10.1 什么是 ECS？
 
-| 概念 | 定义 |
-| --- | --- |
-| DOD | Data-Oriented Design，数据导向设计思想 |
-| ECS | Entity Component System，数据与行为分离的架构模式 |
-| Entities | Unity 对 ECS 的具体实现 |
-| DOTS | Unity 的完整数据导向技术栈 |
+Unity 的 ECS，全称 Entity Component System，即"实体—组件—系统"，是一种面向数据的架构，也是 DOTS 技术栈的核心。它通过分离数据与逻辑、优化内存布局，提升大量实体的处理效率。
 
-关系：
+三个概念：
+
+- **Entity（实体）**：唯一标识，不承载数据和逻辑。一个敌人、一颗子弹都是一个实体；代码里是轻量句柄，只有索引和版本号。
+- **Component（组件）**：只存数据，通常是实现 `IComponentData` 的结构体，如位置、速度、血量。
+- **System（系统）**：只写逻辑，筛选拥有特定组件组合的实体并批量处理。移动系统处理所有带位置和速度的实体。
+
+一次完整流程：刷怪创建实体 → 挂 `LocalTransform`、`MoveSpeed`、`Health` → 移动系统每帧遍历更新位置 → 血量归零后清理系统销毁实体。没有任何对象"自己会动"。
+
+与 GameObject 最本质的区别：敌人不是对象，而是一条记录；数据按类型集中存放，系统顺序遍历。所以 ECS 优化的是内存访问，不是代码行数。
+
+思想来源是 DOD：先设计数据长什么样、怎么被访问，再决定逻辑。回答顺序：DOD 是思想，ECS 是模式，Entities 是实现，DOTS 是技术栈。
+
+## 10.2 和传统的 GameObject 开发有什么区别？
+
+GameObject 本身也是组件模式，差别不在"拆组件"，而在这三点：
+
+| 维度 | GameObject | ECS |
+| --- | --- | --- |
+| 身份 | 堆上对象引用 | 8 字节句柄 |
+| 数据 | 跟着对象走，内存分散 | 按类型连续存放 |
+| 逻辑 | 组件自己的方法 | 统一由 System 批量处理 |
+
+- 扩展：继承 + 组合 vs 组件组合。
+- 性能：OOP 遍历是随机内存访问，ECS 是顺序扫描，数据量大时差距明显。
+- 并行：Chunk 天然可切给 Job。
+
+## 10.3 ECS、Entities、DOTS 是什么关系？
+
+三个层次：ECS 是架构模式；Entities 是 Unity 的实现（`com.unity.entities`）；DOTS 是完整技术栈。
 
 ```text
 DOD：设计思想
@@ -22,66 +43,33 @@ DOD：设计思想
       ├── Job System：多线程调度
       ├── Burst：原生代码优化
       ├── Collections：非托管容器
-      ├── Mathematics：SIMD 友好数学库
+      ├── Mathematics：SIMD 数学库
       ├── Entities Graphics：实体渲染
       ├── Unity Physics：数据导向物理
       └── Netcode for Entities：ECS 网络方案
 ```
 
-核心结论：
+DOTS ≠ ECS：Job、Burst、Collections 可以单独用在 MonoBehaviour 项目里。
 
-```text
-ECS 是架构模式；
-Entities 是 Unity ECS 的实现；
-DOTS 是包含 Entities、Jobs、Burst 等模块的技术栈。
+## 10.4 Entity 为什么设计成句柄？
+
+Entity = Index + Version，两个 int。
+
+```csharp
+public struct Entity
+{
+    public int Index;    // 定位：第几个实体槽位
+    public int Version;  // 校验：槽位被复用了几次
+}
 ```
 
-DOTS 不等于 ECS。传统 MonoBehaviour 项目也可以单独使用 Job、Burst 和 NativeContainer。
+- Index：可直接当数组下标，快速定位在 Chunk 中的位置。
+- Version：实体销毁后 Index 会被复用，版本不匹配即判定失效，避免悬垂引用。
+- 不用对象引用：托管对象、GC 压力、内存分散，且无法直接算偏移。
 
-## 10.2 DOTS 核心模块
+## 10.5 Component 怎么写、怎么拆？
 
-| 模块 | 主要职责 |
-| --- | --- |
-| Entities | 组织、存储、查询和处理实体数据 |
-| Job System | 将任务安全调度到工作线程 |
-| Burst | 将受支持的 C# 编译为优化后的原生代码 |
-| Collections | 提供 Job 可访问的非托管容器 |
-| Mathematics | 提供 `float3`、`quaternion`、`math` 等类型和函数 |
-| Entities Graphics | 批量渲染 Entity |
-| Unity Physics | ECS 物理模拟与空间查询 |
-| Netcode for Entities | Ghost、预测、插值和网络同步 |
-| Baking / SubScene | 将编辑器数据转换为运行时实体数据 |
-
-典型工作流：
-
-```text
-Authoring 配置
-→ Baker 转换
-→ Entity 存入 Archetype / Chunk
-→ System 通过 Query 获取数据
-→ Job System 并行调度
-→ Burst 优化执行
-→ Graphics / Physics / Netcode 消费数据
-```
-
-## 10.3 ECS 三要素
-
-### 10.3.1 Entity
-
-`Entity` 是 World 内的轻量实体句柄，通常由以下部分组成：
-
-```text
-Index + Version
-```
-
-- `Index`：定位实体。
-- `Version`：判断句柄是否失效。
-- Entity 本身不保存业务行为。
-- Entity 通过 Component 组合表达状态和能力。
-
-### 10.3.2 Component
-
-Component 只负责保存数据：
+只存数据，用非托管 struct：能连续存储、无 GC、可 Burst、可并行 Job。
 
 ```csharp
 public struct Health : IComponentData
@@ -96,233 +84,141 @@ public struct MoveSpeed : IComponentData
 }
 ```
 
-设计原则：
+拆分原则：
 
-- 优先使用非托管 `struct`。
-- 按系统访问模式拆分。
-- 避免包含无关字段的大组件。
-- 组件不是越小越好，需平衡缓存效率与 Archetype 数量。
+- 一起读、一起写、同频率变化的字段放同一组件（按访问模式拆，冷热分离）。
+- 不要一个大组件：Chunk 装的实体变少，缓存利用率下降。
+- 不要拆到字段级：Archetype 组合爆炸，结构变化变多。
+- 不写业务方法：逻辑属于 System。
 
-### 10.3.3 System
+例：位置用 `LocalTransform`；血量、移速分开；背包用 Dynamic Buffer；模型引用放托管组件或只存索引。
 
-System 查询符合条件的 Entity，并批量处理其 Component。
+## 10.6 System 怎么跑起来的？
 
-```text
-OOP：对象调用自身方法
-ECS：System 查询一组数据并批量处理
+每次被调度，做三步：找到数据 → 批量处理 → 写回。
+
+```csharp
+[BurstCompile]
+public partial struct MoveSystem : ISystem
+{
+    [BurstCompile]
+    public void OnUpdate(ref SystemState state)
+    {
+        float dt = SystemAPI.Time.DeltaTime;
+        foreach (var (transform, speed) in
+                 SystemAPI.Query<RefRW<LocalTransform>, RefRO<MoveSpeed>>())
+        {
+            transform.ValueRW.Position += speed.ValueRO.Value * dt
+                                        * transform.ValueRO.Forward();
+        }
+    }
+}
 ```
 
-例如：
+OOP 是"数据调用方法"，ECS 是"方法遍历数据"。
+
+运行时由 World 持有：实体数据、EntityManager、System 与分组、Query 和时间。Default / Client / Server World 互相隔离，句柄不能跨 World；Baking World 只在编辑器阶段存在。
+
+EntityManager 负责增删实体和组件、读写、实例化 Prefab、建 Query，其中增删类操作都是结构变化。
+
+## 10.7 数据存在哪里？
+
+Archetype：组件类型集合完全相同的实体。只看类型组合、不看值，相当于签名。
+
+Chunk：固定 16 KiB 的连续内存块，存同一 Archetype 的实体。一个 Archetype 对应多个 Chunk，一个 Chunk 只属于一个 Archetype。
 
 ```text
-MoveSystem
-查询：LocalTransform + MoveSpeed
-处理：批量更新位置
+Archetype "LocalTransform + MoveSpeed"
+├── Chunk 0 (16 KiB)
+│   ├─ Entity[]          : [E17][E23][E42] ...
+│   ├─ LocalTransform[]  : [ ][ ][ ] ...   ← 同类型连续
+│   └─ MoveSpeed[]       : [ ][ ][ ] ...
+└── Chunk 1 (16 KiB)
 ```
 
-## 10.4 World 与 EntityManager
+- 容量：`(16384 − 头部) / (sizeof(Entity) + Σ sizeof(组件))`，44 字节/实体时约 370 个。
+- 删除是 swap-back：末尾实体补位，遍历顺序不稳定。
+- 按组件分列（粗粒度 SoA），组件内部字段仍连续（AoS）；不拆到字段级，否则 Archetype 爆炸。
 
-### 10.4.1 World
+## 10.8 ECS 为什么快？
 
-`World` 是相对独立的 ECS 运行环境，包含：
+1. 缓存：同类组件连续，64 字节缓存行顺序用满；OOP 随机访问，主存比缓存慢两个数量级。
+2. 批量：紧凑循环，无虚调用、无属性访问。
+3. 无指针追逐：实体直接定位数组偏移。
+4. 低 GC：非托管数据。
+5. 并行：Chunk 是天然工作单元。
+6. Burst + SIMD：一条指令处理多个数据。
 
-- Entity 和 Component 数据。
-- `EntityManager`。
-- System 和 System Group。
-- Query、时间及依赖信息。
+反面：结构变化频繁、随机访问多、组件设计差、Job 过细、频繁 Complete，都会让它比 MonoBehaviour 还慢。
 
-常见 World：
+## 10.9 为什么加一个组件会很慢？
 
-```text
-Default World
-Client World
-Server World
-Baking World
-```
+因为 Archetype 变了，实体要搬到新 Chunk，所有组件重新复制。
 
-不同 World 的 Entity 相互隔离。
+成本：
 
-### 10.4.2 EntityManager
+- memcpy 到新 Chunk 空槽；
+- Chunk 满则新分配，源 Chunk 用末尾元素补位；
+- 数据被 Job 读写时要等 Job 完成（同步点）；
+- 主线程串行执行。
 
-`EntityManager` 是管理实体数据的核心入口，可用于：
+算结构变化：创建/销毁实体、增删组件、修改 Shared Component 值。
+不算：改组件值、开关 Enableable、改 Buffer 内容、换 Blob 引用。
 
-- 创建、销毁 Entity。
-- 添加、移除 Component。
-- 读写 Component。
-- 实例化实体 Prefab。
-- 创建 Query。
-- 执行结构变化。
+优化：
 
-高频结构变化应谨慎直接使用 `EntityManager`，必要时通过 ECB 延迟执行。
+- 用 Enableable 代替增删，只翻启用位，数据不动；
+- 用 ECB 集中回放；
+- 预创建 + Disabled 做对象池；
+- 分帧摊平峰值。
 
-## 10.5 Archetype 与 Chunk
+ECB 只延迟和集中，不消除成本。
 
-### 10.5.1 Archetype
-
-拥有完全相同 Component 类型集合的 Entity，属于同一个 Archetype。
-
-```text
-A：Position + Velocity
-B：Position + Velocity
-C：Position + Velocity + Health
-
-A、B 属于同一 Archetype；
-C 属于另一 Archetype。
-```
-
-Archetype 是组件类型组合，不关心组件值。
-
-### 10.5.2 Chunk
-
-Chunk 是实际存储 Entity 和 Component 数据的连续内存块。
-
-关系：
-
-```text
-一个 Archetype → 多个 Chunk
-一个 Chunk → 只属于一个 Archetype
-```
-
-同一 Chunk 中：
-
-- Entity 拥有相同组件类型。
-- 同类型 Component 通常连续存储。
-- 数据布局便于顺序访问和并行处理。
-
-### 10.5.3 性能优势
-
-```text
-连续内存
-→ 更高 Cache 命中率
-→ 更少指针跳转
-→ 更适合批量处理
-→ 更利于 Job 并行和 Burst 优化
-```
-
-Unity ECS 按组件类型分列存储，但 Component 结构体内部的字段不会自动拆成多个独立数组。
-
-## 10.6 Structural Change（结构变化）
-
-结构变化会改变 Entity 的存储结构，常见操作包括：
-
-- 创建、销毁 Entity。
-- 添加、移除 Component。
-- 修改 Shared Component。
-- 改变 Entity 的 Archetype。
-
-例如添加 `Health`：
-
-```text
-Position + Velocity
-→ Position + Velocity + Health
-```
-
-Entity 可能需要迁移到新 Archetype 对应的 Chunk。
-
-可能产生：
-
-- 数据复制和迁移。
-- Chunk 调整。
-- Job 同步点。
-- 主线程开销。
-
-优化原则：
-
-- 避免每帧对大量 Entity 逐个 Add/Remove。
-- 使用 ECB 集中执行。
-- 高频状态切换可考虑 `IEnableableComponent`。
-- 必要时使用状态字段或预创建实体。
-- ECB 只能延迟和集中操作，不能消除结构变化成本。
-
-## 10.7 Component 类型
+## 10.10 Component 有哪几种？
 
 | 类型 | 用途 | 注意事项 |
 | --- | --- | --- |
-| `IComponentData` | 普通实体数据 | 优先使用非托管 struct |
-| Tag Component | 无字段的分类或状态标签 | Add/Remove 仍是结构变化 |
-| `IEnableableComponent` | 高频启用、禁用状态 | 不需要 Add/Remove |
-| `IBufferElementData` | Entity 的可变长度数据 | 用于路径、背包、关系等 |
-| Shared Component | 多实体共享及分组数据 | 取值过多会导致 Chunk 碎片 |
-| Managed Component | 托管数据或对象桥接 | 不适合 Burst 和普通并行 Job |
-| Blob Asset | 不可变共享数据 | 适合配置、表格等只读数据 |
+| `IComponentData` | 普通数据 | 用非托管 struct |
+| Tag | 无字段标记 | 增删仍是结构变化 |
+| `IEnableableComponent` | 高频开关 | 不用 Add/Remove |
+| `IBufferElementData` | 变长数据 | 背包、路径、关系 |
+| Shared Component | 共享分组 | 值多会切碎 Chunk |
+| Managed Component | 托管桥接 | 不能 Burst、不能并行 Job |
+| Blob Asset | 只读共享 | 配置表、曲线 |
 
-### 10.7.1 Enableable Component
+- Enableable：被禁用的组件默认不匹配 Query，但数据留在原地。
+- Dynamic Buffer：Chunk 内放得下就内联，否则堆分配。
+- Shared Component：同值实体归到同一批 Chunk，改值算结构变化。
+- Blob：不可变、带引用计数、可任意并行读。
 
-```csharp
-public struct Stunned :
-    IComponentData,
-    IEnableableComponent
-{
-}
-```
+## 10.11 Query 怎么找到数据？
 
-适合高频状态切换，可减少反复 Add/Remove 引起的结构变化。
+匹配粒度是 Archetype，不是实体：先匹配签名，再遍历 Chunk。结果会缓存，Archetype 变化时增量更新。
 
-### 10.7.2 Dynamic Buffer
+条件：All / Any / None、启用状态、Shared Component 值、Change Filter（按版本号跳过未修改的 Chunk）。
 
 ```csharp
-public struct InventoryItem : IBufferElementData
-{
-    public int ItemId;
-    public int Count;
-}
+var query = SystemAPI.QueryBuilder()
+    .WithAll<LocalTransform, MoveSpeed>()
+    .WithNone<Stunned>()
+    .Build();
 ```
 
-适用于：
+访问方式：
 
-- 背包数据。
-- 路径点。
-- 技能列表。
-- 邻接关系。
+- `SystemAPI.Query`：主线程遍历；
+- `IJobEntity`：并行批处理，最常用；
+- `IJobChunk`：需要精确控制 Chunk；
+- `ComponentLookup` / `BufferLookup`：按实体随机访问。
 
-### 10.7.3 Shared Component
+随机访问等于放弃缓存优势，能用 Query 顺序拿就别查。
 
-适合用于分组和过滤，但需要注意：
-
-- 不同值可能使 Entity 分布到不同 Chunk。
-- 取值过多会造成 Chunk 碎片。
-- 修改它通常属于结构变化。
-
-## 10.8 EntityQuery 与数据访问
-
-Query 根据 Component 组合匹配数据：
-
-```text
-Query 条件
-→ 匹配 Archetype
-→ 遍历对应 Chunk
-→ 批量处理 Component
-```
-
-常见查询条件：
-
-- `All`：必须拥有。
-- `None`：不能拥有。
-- `Any`：至少拥有一种。
-- Enabled 状态。
-- Change Filter。
-- Shared Component Filter。
-
-Entities 1.x 常用访问方式：
-
-| API | 使用场景 |
-| --- | --- |
-| `SystemAPI.Query` | 简单、直接的主线程遍历 |
-| `IJobEntity` | 通用实体 Job，适合并行处理 |
-| `IJobChunk` | 需要精确控制 Chunk 时使用 |
-| `ComponentLookup<T>` | 按 Entity 随机访问 Component |
-| `BufferLookup<T>` | 按 Entity 访问 Dynamic Buffer |
-
-没有一种 API 永远最快，应根据数据量、调度成本和访问模式选择。
-
-## 10.9 ISystem 与 SystemBase
+## 10.12 System 怎么写？
 
 | 类型 | 实现 | 特点 |
 | --- | --- | --- |
-| `ISystem` | `struct` | 非托管、适合 Burst |
-| `SystemBase` | `class` | 托管、便于桥接传统对象 |
-
-### 10.9.1 ISystem
+| `ISystem` | struct | 非托管，可 Burst |
+| `SystemBase` | class | 可持托管引用，用于桥接 |
 
 ```csharp
 [BurstCompile]
@@ -334,430 +230,207 @@ public partial struct MoveSystem : ISystem
     }
 
     [BurstCompile]
-    public void OnUpdate(ref SystemState state)
-    {
-    }
-
-    public void OnDestroy(ref SystemState state)
-    {
-    }
+    public void OnUpdate(ref SystemState state) { }
 }
 ```
 
-适合：
+生命周期：OnCreate（建 Query）→ OnStartRunning / OnStopRunning（匹配数据有无切换）→ OnUpdate → OnDestroy。
 
-- 纯 ECS 逻辑。
-- 非托管数据处理。
-- Burst 优化。
+ISystem 用 struct 的原因：Burst 要求无托管状态，字段只能是 `NativeArray`、基本类型、Blob 引用。要拿 MonoBehaviour 得靠 SystemBase 桥接。
 
-### 10.9.2 SystemBase
+## 10.13 多个 System 谁先谁后？
 
-```csharp
-public partial class ManagedBridgeSystem : SystemBase
-{
-    protected override void OnUpdate()
-    {
-    }
-}
-```
+顶层顺序：Initialization → Simulation → Presentation。
 
-适合：
-
-- 持有托管引用。
-- 与 GameObject、MonoBehaviour 桥接。
-- 处理不适合 Burst 的托管逻辑。
-
-## 10.10 System Group 与更新顺序
-
-默认顶层 System Group：
-
-```text
-InitializationSystemGroup
-→ SimulationSystemGroup
-→ PresentationSystemGroup
-```
-
-| System Group | 职责 |
-| --- | --- |
-| Initialization | 初始化和帧前准备 |
-| Simulation | 核心游戏模拟 |
-| Presentation | 表现和渲染前准备 |
-
-控制更新顺序：
+Simulation 内分 FixedStep（一帧 0..N 次，物理、确定性逻辑）和 VariableRate（每帧一次）。
 
 ```csharp
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(InputSystem))]
 [UpdateBefore(typeof(CombatSystem))]
-public partial struct MoveSystem : ISystem
+public partial struct MoveSystem : ISystem { }
+```
+
+还有 `[DisableAutoCreation]`；`RequireForUpdate<T>()` 可在无数据时跳过更新。
+
+顺序 ≠ 完成：OnUpdate 常常只调度 Job，完成时间由 `JobHandle`、`state.Dependency` 和读写依赖决定，要同步必须显式 Complete。
+
+## 10.14 怎么用满多核？
+
+靠 Job System。ECS 不会自动并行。
+
+类型：IJob、IJobParallelFor、IJobParallelForDefer、IJobEntity（最常用）、IJobChunk。
+
+```csharp
+[BurstCompile]
+public partial struct MoveJob : IJobEntity
 {
-    public void OnUpdate(ref SystemState state)
+    public float DeltaTime;
+    void Execute(ref LocalTransform t, in MoveSpeed s)
+        => t.Position += s.Value * DeltaTime * t.Forward();
+}
+
+var job = new MoveJob { DeltaTime = SystemAPI.Time.DeltaTime };
+state.Dependency = job.ScheduleParallel(state.Dependency);
+```
+
+依赖：只读 + 只读可并行；只要有一方写，就必须串起来。
+
+原则：尽早调度、尽晚 Complete；频繁 Complete 会吃掉全部并行收益。
+
+粒度：工作量太小不值得拆，调度开销会超过收益。
+
+## 10.15 Burst 是什么？
+
+把受约束的 C# 编译成原生机器码：AOT、SIMD、循环优化、常量折叠。
+
+Job 负责并行，Burst 负责单条代码更快；两者独立，Burst 也能用于普通静态方法。
+
+限制：无托管对象、无 `string`、无托管容器、无 `try/catch`；日志用 `FixedString` 或 `[BurstDiscard]`。
+
+它不解决随机内存访问、同步点和主线程瓶颈；浮点优化会影响确定性。
+
+## 10.16 为什么 Job 里不能用 List<T>？
+
+托管容器有 GC、有引用、非线程安全，工作线程不能安全访问托管堆。
+
+能用：`NativeArray`、`NativeList`、`NativeHashMap`、`NativeParallelHashMap`、`NativeParallelMultiHashMap`、`NativeQueue`、`NativeStream`、`NativeReference`。
+
+Allocator：`Temp`（仅主线程，不能进 Job）、`TempJob`（跨 Job 短期）、`Persistent`（长期）。
+
+坑：必须 Dispose；Job 未完成不能释放；别高频建大容器；别超过分配器生命周期。
+
+## 10.17 怎么在 Job 里改结构？
+
+用 ECB：Job 里只记录命令，安全时机统一回放。
+
+原因：遍历中改结构会破坏迭代；Job 不能碰 `EntityManager`。
+
+```csharp
+var ecb = SystemAPI
+    .GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
+    .CreateCommandBuffer(state.WorldUnmanaged)
+    .AsParallelWriter();
+
+ecb.DestroyEntity(0, entity);   // 0 是 sortKey
+```
+
+- 延迟实体：回放前只是句柄，可继续 AddComponent，但不能用 EntityManager 读。
+- 并行要 `ParallelWriter` + `sortKey`（`entityInQueryIndex` / `chunkIndex`）保证顺序确定。
+- 回放时机由内置系统决定：EndSimulation 最常用，BeginSimulation 帧初，BeginPresentation 表现前。
+- 回放本身是集中结构变化，仍可能等 Job。
+
+## 10.18 编辑器数据怎么变成实体？
+
+Authoring（MonoBehaviour 配数据）→ Baker（转成组件）→ Entity Scene / SubScene → 运行时 World。
+
+```csharp
+public class SpawnerBaker : Baker<SpawnerAuthoring>
+{
+    public override void Bake(SpawnerAuthoring authoring)
     {
+        var entity = GetEntity(TransformUsageFlags.None);
+        AddComponent(entity, new Spawner
+        {
+            Prefab = GetEntity(authoring.Prefab, TransformUsageFlags.Dynamic),
+            Interval = authoring.Interval,
+        });
     }
 }
 ```
 
-常用特性：
+为什么要烘焙：编辑器数据灵活但运行时贵；烘焙成紧凑二进制，增量执行，运行时只做加载。
 
-- `UpdateInGroup`
-- `UpdateBefore`
-- `UpdateAfter`
-- `CreateBefore`
-- `CreateAfter`
-- `DisableAutoCreation`
+`TransformUsageFlags`：告诉烘焙器要不要 Transform 数据（`Dynamic` / `None`），直接决定组件数量。
 
-注意：
+1.x 用 Baking，旧版 `Convert To Entity` 已过时；ECS 可与 GameObject 混合。
 
-```text
-System 更新顺序 ≠ Job 完成顺序
-```
+## 10.19 怎么优化？
 
-System 的 `OnUpdate` 可能只负责调度 Job。Job 的执行顺序由 `JobHandle`、`state.Dependency` 和组件读写依赖决定。
+优先级：
 
-### 10.10.1 RequireForUpdate
+1. 少结构变化（Enableable、ECB、预创建、分帧）。
+2. 少同步点和 `Complete()`。
+3. 组件按访问模式拆。
+4. Query 顺序访问，少用 `ComponentLookup`。
+5. 大规模计算上 Job + Burst。
 
-```csharp
-public void OnCreate(ref SystemState state)
-{
-    state.RequireForUpdate<MoveSpeed>();
-}
-```
+避免：Archetype 失控、Shared 值过多、大规模随机访问、滥用托管组件、每帧分配容器、组件过大或过细、小任务滥用 Job。
 
-不存在目标数据时，System 可以跳过更新。
+排查顺序：同步点 → 缓存 → 并行度 → 算法。
 
-## 10.11 Job System 与依赖
+## 10.20 什么项目适合 ECS？
 
-Job System 负责：
+标准：数据量大、结构同构、可批量并行。
 
-- 多线程任务调度。
-- 工作线程管理。
-- Job 依赖管理。
-- NativeContainer 安全检查。
+- 适合：大量单位/子弹、群集与交通模拟、大规模空间查询。
+- 不适合：UI、少量复杂对象、强依赖 MonoBehaviour 插件、个体逻辑差异大、没有性能瓶颈的小功能。
 
-它不会自动并行普通 C# 代码，开发者需要：
+混合架构：GameObject 管 UI、输入、相机、资源；ECS 管海量单位和计算热点。
 
-- 定义 Job。
-- 声明数据读写权限。
-- 调用 `Schedule` 或 `ScheduleParallel`。
-- 正确维护 `JobHandle`。
+## 10.21 常见误区
 
-依赖规则：
+- DOTS 就是 ECS → ECS 只是核心之一。
+- Entity 是整数 → 是 Index + Version 句柄。
+- ECS 自动并行 → 要自己写 Job。
+- 不同 Chunk 无竞争 → 看读写权限和依赖。
+- ECB 消除结构变化成本 → 只延迟和集中。
+- ISystem 是托管类 → 是 struct。
+- 组件必须非托管 → 有托管组件，但性能受限。
+- 组件越细越好 → 会 Archetype 爆炸。
+- ECS 一定快 → 看规模和数据布局。
+- Chunk 大小可调 → 固定 16 KiB。
 
-```text
-只读 + 只读：通常可以并行
-写入 + 读取：必须建立依赖
-写入 + 写入：必须建立依赖
-```
+---
 
-调度示例：
+# 扩展知识点（选读）
 
-```csharp
-state.Dependency =
-    job.ScheduleParallel(state.Dependency);
-```
-
-优化原则：
+## 扩展一：一帧里 ECS 做了什么
 
 ```text
-尽早 Schedule
-→ 执行其他工作
-→ 尽可能晚地 Complete
+编辑器：Authoring → Baker → Entity Scene（SubScene 产物）
+运行时：Entity Scene → World（按 Archetype 重建 Chunk）
+
+每帧：
+InitializationSystemGroup      输入、时间、单例
+SimulationSystemGroup
+  ├─ FixedStep（0..N 次）       物理、确定性逻辑
+  └─ VariableRate
+       ├─ OnUpdate：Query 匹配 → 遍历 Chunk
+       ├─ Schedule(IJobEntity) → state.Dependency
+       └─ EndSimulationECB.Playback   ← 集中同步点
+PresentationSystemGroup        LocalToWorld 更新、提交渲染
 ```
 
-应避免频繁调用 `Complete()`，否则会降低并行收益。
+讲法：数据在哪（World / Archetype / Chunk）→ 时间顺序（三个分组）→ 两个同步点（ECB 回放、显式 Complete）。
 
-## 10.12 Burst Compiler
+## 扩展二：常用工程写法
 
-Burst 将受支持的 C# 代码编译成优化后的原生机器码。
+- **单例组件**：`GetSingleton` / `SetSingleton` / `TryGetSingleton`，用于跨系统共享数据。
+- **事件队列**：单例实体挂 Dynamic Buffer，帧内写入、帧末清空；非托管、可并行写。
+- **对象池**：预创建 + `Disabled`（Enableable），用时启用、归还禁用，不产生结构变化。
+- **桥接**：ECS → UI 用 `SystemBase` 读数据写回；UI → ECS 写单例或 ECB。桥接点要少、要批量。
 
-主要能力：
+## 扩展三：术语、工具与版本
 
-- AOT 编译。
-- SIMD 向量化。
-- 循环优化。
-- 常量折叠。
-- 针对 x86、ARM 等 CPU 优化。
-
-需要区分：
-
-```text
-Job System：负责并行
-Burst：负责提高代码执行效率
-```
-
-Burst 不等于多线程，也不只服务于 ECS。
-
-限制：
-
-- 不支持任意托管对象。
-- 不能使用所有 C# 特性。
-- 更适合明确的非托管数据访问。
-
-## 10.13 Collections 与 NativeContainer
-
-常用容器：
-
-- `NativeArray<T>`
-- `NativeList<T>`
-- `NativeHashMap<TKey, TValue>`
-- `NativeParallelHashMap<TKey, TValue>`
-- `NativeQueue<T>`
-- `NativeStream`
-
-常用分配器：
-
-| Allocator | 用途 |
+| 术语 | 含义 |
 | --- | --- |
-| `Temp` | 极短生命周期的临时数据 |
-| `TempJob` | 短期、跨 Job 使用 |
-| `Persistent` | 长期数据 |
+| Archetype | 组件类型组合的签名 |
+| Chunk | 16 KiB 连续内存块 |
+| Structural Change | 改变实体存储结构的操作 |
+| Sync Point | 必须等待 Job 完成的点 |
+| ECB | 延迟执行结构变化的命令缓冲 |
+| Baking | 编辑器数据 → 运行时实体数据 |
 
-注意事项：
+- 工具：Entities Hierarchy（实体与 Chunk）、Systems 窗口（顺序）、Profiler Entities 模块（结构变化、耗时）、Entities Journaling（改数据的来源）、Burst Inspector（汇编、SIMD）。
+- 版本：0.x 的 `GameObjectConversion`、`ComponentSystem`、`Entities.ForEach`、`ComponentDataFromEntity`，在 1.x 换成 `Baker`、`ISystem`、`SystemAPI.Query`、`ComponentLookup`；Transform 统一为 `LocalTransform` + `LocalToWorld`。
 
-- 自行创建的容器通常需要 `Dispose()`。
-- Job 未完成时不能提前释放。
-- 避免高频创建和销毁大容器。
-- 不要超过 Allocator 的预期生命周期。
-
-## 10.14 EntityCommandBuffer（ECB）
-
-ECB 用于记录实体操作，并在安全时机统一回放。
+## 扩展四：一分钟速记
 
 ```text
-Job 中记录命令
-→ ECB 保存
-→ 指定阶段 Playback
-→ 修改 Entity World
-```
-
-常见操作：
-
-- 创建、销毁 Entity。
-- 添加、移除 Component。
-- 设置 Component。
-- 实例化 Entity Prefab。
-- 添加 Dynamic Buffer。
-
-### 10.14.1 Deferred Entity
-
-ECB 创建的 Entity 在 Playback 前是延迟实体句柄：
-
-```csharp
-Entity entity = ecb.CreateEntity();
-ecb.AddComponent(entity, new Health
-{
-    Current = 100,
-    Max = 100
-});
-```
-
-可以在同一 ECB 中继续引用，但 Playback 前不能通过 `EntityManager` 读取。
-
-### 10.14.2 ParallelWriter
-
-并行 Job 使用：
-
-```csharp
-EntityCommandBuffer.ParallelWriter
-```
-
-并行命令通常需要 `sortKey`，用于控制回放顺序的确定性。
-
-### 10.14.3 生命周期
-
-| 创建方式 | 管理方式 |
-| --- | --- |
-| 手动创建 ECB | 自己 Playback、Dispose |
-| ECB System 创建 | 通常由对应系统统一回放和管理 |
-
-核心结论：
-
-```text
-ECB 保证延迟修改和迭代安全，
-但不会消除结构变化成本。
-```
-
-## 10.15 Authoring、Baker 与 SubScene
-
-Authoring 通常使用 MonoBehaviour，在 Inspector 中配置数据。
-
-Baker 将 Authoring 数据转换为 Entity Component：
-
-```text
-GameObject / MonoBehaviour
-→ Baker
-→ Entity + Component
-→ Entity Scene / SubScene
-→ 加载到运行时 World
-```
-
-职责划分：
-
-| 对象 | 职责 |
-| --- | --- |
-| Authoring | 编辑器配置和资源引用 |
-| Baker | 将配置转换为 ECS 数据 |
-| SubScene | 保存和流式加载实体场景数据 |
-| Entity Prefab | 运行时批量实例化实体 |
-
-Entities 1.x 主要使用 Baking 工作流，旧版 `Convert To Entity` 已不是主流方案。
-
-ECS 与 MonoBehaviour 可以共存，实际项目通常采用混合架构。
-
-## 10.16 ECS 为什么快
-
-| 原因 | 说明 |
-| --- | --- |
-| 连续内存 | 提高 CPU Cache 命中率 |
-| 批量处理 | 减少对象级函数调用 |
-| 减少指针跳转 | 降低随机内存访问 |
-| 低 GC | 非托管 Component 和容器减少托管分配 |
-| 并行友好 | Chunk 可作为 Job 工作单元 |
-| Burst 优化 | 生成高性能原生代码 |
-| Query 匹配 | 按 Archetype 查找，不逐 Entity 反射检查 |
-
-ECS 不会自动带来高性能，仍取决于数据设计、访问方式和并行策略。
-
-## 10.17 优化原则
-
-### 10.17.1 优先级较高
-
-1. 减少高频结构变化。
-2. 避免频繁 `Complete()` 和同步点。
-3. 按访问模式设计 Component。
-4. 使用 Query 顺序批量访问。
-5. 大规模计算使用 Job 和 Burst。
-6. 使用 ECB 集中执行结构变化。
-7. 高频状态切换考虑 Enableable Component。
-
-### 10.17.2 需要避免
-
-- Archetype 组合失控。
-- Shared Component 取值过多。
-- 大规模随机访问其他 Entity。
-- 滥用 Managed Component。
-- 每帧分配 NativeContainer。
-- 组件过大或拆分过细。
-- 小数据量任务滥用 Job，导致调度成本超过收益。
-
-### 10.17.3 设计原则
-
-```text
-数据按访问模式组织；
-计算尽量批量顺序执行；
-结构变化集中处理；
-Job 尽早调度、尽晚等待；
-最终以 Profiler 数据为准。
-```
-
-## 10.18 ECS 与 GameObject
-
-| 对比项 | GameObject / OOP | ECS |
-| --- | --- | --- |
-| 组织方式 | 对象与行为 | 数据与批处理系统 |
-| 数据访问 | 对象引用、随机访问 | Query 后顺序访问 |
-| 内存布局 | 通常较分散 | 同类组件集中存储 |
-| 并行化 | 需要额外设计 | 与 Job 深度集成 |
-| GC | 托管对象较多 | 非托管数据可减少 GC |
-| 适用场景 | 少量复杂对象 | 大量相似实体 |
-| 开发难度 | 较低 | 较高 |
-
-适合 ECS：
-
-- 大量单位、子弹、NPC。
-- 群集、交通和数值模拟。
-- 大规模空间查询。
-- 同构且可批量并行的逻辑。
-
-不一定适合 ECS：
-
-- 普通 UI。
-- 少量复杂对象。
-- 强依赖 MonoBehaviour 插件的业务。
-- 数据模式高度不同的个体逻辑。
-- 没有性能瓶颈的小规模功能。
-
-典型混合架构：
-
-```text
-GameObject：
-UI、输入、相机、资源桥接、复杂展示
-
-ECS：
-海量单位、批量计算、模拟和性能热点
-```
-
-## 10.19 常见误区
-
-| 误区 | 正确认识 |
-| --- | --- |
-| DOTS 就是 ECS | ECS 是 DOTS 的核心架构之一 |
-| Entity 是普通整数 | 通常是 `Index + Version` 句柄 |
-| ECS 会自动并行 | 仍需编写和调度 Job |
-| 不同 Chunk 一定无竞争 | 取决于读写权限和 Job 依赖 |
-| ECB 消除了结构变化成本 | ECB 只负责延迟和集中执行 |
-| ISystem 是托管 class | ISystem 通常由 struct 实现 |
-| Component 必须是非托管 struct | 可存在 Managed Component，但性能能力受限 |
-| Entities.ForEach 永远最快 | Entities 1.x 应按场景选择查询 API |
-| ECS 一定比 OOP 快数十倍 | 性能取决于规模、数据布局和实现 |
-| Component 拆得越细越好 | 需平衡缓存效率和 Archetype 数量 |
-
-## 10.20 高频面试题速答
-
-### 10.20.1 DOTS 和 ECS 有什么关系？
-
-> ECS 是数据与行为分离的架构模式；Entities 是 Unity 对 ECS 的实现；DOTS 是包含 Entities、Job System、Burst、Collections 等模块的完整数据导向技术栈。
-
-### 10.20.2 Archetype 和 Chunk 有什么区别？
-
-> Archetype 表示 Component 类型组合；Chunk 是实际存储该类 Entity 和 Component 数据的连续内存块。一个 Archetype 可以对应多个 Chunk，一个 Chunk 只属于一个 Archetype。
-
-### 10.20.3 ECS 为什么适合海量对象？
-
-> ECS 将同类组件集中存储在 Chunk 中，System 通过 Query 顺序批量处理数据，可提高 Cache 命中率并减少指针跳转，再结合 Job 多线程和 Burst 原生代码优化，适合大量同构实体。
-
-### 10.20.4 AddComponent 为什么可能昂贵？
-
-> AddComponent 会改变 Entity 的 Archetype，可能导致 Entity 在 Chunk 间迁移，并产生数据复制和 Job 同步，因此不适合高频逐实体执行。
-
-### 10.20.5 ECB 有什么作用？
-
-> ECB 在 Job 或 Query 遍历期间记录实体修改命令，并在安全时机统一回放。它可以避免迭代期间直接修改实体结构，但不能消除结构变化成本。
-
-### 10.20.6 ISystem 和 SystemBase 有什么区别？
-
-> ISystem 通常是非托管 struct，更适合 Burst 和纯 ECS 逻辑；SystemBase 是托管 class，可以持有托管引用，更适合与 GameObject 或其他托管逻辑桥接。
-
-### 10.20.7 System 顺序和 Job 顺序是否相同？
-
-> 不相同。System 顺序表示 `OnUpdate` 的调用顺序，Job 可能异步执行，其完成顺序由 `JobHandle`、`state.Dependency` 和读写依赖决定。
-
-### 10.20.8 ECS 是否适合所有业务？
-
-> 不适合。ECS 更适合大量、同构、可批量处理的数据。UI、少量复杂对象和强依赖托管插件的业务通常更适合 GameObject 或混合架构。
-
-## 10.21 一分钟速记
-
-```text
-DOD 是数据导向思想；
-DOTS 是 Unity 数据导向技术栈；
-Entities 是 Unity ECS 的实现。
-
-Entity 是句柄；
-Component 保存数据；
-System 批量处理数据。
-
-Archetype 负责分类；
-Chunk 负责连续存储；
-Query 负责匹配数据。
-
-Job 负责多线程；
-Burst 负责原生优化；
-Collections 负责非托管容器；
-ECB 负责延迟实体修改；
-Baking 负责将编辑器数据转换为实体数据。
-
-核心优化：
-少结构变化、少同步、少随机访问；
-批量顺序处理，合理使用 Job 和 Burst。
+DOD 是思想，ECS 是模式，Entities 是实现，DOTS 是栈。
+Entity 是句柄，Component 存数据，System 批处理。
+Archetype 分类，Chunk 连续存储（16 KiB），Query 匹配。
+Job 并行，Burst 编译，Collections 管内存，ECB 延迟改结构，Baking 转数据。
+优化：少结构变化、少同步、少随机访问。
 ```
